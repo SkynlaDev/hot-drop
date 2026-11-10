@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { iconKey, isWeaponIcon } from '../art';
 import { C, FONT, H, W } from '../config';
 import { CATEGORY_COLORS, FAMILY_INFO, ITEMS } from '../data/items';
 import { ItemInst, Mask, maskOf } from '../logic/grid';
@@ -133,38 +134,75 @@ export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot' | 'r
   const c = scene.add.container(0, 0);
   const g = scene.add.graphics();
   const rc = RARITY_COLORS[inst.rarity];
-  // Bordure de rareté, puis corps de la pièce, puis reflet en haut de chaque case.
-  g.fillStyle(rc, 1);
-  fillMask(g, mask, cell, 3, 12);
-  g.fillStyle(CATEGORY_COLORS[d.category], 1);
-  fillMask(g, mask, cell, 8, 8);
-  g.fillStyle(0xffffff, 0.07);
-  mask.forEach((row, y) => row.forEach((on, x) => on && g.fillRoundedRect(x * cell + 12, y * cell + 11, cell - 24, 10, 5)));
+  const k = cell / 80;
   if (inst.rarity >= 3) {
     // Lueur pour Épique et Légendaire
     const glow = scene.add.graphics();
     glow.fillStyle(rc, 0.35);
-    fillMask(glow, mask, cell, -2, 14);
+    fillMask(glow, mask, cell, -2 * k, 14 * k);
     c.add(glow);
     scene.tweens.add({ targets: glow, alpha: 0.25, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.InOut' });
   }
-  const [lx, ly] = labelCell(mask);
-  const fam = FAMILY_INFO[d.family];
-  const famTag = txt(scene, lx * cell + cell / 2, ly * cell + cell - 17, fam.name.toUpperCase(), 10, fam.hex, { fontStyle: 'bold' }).setOrigin(0.5);
-  const label = txt(scene, lx * cell + cell / 2, ly * cell + cell / 2 - 2, d.short, 17, '#f4f1e6', {
-    align: 'center',
-    fontStyle: 'bold',
-    wordWrap: { width: cell - 12 },
-    stroke: '#00000066',
-    strokeThickness: 3,
-  }).setOrigin(0.5);
+  // Bordure de rareté, corps sombre teinté par la catégorie, reflet sur le haut de chaque case.
+  g.fillStyle(rc, 1);
+  fillMask(g, mask, cell, 3 * k, 10 * k);
+  g.fillStyle(0x15170f, 1);
+  fillMask(g, mask, cell, 6 * k, 7 * k);
+  g.fillStyle(CATEGORY_COLORS[d.category], 0.85);
+  fillMask(g, mask, cell, 6 * k, 7 * k);
+  g.fillStyle(0xffffff, 0.06);
+  mask.forEach((row, y) => row.forEach((on, x) => on && g.fillRect(x * cell + 6 * k, y * cell + 6 * k, cell - 12 * k, cell * 0.3)));
+  // Coutures en pointillés entre les cases d'un même objet
+  g.fillStyle(0x000000, 0.28);
+  mask.forEach((row, y) => row.forEach((on, x) => {
+    if (!on) return;
+    if (mask[y]?.[x + 1]) for (let t = 10 * k; t < cell - 10 * k; t += 7 * k) g.fillRect((x + 1) * cell - 1, y * cell + t, 2, 3 * k);
+    if (mask[y + 1]?.[x]) for (let t = 10 * k; t < cell - 10 * k; t += 7 * k) g.fillRect(x * cell + t, (y + 1) * cell - 1, 3 * k, 2);
+  }));
+  // Coin de famille sur la première case
   const [fx, fy] = (() => {
     for (let y = 0; y < mask.length; y++) for (let x = 0; x < mask[0].length; x++) if (mask[y][x]) return [x, y];
     return [0, 0];
   })();
-  const pip = txt(scene, fx * cell + 13, fy * cell + 10, RARITY_SHORT[inst.rarity], 14, RARITY_HEX[inst.rarity], { fontStyle: 'bold' });
+  const fam = FAMILY_INFO[d.family];
+  g.fillStyle(fam.color, 1);
+  g.fillTriangle(fx * cell + 6 * k, fy * cell + 6 * k, fx * cell + 26 * k, fy * cell + 6 * k, fx * cell + 6 * k, fy * cell + 26 * k);
+  c.add(g);
+
+  // Icône : une arme s'étire le long de sa ligne la plus longue, les autres objets se centrent.
+  const cells: [number, number][] = [];
+  mask.forEach((row, y) => row.forEach((on, x) => on && cells.push([x, y])));
+  const key = iconKey(inst.defId);
+  const icon = scene.add.image(0, 0, key).setTint(0xece8d8).setAlpha(0.92);
+  if (isWeaponIcon(inst.defId)) {
+    let by = 0;
+    let best = 0;
+    mask.forEach((row, y) => {
+      const n = row.filter(Boolean).length;
+      if (n > best) [best, by] = [n, y];
+    });
+    const xs = mask[by].map((v, x) => (v ? x : -1)).filter((x) => x >= 0);
+    const span = (xs[xs.length - 1] - xs[0] + 1) * cell;
+    const iw = Math.min(span - 16 * k, (cell - 14 * k) * 2);
+    icon.setDisplaySize(iw, iw / 2).setPosition(xs[0] * cell + span / 2, by * cell + cell / 2 - 4 * k);
+  } else {
+    const cx = cells.reduce((a, p) => a + p[0], 0) / cells.length;
+    const cy = cells.reduce((a, p) => a + p[1], 0) / cells.length;
+    const size = cells.length >= 4 ? cell * 1.05 : cells.length === 1 ? cell * 0.56 : cell * 0.7;
+    const ratio = icon.width / icon.height;
+    icon.setDisplaySize(size * Math.min(1, ratio), size / Math.max(1, ratio)).setPosition((cx + 0.5) * cell, (cy + 0.5) * cell - (cells.length === 1 ? 7 * k : 4 * k));
+  }
+  c.add(icon);
+
+  // Nom court en bas à gauche de la dernière ligne
+  const ly = mask.length - 1;
+  const lx = mask[ly].findIndex(Boolean);
+  const label = txt(scene, lx * cell + 9 * k, ly * cell + cell - 7 * k, d.short.toUpperCase(), Math.round(14 * k), '#f4f1e6', {
+    fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+  }).setOrigin(0, 1);
+  if (label.width > (mask[ly].filter(Boolean).length * cell) - 14 * k) label.setScale(((mask[ly].filter(Boolean).length * cell) - 14 * k) / label.width);
   const flash = scene.add.graphics().setAlpha(0);
-  c.add([g, label, famTag, pip, flash]);
+  c.add([label, flash]);
   c.setSize(pw, ph);
   c.setData('flash', flash);
   c.setData('mask', mask);

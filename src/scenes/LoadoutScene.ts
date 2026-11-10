@@ -8,6 +8,7 @@ import { COLS, ItemInst, ROWS, Rot, canPlace, cellKey, cellZones, cellsAt, dims,
 import { RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
 import { hashParts, rngFor } from '../logic/rng';
 import { craft, findCraftable, recipeLabel } from '../logic/recipes';
+import { ART, bgKey, figureOf } from '../art';
 import { RECIPES } from '../data/recipes';
 import {
   EXTENSION_CELLS, FLOORS, NODE_INFO, NodeType, REROLL_COST, extensionPrice, RESERVE_MAX, RunState, START_SURSIS, addDrops, canFuse, fuse, isCombat,
@@ -36,6 +37,9 @@ interface DragState {
 interface Actor {
   x: number;
   feet: number;
+  /** Bouche du canon et poitrine, en coordonnées écran (départ et arrivée des tirs). */
+  muzzle: { x: number; y: number };
+  chest: { x: number; y: number };
   hp: number;
   maxHp: number;
   armor: number;
@@ -44,6 +48,7 @@ interface Actor {
   bars: Phaser.GameObjects.Graphics;
   hpText: Phaser.GameObjects.Text;
   barW: number;
+  barX: number;
   barY: number;
 }
 
@@ -155,8 +160,9 @@ export default class LoadoutScene extends Phaser.Scene {
     this.mainBtn = button(this, BUTTON.x + 240, BUTTON.y, BUTTON.w - 240, BUTTON.h, '', () => this.onMain(), { primary: true });
     this.altBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, this.node === 'etabli' ? 'Établi' : 'Boutique',
       () => (this.node === 'etabli' ? this.openWorkshop() : this.openShop()), { size: 24 });
-    this.speedBtn = button(this, COMBAT.x + COMBAT.w - 232, COMBAT.y + 12, 106, 52, '×1', () => this.cycleSpeed(), { size: 22 });
-    this.skipBtn = button(this, COMBAT.x + COMBAT.w - 118, COMBAT.y + 12, 106, 52, 'Passer', () => this.skipCombat(), { size: 22 });
+    // Pendant le combat, vitesse et « Passer » remplacent les boutons du bas (rien ne cache la scène).
+    this.speedBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, '×1', () => this.cycleSpeed(), { size: 28 });
+    this.skipBtn = button(this, BUTTON.x + 240, BUTTON.y, BUTTON.w - 240, BUTTON.h, 'Passer le combat ▸▸', () => this.skipCombat(), { size: 26 });
     for (const b of [this.mainBtn, this.altBtn, this.speedBtn, this.skipBtn]) b.root.setDepth(20);
 
     this.input.on('pointerdown', this.onDown, this);
@@ -457,6 +463,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const p = this.phase;
     this.mainBtn.setLabel(p === 'prep' ? 'PRÊT · lancer le combat' : p === 'combat' ? 'Combat en cours…' : p === 'over' ? 'Voir le bilan' : 'Continuer →');
     this.mainBtn.setEnabled(p !== 'combat' && !this.modal);
+    this.mainBtn.root.setVisible(p !== 'combat');
     this.altBtn.root.setVisible(this.node === 'marchand' || this.node === 'etabli');
     this.speedBtn.root.setVisible(p === 'combat');
     this.skipBtn.root.setVisible(p === 'combat');
@@ -961,34 +968,65 @@ export default class LoadoutScene extends Phaser.Scene {
     this.resultText = '';
     const L = this.combatLayer;
     L.removeAll(true);
-    const feet = COMBAT.y + COMBAT.h - 34;
-    const player = this.makeActor(COMBAT.x + 130, feet, loadout.maxHp, loadout.armor, 'VIPER', 0xc8c2a8, 1, 1);
+    // Décor du biome, sous les personnages ; le cadre du panneau est redessiné par-dessus.
+    const biome = this.run.zone?.biome ?? 'banlieue';
+    L.add(this.add.image(COMBAT.x, COMBAT.y, bgKey(biome)).setOrigin(0).setDisplaySize(COMBAT.w, COMBAT.h));
+    const feet = COMBAT.y + COMBAT.h - 26;
+    const player = this.makeActor(COMBAT.x + 110, feet, loadout.maxHp, loadout.armor, 'VIPER', 'op-kneel', 1.9, 1);
+    L.add(this.add.image(COMBAT.x + 196, feet + 6, 'cover-sandbags').setOrigin(0.5, 1).setDisplaySize(60 * 1.9, 40 * 1.9));
     const n = this.enemies.length;
-    const xs = n === 1 ? [560] : n === 2 ? [480, 620] : [420, 530, 640];
-    const enemies = this.enemies.map((e, i) =>
-      this.makeActor(COMBAT.x + xs[i] - 20, feet, e.hp, e.armor, e.name, e.boss ? 0xff8c1a : 0x9a7f6a, e.boss ? 1.2 : 0.9, -1),
-    );
+    const span = n <= 1 ? [0] : Array.from({ length: n }, (_, i) => i / (n - 1));
+    const x0 = n >= 4 ? 380 : n === 3 ? 420 : 470;
+    const x1 = 620;
+    const k = n >= 5 ? 1.35 : n === 4 ? 1.5 : 1.7;
+    let proneUsed = false;
+    const figs = this.enemies.map((e) => {
+      // Un seul tireur couché sur un conteneur : les autres restent debout (ils se chevaucheraient).
+      const f = figureOf(e.name, e.opener && !proneUsed);
+      if (f === 'tir-prone') proneUsed = true;
+      return f;
+    });
+    const enemies = this.enemies.map((e, i) => {
+      const fig = figs[i];
+      const x = COMBAT.x + (n === 1 ? 560 : x0 + span[i] * (x1 - x0));
+      // Les ennemis sont un peu plus loin : pieds plus hauts, en quinconce.
+      let y = feet - 22 - (i % 2) * 14;
+      if (fig === 'tir-prone') {
+        L.add(this.add.image(x, y, 'cover-container').setOrigin(0.5, 1).setDisplaySize(100 * k * 0.9, 44 * k * 0.9));
+        y -= 38 * k * 0.9;
+      }
+      return this.makeActor(x, y, e.hp, e.armor, e.name, fig, e.boss ? k * 1.1 : k, -1);
+    });
+    // Un muret devant le premier ennemi debout, pour la profondeur
+    const front = enemies.find((_, i) => figs[i] !== 'tir-prone');
+    if (front) L.add(this.add.image(front.x - 34, front.feet + 6, 'cover-jersey').setOrigin(0.5, 1).setDisplaySize(60 * 1.4, 32 * 1.4));
+    const frame = this.add.graphics();
+    frame.lineStyle(4, C.panelLine, 1);
+    frame.strokeRoundedRect(COMBAT.x, COMBAT.y, COMBAT.w, COMBAT.h, 18);
+    L.add(frame);
     this.play = { result, idx: 0, t: 0, player, enemies };
     this.updateButtons();
   }
 
-  private makeActor(x: number, feet: number, hp: number, armor: number, name: string, color: number, scale: number, dir: 1 | -1): Actor {
-    const fig = this.add.container(x, feet).setScale(scale);
-    const g = this.add.graphics();
-    g.fillStyle(color, 1);
-    g.fillCircle(0, -92, 15);
-    g.fillRoundedRect(-19, -74, 38, 46, 8);
-    g.fillRect(-16, -30, 13, 30);
-    g.fillRect(3, -30, 13, 30);
-    g.fillStyle(0x2a2a2a, 1);
-    g.fillRect(dir > 0 ? 6 : -46, -62, 40, 7);
-    fig.add(g);
-    const barW = 110;
+  /** Personnage dessiné : `k` = pixels par unité du dessin, `dir` = 1 regarde à droite, −1 à gauche. */
+  private makeActor(x: number, feet: number, hp: number, armor: number, name: string, figKey: string, k: number, dir: 1 | -1): Actor {
+    const meta = ART.figures[figKey as keyof typeof ART.figures];
+    const fig = this.add.container(x, feet);
+    const img = this.add.image(0, 0, `fig-${figKey}`).setOrigin(meta.ax, meta.ay).setScale(k / 3).setFlipX(dir < 0);
+    fig.add(img);
+    const pt = (p: number[] | null, dx = 0, dy = -50) => (p ? { x: x + p[0] * k * dir, y: feet + p[1] * k } : { x: x + dx * dir, y: feet + dy * k });
+    const head = pt(meta.head);
+    const barW = Math.min(110, 70 + k * 16);
+    const barY = Math.max(COMBAT.y + 34, head.y - 26);
+    const barX = Phaser.Math.Clamp(x, COMBAT.x + barW / 2 + 10, COMBAT.x + COMBAT.w - barW / 2 - 10);
     const bars = this.add.graphics();
-    const hpText = txt(this, x, feet - 152 * scale - 2, '', 15, C.text, { fontFamily: MONO, fontStyle: 'bold' }).setOrigin(0.5);
-    const label = txt(this, x, feet - 152 * scale - 46, name, 17, C.quiet).setOrigin(0.5);
+    const hpText = txt(this, barX, barY - 1, '', 13, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    const label = txt(this, barX, barY - 26, name.toUpperCase(), 15, dir > 0 ? C.text : '#ffb4a8', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
     this.combatLayer.add([fig, bars, hpText, label]);
-    const a: Actor = { x, feet, hp, maxHp: hp, armor, maxArmor: armor, fig, bars, hpText, barW, barY: feet - 152 * scale };
+    const a: Actor = {
+      x, feet, hp, maxHp: hp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
+      muzzle: pt(meta.muzzle, 40), chest: pt(meta.chest, 0, -45),
+    };
     this.drawBars(a);
     return a;
   }
@@ -996,11 +1034,11 @@ export default class LoadoutScene extends Phaser.Scene {
   private drawBars(a: Actor) {
     const y = a.barY;
     const g = a.bars;
-    const x0 = a.x - a.barW / 2;
+    const x0 = a.barX - a.barW / 2;
     g.clear();
     g.fillStyle(0x000000, 0.6);
     g.fillRoundedRect(x0, y - 8, a.barW, 16, 4);
-    g.fillStyle(a.hp / a.maxHp > 0.3 ? C.good : C.danger, 1);
+    g.fillStyle(a === this.play?.player || !this.play ? (a.hp / a.maxHp > 0.3 ? C.good : C.danger) : C.danger, 1);
     g.fillRoundedRect(x0, y - 8, Math.max(0, (a.barW * a.hp) / a.maxHp), 16, 4);
     if (a.maxArmor > 0) {
       g.fillStyle(0x000000, 0.6);
@@ -1017,7 +1055,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private floatText(a: Actor, s: string, color: string, size = 26) {
     const sp = this.run.speed;
-    const t = txt(this, a.x + Phaser.Math.Between(-18, 18), a.feet - 120, s, size, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 5 })
+    const t = txt(this, a.chest.x + Phaser.Math.Between(-18, 18), a.chest.y - 30, s, size, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(30)
       .setScale(0.4);
@@ -1044,15 +1082,33 @@ export default class LoadoutScene extends Phaser.Scene {
     if (a.hp > 0) this.tweens.add({ targets: a.fig, alpha: 1, duration: 120 / this.run.speed });
   }
 
+  /** Traçante du canon à la poitrine de la cible, avec éclair de bouche. */
   private tracer(from: Actor, to: Actor, color: number) {
     const g = this.add.graphics().setDepth(25);
-    g.lineStyle(3, color, 1);
-    g.lineBetween(from.x + (to.x > from.x ? 30 : -30), from.feet - 60, to.x, to.feet - 60);
-    this.tweens.add({ targets: g, alpha: 0, duration: 140 / this.run.speed, onComplete: () => g.destroy() });
+    const m = from.muzzle;
+    const tx = to.chest.x + Phaser.Math.Between(-6, 6);
+    const ty = to.chest.y + Phaser.Math.Between(-8, 8);
+    // Traçante effilée : trait épais sur la fin du trajet, fin au départ
+    const fx = m.x + (tx - m.x) * 0.45;
+    const fy = m.y + (ty - m.y) * 0.45;
+    g.lineStyle(1.5, 0xfff4d0, 0.6);
+    g.lineBetween(m.x, m.y, fx, fy);
+    g.lineStyle(3, color === C.danger ? 0xff8a5c : 0xffe7a8, 1);
+    g.lineBetween(fx, fy, tx, ty);
+    // Éclair de bouche
+    const dir = tx > m.x ? 1 : -1;
+    g.fillStyle(0xfff0c0, 1);
+    g.fillTriangle(m.x, m.y - 5, m.x, m.y + 5, m.x + 18 * dir, m.y);
+    g.fillStyle(0xffb050, 0.8);
+    g.fillCircle(m.x + 3 * dir, m.y, 5);
+    // Étincelles d'impact
+    g.fillStyle(0xffe7a8, 1);
+    for (let i = 0; i < 4; i++) g.fillRect(tx + Phaser.Math.Between(-7, 7), ty + Phaser.Math.Between(-7, 7), 2, 2);
+    this.tweens.add({ targets: g, alpha: 0, duration: 160 / this.run.speed, onComplete: () => g.destroy() });
   }
 
   private boom(a: Actor, color = C.accent) {
-    const g = this.add.graphics().setDepth(25).setPosition(a.x, a.feet - 60);
+    const g = this.add.graphics().setDepth(25).setPosition(a.chest.x, a.chest.y);
     g.fillStyle(color, 0.75);
     g.fillCircle(0, 0, 40);
     g.lineStyle(4, color, 1);

@@ -1,21 +1,29 @@
 import Phaser from 'phaser';
+import '@fontsource/oswald/500.css';
+import '@fontsource/oswald/700.css';
 import { C, H, W } from './config';
+import BootScene from './scenes/BootScene';
 import BriefingScene from './scenes/BriefingScene';
 import EndScene from './scenes/EndScene';
 import LoadoutScene from './scenes/LoadoutScene';
 import MapScene from './scenes/MapScene';
 import MenuScene from './scenes/MenuScene';
 
-const game = new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  width: W,
-  height: H,
-  backgroundColor: C.bg,
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  input: { activePointers: 1 },
-  scene: [MenuScene, BriefingScene, MapScene, LoadoutScene, EndScene],
-});
+async function start() {
+  // Les textes Phaser sont rendus une seule fois : la police doit être prête avant.
+  await Promise.all([document.fonts.load('500 20px Oswald'), document.fonts.load('700 20px Oswald')]).catch(() => undefined);
+  const game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: 'game',
+    width: W,
+    height: H,
+    backgroundColor: C.bg,
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    input: { activePointers: 1 },
+    scene: [BootScene, MenuScene, BriefingScene, MapScene, LoadoutScene, EndScene],
+  });
+  // Accès de débogage depuis la console.
+  (window as unknown as { game: Phaser.Game }).game = game;
+}
 
-// Accès de débogage depuis la console.
-(window as unknown as { game: Phaser.Game }).game = game;
+void start();

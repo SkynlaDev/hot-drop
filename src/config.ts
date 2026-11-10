@@ -13,7 +13,7 @@ export const SELL = { x: 20, y: 976, w: 100, h: 172 };
 export const RESERVE = { x: 128, y: 976, w: 572, h: 172, slots: 6 };
 export const BUTTON = { x: 20, y: 1164, w: 680, h: 92 };
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+export const FONT = 'Oswald, "Arial Narrow", system-ui, sans-serif';
 export const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 export const C = {
