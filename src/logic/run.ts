@@ -146,6 +146,9 @@ export const CATEGORY_WEIGHTS: Record<Category, number> = {
 const CATEGORY_SIZE = ITEM_IDS.reduce((m, id) => m.set(ITEMS[id].category, (m.get(ITEMS[id].category) ?? 0) + 1), new Map<Category, number>());
 const itemWeight = (id: string) => CATEGORY_WEIGHTS[ITEMS[id].category] / (CATEGORY_SIZE.get(ITEMS[id].category) ?? 1);
 
+/** Une victoire rapporte au moins ce nombre d'objets, même contre un seul ennemi. */
+export const MIN_WIN_DROPS = 2;
+
 /** Butin orienté : poids des objets d'une famille déjà posée dans le gilet. */
 export const VEST_FAMILY_BOOST = 2;
 

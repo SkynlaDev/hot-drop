@@ -9,7 +9,7 @@ import { RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
 import { hashParts, rngFor } from '../logic/rng';
 import {
   EXTENSION_CELLS, FLOORS, NODE_INFO, NodeType, REROLL_COST, extensionPrice, RESERVE_MAX, RunState, START_SURSIS, addDrops, canFuse, fuse, isCombat,
-  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level, VEST_FAMILY_BOOST,
+  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level, VEST_FAMILY_BOOST, MIN_WIN_DROPS,
 } from '../logic/run';
 import { computeLoadout, describe, estimateDps, OPERATOR, sellValue } from '../logic/stats';
 import { Button, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
@@ -1117,7 +1117,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // Chaque ennemi abattu lâche un objet, même en cas de défaite.
     const killedAt = P.enemies.filter((a) => a.hp <= 0).map((a) => ({ x: a.x, y: a.feet - 90 }));
     const loot = killedAt.length && !(P.result.win && this.node === 'boss' && this.finalZone)
-      ? addDrops(r, rollDrops(r, killedAt.length, this.node === 'elite' || this.node === 'boss' ? 2 : 0, `combat-${r.attempts}`, this.family))
+      ? addDrops(r, rollDrops(r, P.result.win ? Math.max(MIN_WIN_DROPS, killedAt.length) : killedAt.length, this.node === 'elite' || this.node === 'boss' ? 2 : 0, `combat-${r.attempts}`, this.family))
       : { taken: [] as ItemInst[], credits: 0 };
     loot.taken.forEach((it) => this.hidden.add(it.uid));
     if (P.result.win) {

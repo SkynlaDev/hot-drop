@@ -52,7 +52,7 @@ const DEFS: ItemDef[] = [
   { id: 'pistolet', name: 'Pistolet Mamba', short: 'Mamba', wclass: 'Pistolet', shape: ['XX', 'X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 4,
     weapon: { dmg: 7, interval: 1.0, mag: 6, reload: 2.0 } },
   { id: 'smg', name: 'SMG Furet', short: 'Furet', wclass: 'SMG', shape: ['XXX', '.X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 6,
-    weapon: { dmg: 4, interval: 0.4, mag: 15, reload: 2.5 } },
+    weapon: { dmg: 4.5, interval: 0.4, mag: 15, reload: 2.5 } },
   { id: 'fusil_assaut', name: "Fusil d'assaut KR-4", short: 'KR-4', wclass: "Fusil d'assaut", shape: ['XXXX', '.X..'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 0, price: 8,
     weapon: { dmg: 10, interval: 0.7, mag: 15, reload: 2.5 } },
   { id: 'pompe', name: 'Pompe Sanglier', short: 'Sanglier', wclass: 'Fusil à pompe', shape: ['XXX', 'X..'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRarity: 1, price: 8,
