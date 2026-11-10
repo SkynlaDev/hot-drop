@@ -1,4 +1,4 @@
-# LOADOUT — prototype
+# HOT DROP — prototype
 
 Roguelike d'autobattler au gilet tactique, mobile d'abord, jouable dans le navigateur.
 Phaser 4 + TypeScript + Vite.
