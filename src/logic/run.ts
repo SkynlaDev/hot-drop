@@ -1,4 +1,4 @@
-import { Family, ITEMS, ITEM_IDS } from '../data/items';
+import { Category, Family, ITEMS, ITEM_IDS } from '../data/items';
 import { ItemInst, START_UNLOCKED, canPlace } from './grid';
 import { MAX_RARITY, rollRarity } from './rarity';
 import { Rng, rngFor } from './rng';
@@ -126,7 +126,7 @@ export function newRun(seed = Math.floor(Math.random() * 1e9)): RunState {
     attempts: 0,
     speed: 1,
   };
-  const start: [string, number, number][] = [['casque', 2, 1], ['pistolet', 2, 3], ['chg_9mm', 4, 3]];
+  const start: [string, number, number][] = [['casque', 2, 1], ['pistolet', 2, 3], ['chg_9mm', 4, 3], ['poignee', 1, 3]];
   for (const [id, x, y] of start) {
     const it = makeItem(run, id, 0);
     Object.assign(it, { x, y, placed: true });
@@ -139,6 +139,23 @@ export function makeItem(run: RunState, defId: string, rarity: number): ItemInst
   return { uid: run.nextUid++, defId, rarity, rot: 0, x: 0, y: 0, placed: false };
 }
 
+/** Part de chaque catégorie dans le butin et la boutique (%), quel que soit le nombre d'objets qu'elle contient. */
+export const CATEGORY_WEIGHTS: Record<Category, number> = {
+  arme: 20, munition: 25, accessoire: 22, protection: 12, explosif: 11, medical: 10,
+};
+const CATEGORY_SIZE = ITEM_IDS.reduce((m, id) => m.set(ITEMS[id].category, (m.get(ITEMS[id].category) ?? 0) + 1), new Map<Category, number>());
+const itemWeight = (id: string) => CATEGORY_WEIGHTS[ITEMS[id].category] / (CATEGORY_SIZE.get(ITEMS[id].category) ?? 1);
+
+function pickWeighted(rng: Rng, ids: string[]): string {
+  const total = ids.reduce((s, id) => s + itemWeight(id), 0);
+  let r = rng() * total;
+  for (const id of ids) {
+    r -= itemWeight(id);
+    if (r <= 0) return id;
+  }
+  return ids[ids.length - 1];
+}
+
 /** Chance qu'un objet tombé dans un lieu spécialisé soit de la famille annoncée. */
 export const FAMILY_DROP_CHANCE = 0.6;
 
@@ -149,7 +166,7 @@ function randomItems(run: RunState, rng: Rng, count: number, guarantee: number, 
   for (let i = 0; i < count && ids.length; i++) {
     const fam = family && rng() < FAMILY_DROP_CHANCE ? ids.filter((x) => ITEMS[x].family === family) : [];
     const pool = fam.length ? fam : ids;
-    const id = pool[Math.floor(rng() * pool.length)];
+    const id = pickWeighted(rng, pool);
     ids.splice(ids.indexOf(id), 1);
     out.push({ uid: -1, defId: id, rarity: rollRarity(rng, zoneOdds, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
   }

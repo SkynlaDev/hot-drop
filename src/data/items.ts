@@ -24,7 +24,7 @@ export interface ActiveStats {
 }
 
 export interface SynergyStats {
-  kind: 'mag' | 'scope' | 'silencer' | 'pierce';
+  kind: 'mag' | 'scope' | 'silencer' | 'pierce' | 'grip' | 'extmag' | 'holo' | 'bipod';
   value: number;
 }
 
@@ -50,23 +50,23 @@ export interface ItemDef {
 
 const DEFS: ItemDef[] = [
   { id: 'pistolet', name: 'Pistolet Mamba', short: 'Mamba', wclass: 'Pistolet', shape: ['XX', 'X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 4,
-    weapon: { dmg: 8, interval: 1.0, mag: 12, reload: 2.0 } },
+    weapon: { dmg: 7, interval: 1.0, mag: 6, reload: 2.0 } },
   { id: 'smg', name: 'SMG Furet', short: 'Furet', wclass: 'SMG', shape: ['XXX', '.X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 6,
-    weapon: { dmg: 5, interval: 0.4, mag: 30, reload: 2.5 } },
+    weapon: { dmg: 4, interval: 0.4, mag: 15, reload: 2.5 } },
   { id: 'fusil_assaut', name: "Fusil d'assaut KR-4", short: 'KR-4', wclass: "Fusil d'assaut", shape: ['XXXX', '.X..'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 0, price: 8,
-    weapon: { dmg: 12, interval: 0.7, mag: 30, reload: 2.5 } },
+    weapon: { dmg: 10, interval: 0.7, mag: 15, reload: 2.5 } },
   { id: 'pompe', name: 'Pompe Sanglier', short: 'Sanglier', wclass: 'Fusil à pompe', shape: ['XXX', 'X..'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRarity: 1, price: 8,
-    weapon: { dmg: 22, interval: 1.5, mag: 6, reload: 3.0, targets: 2 } },
+    weapon: { dmg: 18.5, interval: 1.5, mag: 4, reload: 3.0, targets: 2 } },
   { id: 'precision', name: 'Fusil de précision Aigle', short: 'Aigle', wclass: 'Fusil de précision', shape: ['XXXXX', '..X..'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRarity: 2, price: 14,
-    weapon: { dmg: 60, interval: 3.0, mag: 5, reload: 3.5 } },
+    weapon: { dmg: 51, interval: 3.0, mag: 4, reload: 3.5 } },
   { id: 'chg_9mm', name: 'Chargeur 9 mm', short: 'Chg 9mm', shape: ['X'], category: 'munition', family: 'rafale', tags: ['munition'], caliber: '9mm', minRarity: 0, price: 2,
-    synergy: { kind: 'mag', value: 0.15 } },
+    synergy: { kind: 'mag', value: 0.25 } },
   { id: 'chg_556', name: 'Chargeur 5.56', short: 'Chg 5.56', shape: ['X'], category: 'munition', family: 'rafale', tags: ['munition'], caliber: '5.56', minRarity: 0, price: 2,
-    synergy: { kind: 'mag', value: 0.15 } },
+    synergy: { kind: 'mag', value: 0.25 } },
   { id: 'chg_762', name: 'Chargeur 7.62', short: 'Chg 7.62', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], caliber: '7.62', minRarity: 1, price: 3,
-    synergy: { kind: 'mag', value: 0.15 } },
+    synergy: { kind: 'mag', value: 0.25 } },
   { id: 'lunette', name: 'Lunette ×4', short: 'Lunette', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRarity: 1, price: 5,
-    synergy: { kind: 'scope', value: 0.25 } },
+    synergy: { kind: 'scope', value: 0.35 } },
   { id: 'silencieux', name: 'Silencieux', short: 'Silenc.', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRarity: 2, price: 7,
     synergy: { kind: 'silencer', value: 1 } },
   { id: 'plaque', name: 'Plaque céramique', short: 'Plaque', shape: ['XX', 'XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRarity: 1, price: 7,
@@ -87,21 +87,34 @@ const DEFS: ItemDef[] = [
     active: { kind: 'adrenaline', value: 0.3, cooldown: 6, charges: 1, duration: 4, threshold: 0.3 } },
   // --- Variantes d'armes (même classe, profils différents)
   { id: 'ar_vesta', name: 'Bullpup Vesta', short: 'Vesta', wclass: "Fusil d'assaut", shape: ['XXX', '.X.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 0, price: 8,
-    weapon: { dmg: 9, interval: 0.55, mag: 30, reload: 2.2 } },
+    weapon: { dmg: 7.5, interval: 0.55, mag: 15, reload: 2.2 } },
   { id: 'ar_hades', name: 'Fusil de combat Hadès', short: 'Hadès', wclass: "Fusil d'assaut", shape: ['XXXX', '.XX.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 1, price: 10,
-    weapon: { dmg: 21, interval: 1.05, mag: 20, reload: 3.0 } },
+    weapon: { dmg: 18, interval: 1.05, mag: 10, reload: 3.0 } },
   { id: 'ar_lynx', name: 'Carabine Lynx', short: 'Lynx', wclass: "Fusil d'assaut", shape: ['XXX', '..X'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 0, price: 7,
-    weapon: { dmg: 7, interval: 0.45, mag: 25, reload: 1.8 } },
+    weapon: { dmg: 6, interval: 0.45, mag: 12, reload: 1.8 } },
   { id: 'smg_guepe', name: 'Pistolet-mitrailleur Guêpe', short: 'Guêpe', wclass: 'SMG', shape: ['XX', '.X'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 5,
-    weapon: { dmg: 3.5, interval: 0.28, mag: 25, reload: 1.8 } },
+    weapon: { dmg: 3, interval: 0.28, mag: 12, reload: 1.8 } },
   { id: 'smg_ours', name: 'SMG lourd Ours', short: 'Ours', wclass: 'SMG', shape: ['XXX', 'XX.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 1, price: 8,
-    weapon: { dmg: 7, interval: 0.45, mag: 35, reload: 2.6 } },
+    weapon: { dmg: 6, interval: 0.45, mag: 18, reload: 2.6 } },
   { id: 'revolver', name: 'Revolver Taureau', short: 'Taureau', wclass: 'Pistolet', shape: ['XXX', 'X..'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRarity: 1, price: 7,
-    weapon: { dmg: 24, interval: 1.4, mag: 6, reload: 2.4 } },
+    weapon: { dmg: 20.5, interval: 1.4, mag: 4, reload: 2.4 } },
   { id: 'pompe_belier', name: 'Pompe auto Bélier', short: 'Bélier', wclass: 'Fusil à pompe', shape: ['XXXX', 'X...'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRarity: 2, price: 12,
-    weapon: { dmg: 15, interval: 0.95, mag: 8, reload: 3.2, targets: 2 } },
+    weapon: { dmg: 13, interval: 0.95, mag: 4, reload: 3.2, targets: 2 } },
   { id: 'dmr_faucon', name: 'DMR Faucon', short: 'Faucon', wclass: 'Fusil de précision', shape: ['XXXX', '..X.'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRarity: 1, price: 10,
-    weapon: { dmg: 32, interval: 1.6, mag: 10, reload: 3.0 } },
+    weapon: { dmg: 27, interval: 1.6, mag: 5, reload: 3.0 } },
+  // --- Alimentation et accessoires : sans eux, une arme vaut peu
+  { id: 'chg_12g', name: 'Cartouches 12G', short: 'Cart. 12G', shape: ['X'], category: 'munition', family: 'demolition', tags: ['munition'], caliber: '12G', minRarity: 1, price: 3,
+    synergy: { kind: 'mag', value: 0.25 } },
+  { id: 'chg_44', name: 'Balles .44', short: 'Balles .44', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], caliber: '.44', minRarity: 1, price: 3,
+    synergy: { kind: 'mag', value: 0.25 } },
+  { id: 'poignee', name: 'Poignée verticale', short: 'Poignée', shape: ['X', 'X'], category: 'accessoire', family: 'rafale', tags: ['accessoire'], minRarity: 0, price: 4,
+    synergy: { kind: 'grip', value: 0.25 } },
+  { id: 'chg_etendu', name: 'Chargeur étendu', short: 'Étendu', shape: ['XX'], category: 'accessoire', family: 'rafale', tags: ['accessoire'], minRarity: 1, price: 5,
+    synergy: { kind: 'extmag', value: 0.5 } },
+  { id: 'viseur_holo', name: 'Viseur holo', short: 'Holo', shape: ['X'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRarity: 0, price: 4,
+    synergy: { kind: 'holo', value: 0.25 } },
+  { id: 'bipied', name: 'Bipied', short: 'Bipied', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRarity: 1, price: 5,
+    synergy: { kind: 'bipod', value: 0.35 } },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(DEFS.map((d) => [d.id, d]));

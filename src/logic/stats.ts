@@ -24,6 +24,8 @@ export interface WeaponRt {
   ignoreBlindes: boolean;
   /** Toutes les N balles, ricochet sur un 2e ennemi. 0 = jamais. */
   ricochetEvery: number;
+  /** Un chargeur de son calibre la touche ; sinon la recharge est 2 fois plus lente. */
+  fed: boolean;
 }
 
 export interface ActiveRt {
@@ -65,6 +67,9 @@ export interface SynergyLink {
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
+/** Multiplicateur de recharge d'une arme qu'aucun chargeur de son calibre ne touche. */
+export const UNFED_RELOAD = 2;
+
 /** Familles du gilet : un objet Légendaire compte pour 2. */
 export function familyStates(items: ItemInst[]): FamilyState[] {
   const counts = new Map<Family, number>();
@@ -105,6 +110,9 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
       let magCount = 0;
       let armorPierce = 0;
       let ignoreBlindes = false;
+      let dmgMult = 1;
+      let grip = 0;
+      let extMag = 0;
       for (const o of placed) {
         if (o === it) continue;
         const od = ITEMS[o.defId];
@@ -122,6 +130,18 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         } else if (od.synergy.kind === 'silencer') {
           firstCrit = true;
           links.push({ a: o.uid, b: it.uid, label: '1er tir critique', edge });
+        } else if (od.synergy.kind === 'grip') {
+          grip = Math.max(grip, od.synergy.value * om);
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de cadence`, edge });
+        } else if (od.synergy.kind === 'extmag') {
+          extMag = Math.max(extMag, od.synergy.value * om);
+          links.push({ a: o.uid, b: it.uid, label: `chargeur +${pct(od.synergy.value * om)}`, edge });
+        } else if (od.synergy.kind === 'holo' && !d.tags.includes('arme_longue')) {
+          crit += od.synergy.value * om;
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de critique`, edge });
+        } else if (od.synergy.kind === 'bipod' && d.tags.includes('arme_longue')) {
+          dmgMult = Math.max(dmgMult, 1 + od.synergy.value * om);
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de dégâts`, edge });
         } else if (od.synergy.kind === 'pierce') {
           armorPierce = Math.max(armorPierce, Math.min(1, od.synergy.value * om));
           ignoreBlindes = true;
@@ -132,13 +152,15 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         armorPierce = 1;
         ignoreBlindes = true;
       }
-      reload *= Math.max(0.3, 1 - magBonus);
+      const fed = magCount > 0;
+      reload *= fed ? Math.max(0.3, 1 - magBonus) : UNFED_RELOAD;
+      interval /= 1 + grip;
       weapons.push({
         uid: it.uid,
         name: d.name,
-        dmg: d.weapon.dmg * m,
+        dmg: d.weapon.dmg * m * dmgMult,
         interval,
-        mag: Math.round(d.weapon.mag * MAG_MULT[it.rarity]),
+        mag: Math.round(d.weapon.mag * MAG_MULT[it.rarity] * (1 + extMag)),
         reload,
         crit: Math.min(crit, 0.9),
         targets: d.weapon.targets ?? 1,
@@ -147,6 +169,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         armorPierce,
         ignoreBlindes,
         ricochetEvery: d.family === 'rafale' && tier('rafale') >= 2 ? 8 : 0,
+        fed,
       });
     }
 
@@ -227,6 +250,7 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     const wp = d.weapon;
     lines.push(`Dégâts ${r1(wp.dmg * m)} toutes les ${r1(wp.interval)} s`);
     lines.push(`Chargeur ${Math.round(wp.mag * MAG_MULT[inst.rarity])} · recharge ${r1(wp.reload * RECHARGE_MULT[inst.rarity])} s`);
+    lines.push(`Alimentation : un chargeur ${d.caliber} adjacent, sinon recharge ×${UNFED_RELOAD}`);
     if (wp.targets && wp.targets > 1) lines.push(`Touche ${wp.targets} cibles`);
     if (inst.rarity === MAX_RARITY) lines.push("Trait légendaire : 1 balle sur 5 ignore l'armure");
   }
@@ -251,6 +275,10 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     if (d.synergy.kind === 'scope') lines.push(`Adjacent à une arme longue : +${v} de critique`);
     if (d.synergy.kind === 'silencer') lines.push('Adjacent à une arme : son 1er tir est critique');
     if (d.synergy.kind === 'pierce') lines.push(`Adjacent à une arme : perce ${v} de l'armure et ignore Blindés`);
+    if (d.synergy.kind === 'grip') lines.push(`Adjacent à une arme : +${v} de cadence`);
+    if (d.synergy.kind === 'extmag') lines.push(`Adjacent à une arme : chargeur +${v}`);
+    if (d.synergy.kind === 'holo') lines.push(`Adjacent à une arme courte : +${v} de critique`);
+    if (d.synergy.kind === 'bipod') lines.push(`Adjacent à une arme longue : +${v} de dégâts`);
   }
   const f = FAMILY_INFO[d.family];
   lines.push(`Famille ${f.name}${inst.rarity === MAX_RARITY ? ' (compte double)' : ''} : 2 → ${f.tier2.toLowerCase()} · 4 → ${f.tier4.toLowerCase()}`);

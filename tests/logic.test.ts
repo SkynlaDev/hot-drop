@@ -8,7 +8,7 @@ import { mulberry32, rngFor } from '../src/logic/rng';
 import { RESERVE_MAX, addDrops, canFuse, completeZone, enterZone, fuse, level, newRun, remainingBiomes, rollDrops, sanitizeLayout } from '../src/logic/run';
 import { BIOMES, BIOME_IDS, FAMILY_PLACES, LOOT_FAMILIES } from '../src/data/biomes';
 import { EXFIL_ID, MIN_CHOICES, MOVE_RANGE, TURNS, dist, genZone, guardianThreats, inSafeZone, options } from '../src/logic/zone';
-import { computeLoadout, familyStates } from '../src/logic/stats';
+import { computeLoadout, estimateDps, familyStates } from '../src/logic/stats';
 import { BLINDES_REDUCTION, THREATS } from '../src/data/threats';
 
 const inst = (uid: number, defId: string, x: number, y: number, rarity = 0, rot: Rot = 0): ItemInst => ({ uid, defId, rarity, rot, x, y, placed: true });
@@ -69,18 +69,45 @@ describe('rareté et synergies', () => {
   it('la rareté multiplie les dégâts', () => {
     const c = computeLoadout([inst(1, 'fusil_assaut', 0, 3, 0)]).loadout.weapons[0];
     const l = computeLoadout([inst(1, 'fusil_assaut', 0, 3, 4)]).loadout.weapons[0];
-    expect(c.dmg).toBe(12);
-    expect(l.dmg).toBeCloseTo(21);
+    expect(c.dmg).toBe(ITEMS.fusil_assaut.weapon!.dmg);
+    expect(l.dmg).toBeCloseTo(c.dmg * 1.75);
     expect(l.pierceEvery).toBe(5);
   });
 
   it('un chargeur adjacent du bon calibre réduit la recharge', () => {
     const alone = computeLoadout([inst(1, 'pistolet', 1, 1)]).loadout.weapons[0];
     const { loadout, links } = computeLoadout([inst(1, 'pistolet', 1, 1), inst(2, 'chg_9mm', 3, 1)]);
-    expect(loadout.weapons[0].reload).toBeCloseTo(alone.reload * 0.85);
+    // Seule, l'arme n'est pas alimentée : recharge ×2. Avec son chargeur : −15 % sur la recharge de base.
+    expect(alone.fed).toBe(false);
+    expect(loadout.weapons[0].fed).toBe(true);
+    expect(loadout.weapons[0].reload).toBeCloseTo((alone.reload / 2) * (1 - ITEMS.chg_9mm.synergy!.value));
     expect(links).toHaveLength(1);
     const wrong = computeLoadout([inst(1, 'pistolet', 1, 1), inst(2, 'chg_556', 3, 1)]);
     expect(wrong.links).toHaveLength(0);
+    expect(wrong.loadout.weapons[0].fed).toBe(false);
+  });
+
+  it('les accessoires modifient l’arme voisine selon son type', () => {
+    const base = computeLoadout([inst(1, 'fusil_assaut', 0, 1)]).loadout.weapons[0];
+    const bip = computeLoadout([inst(1, 'fusil_assaut', 0, 1), inst(2, 'bipied', 0, 0)]).loadout.weapons[0];
+    expect(bip.dmg).toBeCloseTo(base.dmg * (1 + ITEMS.bipied.synergy!.value));
+    const holo = computeLoadout([inst(1, 'fusil_assaut', 0, 1), inst(2, 'viseur_holo', 0, 0)]).loadout.weapons[0];
+    expect(holo.crit).toBeCloseTo(base.crit); // arme longue : pas d'effet
+    const grip = computeLoadout([inst(1, 'fusil_assaut', 0, 1), inst(2, 'poignee', 0, 2, 0, 1)]);
+    expect(grip.links.length).toBeGreaterThan(0);
+    expect(grip.loadout.weapons[0].interval).toBeLessThan(base.interval);
+  });
+
+  it('le butin contient environ 20 % d’armes', () => {
+    const run = newRun(2);
+    let w = 0;
+    let n = 0;
+    for (let i = 0; i < 600; i++) for (const d of rollDrops(run, 1, 0, i)) {
+      n++;
+      if (ITEMS[d.defId].category === 'arme') w++;
+    }
+    expect(w / n).toBeGreaterThan(0.15);
+    expect(w / n).toBeLessThan(0.26);
   });
 
   it("l'armure profite de la zone Poitrine", () => {
@@ -148,10 +175,11 @@ describe('run', () => {
 
   it('remet en réserve les objets qui se chevauchent après un changement de formes', () => {
     const run = newRun(1);
+    const kit = run.items.length;
     run.items.push(inst(50, 'smg', 1, 2)); // chevauche le pistolet de départ
     sanitizeLayout(run);
     expect(run.items.find((i) => i.uid === 50)!.placed).toBe(false);
-    expect(run.items.filter((i) => i.placed)).toHaveLength(3);
+    expect(run.items.filter((i) => i.placed)).toHaveLength(kit);
   });
 
   it('le kit de départ tient dans la grille sans chevauchement', () => {
@@ -238,7 +266,7 @@ describe('menaces', () => {
   it('Blindés réduit chaque balle', () => {
     const r = simulate(gun(), [enemy], 1, ['blindes']);
     const hit = r.events.find((e) => e.kind === 'shot' && e.from === 'p' && !e.miss && !e.crit);
-    expect(hit && hit.kind === 'shot' && hit.amount).toBe(8 - BLINDES_REDUCTION);
+    expect(hit && hit.kind === 'shot' && hit.amount).toBe(Math.round(gun().weapons[0].dmg) - BLINDES_REDUCTION);
   });
 
   it('Médics soigne l\'escouade toutes les 5 s', () => {
@@ -346,5 +374,20 @@ describe('butin des lieux spécialisés', () => {
     // 60 % forcés + la part naturelle de la famille (4 objets sur 26)
     expect(fam / total).toBeGreaterThan(0.55);
     expect(fam / total).toBeLessThan(0.8);
+  });
+});
+
+describe('chaque case compte', () => {
+  it('un gilet en vrac perd au moins 25 % de DPS par rapport au même gilet bien rangé', () => {
+    const builds = [
+      [inst(1, 'fusil_assaut', 0, 3, 2), inst(2, 'chg_556', 4, 3, 1), inst(3, 'lunette', 0, 2, 1), inst(5, 'smg', 3, 0, 1), inst(6, 'chg_9mm', 3, 2)],
+      [inst(1, 'precision', 0, 3, 2), inst(2, 'chg_762', 0, 2), inst(3, 'lunette', 1, 2, 1), inst(4, 'silencieux', 3, 2, 2), inst(6, 'pistolet', 3, 0)],
+      [inst(1, 'smg', 0, 0, 1), inst(2, 'chg_9mm', 3, 0), inst(3, 'fusil_assaut', 0, 3, 1), inst(4, 'chg_556', 4, 3), inst(7, 'poignee', 0, 1), inst(8, 'bipied', 0, 2)],
+    ];
+    for (const b of builds) {
+      const good = estimateDps(computeLoadout(b).loadout);
+      const bad = estimateDps(computeLoadout(b.map((i, n) => ({ ...i, x: 20 + n * 8, y: 20 }))).loadout);
+      expect(bad / good).toBeLessThan(0.75);
+    }
   });
 });

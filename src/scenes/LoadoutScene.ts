@@ -84,6 +84,8 @@ export default class LoadoutScene extends Phaser.Scene {
   private trayLayer!: Container;
   private combatLayer!: Container;
   private linkG!: Phaser.GameObjects.Graphics;
+  /** Pastilles des armes non alimentées. */
+  private unfedLayer!: Phaser.GameObjects.Container;
   private gridG!: Phaser.GameObjects.Graphics;
   private extHint!: Phaser.GameObjects.Text;
   private previewG!: Phaser.GameObjects.Graphics;
@@ -136,6 +138,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.gridG = this.add.graphics().setDepth(1);
     this.itemLayer = this.add.container(0, 0).setDepth(2);
     this.linkG = this.add.graphics().setDepth(5);
+    this.unfedLayer = this.add.container(0, 0).setDepth(6);
     this.previewG = this.add.graphics().setDepth(40);
     this.trayLayer = this.add.container(0, 0).setDepth(2);
     this.combatLayer = this.add.container(0, 0).setDepth(3);
@@ -292,6 +295,20 @@ export default class LoadoutScene extends Phaser.Scene {
       if (dx !== 0) this.linkG.fillRoundedRect(ex - 5, ey - 22, 10, 44, 4);
       else this.linkG.fillRoundedRect(ex - 22, ey - 5, 44, 10, 4);
     }
+    // Armes sans chargeur de leur calibre : pastille « recharge ×2 » sur leur première case.
+    this.unfedLayer.removeAll(true);
+    for (const w of loadout.weapons) {
+      if (w.fed) continue;
+      const inst = this.run.items.find((i) => i.uid === w.uid);
+      if (!inst || this.drag?.inst?.uid === inst.uid) continue;
+      const [cx, cy] = cellsAt(inst, inst.x, inst.y)[0];
+      const bx = GRID_X + cx * CELL + 6;
+      const by = GRID_Y + cy * CELL + CELL - 28;
+      const g = this.add.graphics();
+      g.fillStyle(C.danger, 1);
+      g.fillRoundedRect(bx, by, 62, 22, 6);
+      this.unfedLayer.add([g, txt(this, bx + 31, by + 11, 'RECH ×2', 13, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
+    }
 
     // Réserve
     this.trayLayer.removeAll(true);
@@ -349,7 +366,8 @@ export default class LoadoutScene extends Phaser.Scene {
     const rows: [string, string, string?][] = [
       ['PV / Armure', `${loadout.maxHp} / ${loadout.armor}`],
       ['DPS estimé', `${Math.round(estimateDps(loadout))}`],
-      ['Gilet', `${this.run.unlocked.length}/${COLS * ROWS} cases`],
+      ['Armes alimentées', `${loadout.weapons.filter((w) => w.fed).length}/${loadout.weapons.length}`,
+        loadout.weapons.some((w) => !w.fed) ? C.dangerStr : C.goodStr],
       ['Synergies', `${nLinks}`, nLinks ? C.accentStr : undefined],
     ];
     for (const [k, v, col] of rows) {
