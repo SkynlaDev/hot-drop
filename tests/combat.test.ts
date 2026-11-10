@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { ITEMS } from '../src/data/items';
-import { OPERATORS, OperatorId } from '../src/data/operators';
+import { OPERATORS, OperatorId, lootPool } from '../src/data/operators';
 import { BotBuild, botLoadout, generateBot } from '../src/logic/bots';
-import { MAX_TIME, simulateDuel } from '../src/logic/combat';
+import { DuelEvent, MAX_FLAT_REDUCE, MAX_TIME, simulateDuel } from '../src/logic/combat';
 import { ItemInst, Rot, canPlace, cellKey, cellsOf } from '../src/logic/grid';
-import { computeLoadout, describe as describeItem, estimateDps, maxHpFor } from '../src/logic/stats';
+import { DRUM_RELOAD, FEU_CAP, FEU_RATE, MARK_BONUS, PlayerLoadout, WeaponRt, computeLoadout, describe as describeItem, estimateDps, maxHpFor } from '../src/logic/stats';
 
 const inst = (uid: number, defId: string, x: number, y: number, rarity = 0, rot: Rot = 0): ItemInst => ({ uid, defId, rarity, rot, x, y, placed: true });
 const startItems = (op: OperatorId): ItemInst[] => OPERATORS[op].start.map(([defId, x, y], i) => inst(100 + i, defId, x, y));
@@ -23,12 +23,41 @@ describe('statistiques 1v1', () => {
     expect(start('viper', 140).maxHp).toBe(140);
   });
 
-  it('passifs : Viper accélère les 5.56, Sentinelle +10 % de critique', () => {
+  it('passifs : Feu continu pour Viper, Marque pour Sentinelle', () => {
     const kr = [inst(1, 'fusil_assaut', 2, 2)];
-    const v = computeLoadout(kr, 'viper', 100).loadout.weapons[0];
-    const s = computeLoadout(kr, 'sentinelle', 100).loadout.weapons[0];
-    expect(v.interval).toBeCloseTo(s.interval / 1.1);
-    expect(s.crit).toBeCloseTo(v.crit + 0.1);
+    const v = computeLoadout(kr, 'viper', 100).loadout;
+    const s = computeLoadout(kr, 'sentinelle', 100).loadout;
+    expect(v.weapons[0].heatCap).toBeCloseTo(FEU_CAP);
+    expect(v.weapons[0].heatRate).toBeCloseTo(FEU_RATE);
+    expect(v.markBonus).toBe(0);
+    expect(s.weapons[0].heatCap).toBe(0);
+    expect(s.markBonus).toBeCloseTo(MARK_BONUS);
+    // Plus de bonus de cadence ni de critique à plat : mêmes stats de base.
+    expect(v.weapons[0].interval).toBeCloseTo(s.weapons[0].interval);
+    expect(v.weapons[0].crit).toBeCloseTo(s.weapons[0].crit);
+  });
+
+  it('nouveaux objets : tambour, refroidisseur, traçantes, Déluge', () => {
+    const smg = (extra: ItemInst[]) => computeLoadout([inst(1, 'smg', 2, 2), ...extra], 'viper', 100).loadout.weapons[0];
+    const base = smg([]);
+    const drum = smg([inst(2, 'chg_tambour', 2, 3)]);
+    expect(drum.mag).toBe(base.mag * 2);
+    expect(drum.reload).toBeCloseTo(base.reload * (1 + DRUM_RELOAD));
+    const cool = smg([inst(2, 'refroidisseur', 2, 3)]);
+    expect(cool.heatRate).toBeCloseTo(FEU_RATE * 2);
+    const deluge = computeLoadout([inst(1, 'ours_deluge', 2, 2)], 'viper', 100).loadout.weapons[0];
+    expect(deluge.heatCap).toBeCloseTo(FEU_CAP + 0.2);
+    const tr = computeLoadout([inst(1, 'revolver', 2, 2), inst(2, 'tracantes', 2, 3)], 'sentinelle', 100).loadout.weapons[0];
+    expect(tr.markBoost).toBeCloseTo(0.3);
+    expect(computeLoadout([inst(1, 'colibri', 2, 2)], 'sentinelle', 100).loadout.weapons[0].crit).toBeCloseTo(0.25);
+    for (const id of ['chg_tambour', 'refroidisseur', 'colibri', 'tracantes', 'ours_deluge', 'faucon_traqueur']) {
+      expect(describeItem(inst(1, id, 0, 0)).lines.length).toBeGreaterThan(2);
+    }
+    expect(describeItem(inst(1, 'refroidisseur', 0, 0)).lines.join(' ')).toMatch(/Feu continu/);
+    expect(describeItem(inst(1, 'tracantes', 0, 0)).lines.join(' ')).toMatch(/Marque/);
+    expect(lootPool('viper')).toEqual(expect.arrayContaining(['chg_tambour', 'refroidisseur']));
+    expect(lootPool('sentinelle')).toEqual(expect.arrayContaining(['colibri', 'tracantes']));
+    expect(lootPool('viper')).not.toContain('colibri');
   });
 
   it('les pompes touchent deux fois par tir', () => {
@@ -86,8 +115,8 @@ describe('duel', () => {
 
   it('les deux sacs de départ sont à peu près équilibrés', () => {
     const r = winRate(() => start('viper'), () => start('sentinelle'), 1500);
-    expect(r).toBeGreaterThan(0.35);
-    expect(r).toBeLessThan(0.65);
+    expect(r).toBeGreaterThan(0.4);
+    expect(r).toBeLessThan(0.6);
   });
 
   it('jamais d’égalité, événements cohérents', () => {
@@ -137,6 +166,76 @@ describe('duel', () => {
     expect(frag && frag.kind === 'frag' && frag.side).toBe('a');
     expect(r.events.some((e) => e.kind === 'flash' && e.side === 'a')).toBe(true);
     expect(r.events.some((e) => e.kind === 'smoke' && e.side === 'a')).toBe(true);
+  });
+});
+
+describe('mécaniques des opérateurs', () => {
+  /** Cible sans arme, aux PV énormes : le duel va au temps limite. */
+  const dummy = (over: Partial<PlayerLoadout> = {}): PlayerLoadout => ({
+    maxHp: 1e6, armor: 0, reflect: 0, weapons: [], actives: [], critMult: 2, armorRegen: 0, flatReduce: 0, markBonus: 0, families: [], ...over,
+  });
+  const gun = (uid: number, over: Partial<WeaponRt> = {}): WeaponRt => ({
+    uid, name: `arme ${uid}`, dmg: 10, interval: 0.5, mag: 30, reload: 2, crit: 0, pellets: 1, firstCrit: false, pierceEvery: 0,
+    armorPierce: 0, doubleEvery: 0, fed: true, critStun: 0, trueDmg: 0, heatRate: 0, heatCap: 0, markBoost: 0, ...over,
+  });
+  const shots = (evs: DuelEvent[], uid?: number) =>
+    evs.filter((e): e is Extract<DuelEvent, { kind: 'shot' }> => e.kind === 'shot' && e.from === 'a' && (uid === undefined || e.uid === uid));
+
+  it('Feu continu : la cadence monte en tirant, plafonne, et retombe à la recharge', () => {
+    const a = dummy({ maxHp: 100, weapons: [gun(1, { heatRate: FEU_RATE, heatCap: FEU_CAP })] });
+    const r = simulateDuel(a, dummy(), 3);
+    const s = shots(r.events, 1);
+    const reloadAt = r.events.find((e) => e.kind === 'reload')!.t;
+    const before = s.filter((e) => e.t < reloadAt);
+    expect(before[0].heat ?? 0).toBe(0);
+    for (let i = 1; i < before.length; i++) expect(before[i].heat ?? 0).toBeGreaterThanOrEqual(before[i - 1].heat ?? 0);
+    expect(Math.max(...s.map((e) => e.heat ?? 0))).toBeCloseTo(FEU_CAP);
+    // Le 1er tir après la recharge repart de zéro.
+    expect(s.find((e) => e.t > reloadAt)!.heat ?? 0).toBe(0);
+    // Plus de tirs qu'avec la même arme sans Feu continu.
+    const cold = simulateDuel(dummy({ maxHp: 100, weapons: [gun(1)] }), dummy(), 3);
+    expect(s.length).toBeGreaterThan(shots(cold.events, 1).length * 1.1);
+  });
+
+  it('Marque : un critique marque, la touche suivante d’une AUTRE arme fait +50 % et consomme la marque', () => {
+    const a = dummy({ maxHp: 100, markBonus: MARK_BONUS, weapons: [gun(1, { crit: 0.5 }), gun(2, { crit: 0.5, interval: 0.7 })] });
+    const r = simulateDuel(a, dummy(), 8);
+    let markedBy = -1;
+    let consumed = 0;
+    for (const e of shots(r.events)) {
+      if (e.miss) continue;
+      if (markedBy >= 0 && markedBy !== e.uid) {
+        expect(e.marked).toBe(true);
+        expect(e.amount).toBe(Math.round(10 * ((e.crit ? 2 : 1) + MARK_BONUS)));
+        markedBy = -1;
+        consumed++;
+      } else {
+        expect(e.marked).toBeUndefined();
+        expect(e.amount).toBe(e.crit ? 20 : 10);
+      }
+      if (e.crit && markedBy < 0) {
+        expect(e.mark).toBe(true);
+        markedBy = e.uid;
+      }
+    }
+    expect(consumed).toBeGreaterThan(10);
+    // Une seule arme : rien à consommer, donc pas de marque du tout.
+    const solo = simulateDuel(dummy({ maxHp: 100, markBonus: MARK_BONUS, weapons: [gun(1, { crit: 0.5 })] }), dummy(), 8);
+    expect(shots(solo.events).some((e) => e.mark || e.marked)).toBe(false);
+    // Sans le passif (Viper), ni marque ni bonus.
+    const viper = simulateDuel(dummy({ maxHp: 100, weapons: [gun(1, { crit: 0.5 }), gun(2, { crit: 0.5 })] }), dummy(), 8);
+    expect(shots(viper.events).some((e) => e.mark || e.marked)).toBe(false);
+  });
+
+  it('la réduction par balle ne retire jamais plus de 25 % des dégâts', () => {
+    const a = dummy({ maxHp: 100, weapons: [gun(1, { dmg: 6 })] });
+    const r = simulateDuel(a, dummy({ flatReduce: 50 }), 1);
+    const hit = shots(r.events).filter((e) => !e.miss);
+    expect(hit.length).toBeGreaterThan(10);
+    for (const e of hit) expect(e.amount).toBe(Math.round(6 * (1 - MAX_FLAT_REDUCE)));
+    // Une grosse balle perd toujours la valeur entière de la réduction (2 sur 40).
+    const big = simulateDuel(dummy({ maxHp: 100, weapons: [gun(1, { dmg: 40 })] }), dummy({ flatReduce: 2 }), 1);
+    for (const e of shots(big.events).filter((x) => !x.miss)) expect(e.amount).toBe(38);
   });
 });
 
@@ -223,8 +322,31 @@ describe('bots', () => {
     for (const op of ['viper', 'sentinelle'] as const) {
       let w = 0;
       for (let s = 0; s < 300; s++) w += simulateDuel(start(op), botLoadout(generateBot(s, 0, { goulag: true })), s).win ? 1 : 0;
-      expect(w / 300).toBeGreaterThan(0.4);
-      expect(w / 300).toBeLessThan(0.75);
+      expect(w / 300).toBeGreaterThan(0.45);
+      expect(w / 300).toBeLessThan(0.68);
+    }
+  });
+
+  it('Viper contre Sentinelle : entre 45 et 55 % à chaque manche et au Top 1 (bots de même tour)', () => {
+    const N = 300;
+    for (const round of [0, 1, 2, 3, 4, 5]) {
+      const v: BotBuild[] = [];
+      const s: BotBuild[] = [];
+      for (let k = 0; v.length < N || s.length < N; k++) {
+        const b = round === 5 ? generateBot(k, 5, { final: true }) : generateBot(k, round);
+        (b.operator === 'viper' ? v : s).push(b);
+      }
+      let w = 0;
+      for (let i = 0; i < N; i++) {
+        const a = botLoadout(v[i]);
+        const b = botLoadout(s[i]);
+        // Chaque paire joue les deux côtés.
+        if (simulateDuel(a, b, i * 2).win) w++;
+        if (!simulateDuel(b, a, i * 2 + 1).win) w++;
+      }
+      const rate = w / (2 * N);
+      expect(rate, `manche ${round}`).toBeGreaterThan(0.45);
+      expect(rate, `manche ${round}`).toBeLessThan(0.55);
     }
   });
 });

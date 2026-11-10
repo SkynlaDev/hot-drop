@@ -43,6 +43,12 @@ interface DragState {
   longPress?: Phaser.Time.TimerEvent;
 }
 
+/** Couleurs du Feu continu (Viper), du plus froid au plafond. */
+const HEAT_COLORS = ['#ffd27a', '#ff9a3c', '#ff5a36'];
+/** Couleur de la Marque (Sentinelle) : celle de la famille Précision. */
+const MARK_COLOR = FAMILY_INFO.precision.hex;
+const MARK_HEX = FAMILY_INFO.precision.color;
+
 interface Actor {
   side: Side;
   x: number;
@@ -103,6 +109,10 @@ export default class LoadoutScene extends Phaser.Scene {
   private drag: DragState | null = null;
   private modal: Container | null = null;
   private play: DuelPlay | null = null;
+  /** Marque (Sentinelle) : viseur posé sur le combattant marqué, par camp. */
+  private markers: Partial<Record<Side, Container>> = {};
+  /** Sacs des deux camps pendant le duel (bonus de Marque affiché). */
+  private fightL: Record<Side, PlayerLoadout> | null = null;
   private me: Actor | null = null;
   private foe: Actor | null = null;
   private popUid: number | null = null;
@@ -161,6 +171,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.drag = null;
     this.modal = null;
     this.play = null;
+    this.markers = {};
+    this.fightL = null;
     this.me = null;
     this.foe = null;
     this.popUid = null;
@@ -1395,6 +1407,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.phase = 'prep';
     this.post = null;
     this.play = null;
+    this.clearDuelFx();
     this.stripLayer.removeAll(true);
     this.buildArena();
     this.buildEnemyPanel();
@@ -1704,6 +1717,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (!p || !this.bot || !this.botL || !this.me || !this.foe) return;
     const { loadout } = this.loadout();
     const result = simulateDuel(loadout, this.botL, p.seed, { hpA: p.hp });
+    this.fightL = { a: loadout, b: this.botL };
     this.phase = 'combat';
     this.me.hp = Math.max(1, Math.min(p.maxHp, p.hp));
     this.me.maxHp = p.maxHp;
@@ -1765,9 +1779,84 @@ export default class LoadoutScene extends Phaser.Scene {
     }
   }
 
-  private floatText(a: Actor, s: string, color: string, size = 26) {
+  /** Feu continu (Viper) : badge « +18 % » sur l'arme qui tire, éteint à la recharge et en fin de duel. */
+  private setHeat(side: Side, uid: number, heat: number) {
+    const v = this.viewOf(side, uid);
+    if (!v) return;
+    let t = v.getData('heat') as Phaser.GameObjects.Text | undefined;
+    if (heat <= 0) {
+      t?.setVisible(false);
+      return;
+    }
+    if (!t) {
+      const mask = v.getData('mask') as boolean[][];
+      const cell = v.getData('cell') as number;
+      const k = cell / 80;
+      const row = mask[0];
+      const right = row.length - [...row].reverse().findIndex(Boolean);
+      t = txt(this, right * cell - 5 * k, 5 * k, '', Math.max(12, Math.round(18 * k)), HEAT_COLORS[0], {
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(1, 0);
+      v.add(t);
+      v.setData('heat', t);
+    }
+    const lvl = heat >= 0.3 ? 2 : heat >= 0.15 ? 1 : 0;
+    t.setText(`+${Math.round(heat * 100)} %`).setColor(HEAT_COLORS[lvl]).setVisible(true);
+  }
+
+  /** Bonus total (en %) de la Marque pour l'arme qui la consomme. */
+  private markPct(side: Side, uid: number): number {
+    const l = this.fightL?.[side];
+    const w = l?.weapons.find((x) => x.uid === uid);
+    return Math.round(((l?.markBonus ?? 0) + (w?.markBoost ?? 0)) * 100);
+  }
+
+  /** Marque (Sentinelle) : viseur qui tourne sur le combattant marqué, retiré quand la marque est consommée. */
+  private setMark(a: Actor, on: boolean) {
+    const old = this.markers[a.side];
+    if (old) {
+      delete this.markers[a.side];
+      this.tweens.killTweensOf(old);
+      this.tweens.killTweensOf(old.getData('ring'));
+      this.tweens.add({ targets: old, scale: 1.8, alpha: 0, duration: 200 / this.run.speed, onComplete: () => old.destroy() });
+    }
+    if (!on) return;
+    const m = this.add.container(a.chest.x, a.chest.y - 10).setDepth(26);
+    const g = this.add.graphics();
+    g.lineStyle(3, MARK_HEX, 1);
+    g.strokeCircle(0, 0, 24);
+    g.lineStyle(2, MARK_HEX, 0.8);
+    g.strokeCircle(0, 0, 10);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.lineBetween(dx * 16, dy * 16, dx * 32, dy * 32);
+    const ring = this.add.container(0, 0, [g]);
+    const label = txt(this, 0, 42, 'MARQUÉ', 14, MARK_COLOR, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    m.add([ring, label]);
+    m.setData('ring', ring);
+    m.setScale(1.8).setAlpha(0);
+    this.tweens.add({ targets: m, scale: 1, alpha: 1, duration: 180 / this.run.speed, ease: 'Back.Out' });
+    this.tweens.add({ targets: ring, angle: 360, duration: 2400, repeat: -1 });
+    this.arenaLayer.add(m);
+    this.markers[a.side] = m;
+  }
+
+  /** Efface les marques et les badges de Feu continu (fin de duel, nouveau duel). */
+  private clearDuelFx() {
+    for (const side of ['a', 'b'] as Side[]) {
+      const m = this.markers[side];
+      if (m) {
+        this.tweens.killTweensOf(m);
+        this.tweens.killTweensOf(m.getData('ring'));
+        m.destroy();
+      }
+    }
+    this.markers = {};
+    this.fightL = null;
+    for (const v of [...this.views.values(), ...this.enemyViews.values()]) (v.getData('heat') as Phaser.GameObjects.Text | undefined)?.setVisible(false);
+  }
+
+  private floatText(a: Actor, s: string, color: string, size = 26, dy = 0) {
     const sp = this.run.speed;
-    const t = txt(this, a.chest.x + Phaser.Math.Between(-18, 18), a.chest.y - 30, s, size, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 5 })
+    const t = txt(this, a.chest.x + Phaser.Math.Between(-18, 18), a.chest.y - 30 + dy, s, size, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(30)
       .setScale(0.4);
@@ -1837,13 +1926,24 @@ export default class LoadoutScene extends Phaser.Scene {
         this.drawBars(to);
         if (!animate) break;
         this.tracer(from, to, !e.double, e.miss);
-        if (!e.double) this.trigger(e.from, e.uid, e.crit ? C.accent : 0xffffff);
+        if (!e.double) {
+          this.trigger(e.from, e.uid, e.crit ? C.accent : 0xffffff);
+          this.setHeat(e.from, e.uid, e.heat ?? 0);
+        }
         if (e.miss) this.floatText(to, 'raté', C.quiet, 20);
         else {
-          const col = e.crit ? C.accentStr : to.side === 'a' ? C.dangerStr : C.text;
-          this.floatText(to, `${e.amount}${e.crit ? ' CRIT' : ''}${e.pierce ? ' ⇢' : ''}`, col, e.crit ? 32 : 24);
+          if (e.marked) {
+            // Touche qui consomme la Marque : texte distinct, couleur Précision.
+            this.setMark(to, false);
+            this.floatText(to, `${e.amount}${e.crit ? ' CRIT' : ''} ◎`, MARK_COLOR, 36);
+            this.floatText(to, `MARQUE +${this.markPct(e.from, e.uid)} %`, MARK_COLOR, 18, 34);
+          } else {
+            const col = e.crit ? C.accentStr : to.side === 'a' ? C.dangerStr : C.text;
+            this.floatText(to, `${e.amount}${e.crit ? ' CRIT' : ''}${e.pierce ? ' ⇢' : ''}`, col, e.crit ? 32 : 24);
+          }
+          if (e.mark) this.setMark(to, true); // le viseur porte l'étiquette « MARQUÉ »
           this.hitReact(to);
-          if (e.crit) this.impact('medium');
+          if (e.crit || e.marked) this.impact('medium');
           else if (to.side === 'a' && e.amount >= 10) this.impact('small');
           if (to.side === 'a') vibrate(5);
         }
@@ -1853,6 +1953,7 @@ export default class LoadoutScene extends Phaser.Scene {
         if (animate) {
           const v = this.viewOf(e.side, e.uid);
           if (v) flashItem(this, v, 0x4f9bff);
+          this.setHeat(e.side, e.uid, 0); // la recharge éteint le Feu continu
         }
         break;
       case 'frag': {
@@ -1967,6 +2068,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.play = null;
     this.freeze = 0;
     this.resetPulses();
+    this.clearDuelFx();
     const res = P.result;
     const r = this.run;
     if (res.timeout) toast(this, 'Temps écoulé : décision aux PV restants', C.text, ARENA.y + ARENA.h + 30);

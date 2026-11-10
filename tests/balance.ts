@@ -72,6 +72,33 @@ console.log('\nTop 1 vs bots forts du tour 4 / vs bots normaux du tour 4');
   console.log('final'.padEnd(16), pctS(w1, N), pctS(w2, N));
 }
 
+console.log('\nViper vs Sentinelle : bots de même tour, même répartition de qualité (taux de victoire de Viper, chaque paire joue les deux côtés)');
+{
+  const row: string[] = [];
+  for (const round of [0, 1, 2, 3, 4, 5]) {
+    const v: BotBuild[] = [];
+    const st: BotBuild[] = [];
+    for (let k = 0; v.length < N || st.length < N; k++) {
+      const b = round === 5 ? generateBot(k, 5, { final: true }) : generateBot(k, round);
+      (b.operator === 'viper' ? v : st).push(b);
+    }
+    let w = 0;
+    for (let s = 0; s < N; s++) {
+      const a = botLoadout(v[s]);
+      const b = botLoadout(st[s]);
+      if (simulateDuel(a, b, s * 2).win) w++;
+      if (!simulateDuel(b, a, s * 2 + 1).win) w++;
+    }
+    row.push(`${round === 5 ? 'Top 1' : `t${round}`} ${pctS(w, 2 * N)}`);
+  }
+  console.log(row.join(''));
+  const startV = computeLoadout(startItems('viper'), 'viper', maxHpFor(0)).loadout;
+  const startS = computeLoadout(startItems('sentinelle'), 'sentinelle', maxHpFor(0)).loadout;
+  let w = 0;
+  for (let s = 0; s < N; s++) if (simulateDuel(startV, startS, s).win) w++;
+  console.log('sacs de départ, Viper vs Sentinelle'.padEnd(40), pctS(w, N));
+}
+
 console.log('\nDanger de zone (tour 2, bots tous) : sac de départ vs danger 0 / 0,5 / 1');
 for (const op of OPERATOR_IDS) {
   const me = computeLoadout(startItems(op), op, maxHpFor(2)).loadout;

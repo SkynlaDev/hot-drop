@@ -35,6 +35,12 @@ export interface WeaponRt {
   critStun: number;
   /** Dégâts en plus à chaque touche, qui ignorent l'armure. */
   trueDmg: number;
+  /** Feu continu (passif de Viper) : bonus de cadence gagné par seconde de tir sans recharger. */
+  heatRate: number;
+  /** Plafond du Feu continu (0 = pas de Feu continu). */
+  heatCap: number;
+  /** Bonus en plus quand cette arme consomme la Marque (munitions traçantes). */
+  markBoost: number;
 }
 
 export interface ActiveRt {
@@ -66,6 +72,8 @@ export interface PlayerLoadout {
   armorRegen: number;
   /** Chaque balle reçue perd ce nombre de dégâts (minimum 1). */
   flatReduce: number;
+  /** Marque (passif de Sentinelle) : bonus de dégâts de la touche qui consomme la marque (0 = pas de Marque). */
+  markBonus: number;
   families: FamilyState[];
 }
 
@@ -77,6 +85,14 @@ export interface SynergyLink {
 }
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
+
+/** Feu continu (Viper) : +5 % de cadence par seconde de tir sans recharger, au plus +30 %. */
+export const FEU_RATE = 0.05;
+export const FEU_CAP = 0.3;
+/** Marque (Sentinelle) : la touche suivante d'une autre arme fait +50 %. */
+export const MARK_BONUS = 0.5;
+/** Chargeur tambour : recharge plus lente de l'arme adjacente. */
+export const DRUM_RELOAD = 0.4;
 
 /** Multiplicateur de recharge d'une arme qu'aucun chargeur de son calibre ne touche. */
 export const UNFED_RELOAD = 2;
@@ -113,10 +129,14 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
 
     if (d.weapon) {
       let interval = d.weapon.interval;
-      if (operator === 'viper' && d.caliber === '5.56') interval /= 1.1; // passif de Viper
       if (d.family === 'rafale' && tier('rafale') >= 1) interval /= 1.15;
       let reload = d.weapon.reload * RECHARGE_MULT[it.rarity];
-      let crit = 0.05 + (tier('precision') >= 1 ? 0.1 : 0) + (operator === 'sentinelle' ? 0.1 : 0); // passif de Sentinelle
+      let crit = 0.05 + (d.weapon.critBonus ?? 0) + (tier('precision') >= 1 ? 0.1 : 0);
+      // Feu continu, passif de Viper : plafond relevé par l'arme elle-même, montée accélérée par un refroidisseur adjacent.
+      let heatCap = operator === 'viper' ? FEU_CAP + (d.weapon.heatBonus ?? 0) : 0;
+      let cooler = 0;
+      let markBoost = d.weapon.markBoost ?? 0;
+      let drum = 0;
       let firstCrit = !!d.weapon.firstCrit;
       let magBonus = 0;
       let magCount = 0;
@@ -153,6 +173,15 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         } else if (od.synergy.kind === 'bipod' && d.tags.includes('arme_longue')) {
           dmgMult = Math.max(dmgMult, 1 + od.synergy.value * om);
           links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de dégâts`, edge });
+        } else if (od.synergy.kind === 'drum') {
+          drum = Math.max(drum, od.synergy.value * om);
+          links.push({ a: o.uid, b: it.uid, label: `chargeur +${pct(od.synergy.value * om)}, recharge +${pct(DRUM_RELOAD)}`, edge });
+        } else if (od.synergy.kind === 'cooler') {
+          cooler = Math.max(cooler, od.synergy.value * om);
+          links.push({ a: o.uid, b: it.uid, label: `Feu continu +${pct(od.synergy.value * om)} plus rapide`, edge });
+        } else if (od.synergy.kind === 'tracer') {
+          markBoost = Math.max(markBoost, od.synergy.value * om);
+          links.push({ a: o.uid, b: it.uid, label: `Marque +${pct(od.synergy.value * om)}`, edge });
         } else if (od.synergy.kind === 'pierce') {
           armorPierce = Math.max(armorPierce, Math.min(1, od.synergy.value * om));
           links.push({ a: o.uid, b: it.uid, label: `perce ${pct(Math.min(1, od.synergy.value * om))} d'armure`, edge });
@@ -161,23 +190,27 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       if (d.wclass === 'Fusil à pompe' && tier('demolition') >= 2) armorPierce = 1;
       const fed = magCount > 0 || !!d.weapon.selfFed;
       reload *= fed ? Math.max(0.3, 1 - magBonus) : UNFED_RELOAD;
+      if (drum > 0) reload *= 1 + DRUM_RELOAD;
       interval /= 1 + grip;
       weapons.push({
         uid: it.uid,
         name: d.name,
         dmg: d.weapon.dmg * m * dmgMult,
         interval,
-        mag: Math.round(d.weapon.mag * MAG_MULT[it.rarity] * (1 + extMag)),
+        mag: Math.round(d.weapon.mag * MAG_MULT[it.rarity] * (1 + extMag) * (1 + drum)),
         reload,
         crit: Math.min(crit, 0.9),
         pellets: d.weapon.targets ?? 1,
         firstCrit,
         pierceEvery: it.rarity === MAX_RARITY ? 5 : 0,
         armorPierce,
-        doubleEvery: d.family === 'rafale' && tier('rafale') >= 2 ? 8 : 0,
+        doubleEvery: d.family === 'rafale' && tier('rafale') >= 2 ? 3 : 0,
         fed,
         critStun: d.weapon.critStun ?? 0,
         trueDmg: (d.weapon.trueDmg ?? 0) * m,
+        heatRate: FEU_RATE * (1 + cooler),
+        heatCap,
+        markBoost,
       });
     }
 
@@ -216,9 +249,10 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       reflect,
       weapons,
       actives,
-      critMult: tier('precision') >= 2 ? 2.5 : 2,
+      critMult: tier('precision') >= 2 ? 2.25 : 2,
       armorRegen: tier('rempart') >= 2 ? 2 : 0,
       flatReduce,
+      markBonus: operator === 'sentinelle' ? MARK_BONUS : 0,
       families,
     },
     links,
@@ -229,7 +263,11 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
 export function estimateDps(l: PlayerLoadout): number {
   let dps = 0;
   for (const w of l.weapons) {
-    const cycle = w.mag * w.interval + w.reload;
+    // Feu continu : bonus moyen de cadence sur un chargeur (montée linéaire jusqu'au plafond).
+    const burst = w.mag * w.interval;
+    const ramp = w.heatRate > 0 ? w.heatCap / w.heatRate : 0;
+    const heat = w.heatCap <= 0 ? 0 : burst <= ramp ? (w.heatRate * burst) / 2 : w.heatCap - (w.heatCap * ramp) / (2 * burst);
+    const cycle = burst / (1 + heat) + w.reload;
     const hits = w.pellets * (1 + (w.doubleEvery > 0 ? 1 / w.doubleEvery : 0));
     dps += ((w.dmg * (1 + w.crit * (l.critMult - 1)) + w.trueDmg) * 0.85 * w.mag * hits) / cycle;
   }
@@ -267,6 +305,9 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     if (wp.critStun) lines.push(`Ses critiques retardent les tirs adverses de ${r1(wp.critStun)} s`);
     if (wp.trueDmg) lines.push(`Incendiaire : +${Math.round(wp.trueDmg * m)} dégâts qui ignorent l'armure`);
     if (wp.targets && wp.targets > 1) lines.push(`Plombs : chaque tir touche ${wp.targets} fois`);
+    if (wp.critBonus) lines.push(`+${pct(wp.critBonus)} de critique`);
+    if (wp.heatBonus) lines.push(`Viper : Feu continu jusqu'à +${pct(FEU_CAP + wp.heatBonus)} au lieu de +${pct(FEU_CAP)}`);
+    if (wp.markBoost) lines.push(`Sentinelle : quand elle consomme la Marque, +${pct(wp.markBoost)} de dégâts en plus`);
     if (inst.rarity === MAX_RARITY) lines.push("Trait légendaire : 1 balle sur 5 ignore l'armure");
   }
   if (d.armor) {
@@ -295,6 +336,9 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     if (d.synergy.kind === 'extmag') lines.push(`Adjacent à une arme : chargeur +${v}`);
     if (d.synergy.kind === 'holo') lines.push(`Adjacent à une arme courte : +${v} de critique`);
     if (d.synergy.kind === 'bipod') lines.push(`Adjacent à une arme longue : +${v} de dégâts`);
+    if (d.synergy.kind === 'drum') lines.push(`Adjacent à une arme : chargeur +${v}, recharge +${pct(DRUM_RELOAD)} (nourrit le Feu continu)`);
+    if (d.synergy.kind === 'cooler') lines.push(`Adjacent à une arme : son Feu continu monte ${v} plus vite (passif de Viper)`);
+    if (d.synergy.kind === 'tracer') lines.push(`Adjacent à une arme : quand elle consomme la Marque, +${v} de dégâts en plus (passif de Sentinelle)`);
   }
   if (d.crafted) lines.push('Objet assemblé (recette)');
   for (const r of RECIPES.filter((rc) => rc.inputs.includes(d.id))) {
