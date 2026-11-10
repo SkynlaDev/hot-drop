@@ -1,7 +1,8 @@
-// Zone de Vestra : lieux sur une carte, gaz qui se resserre vers le point d'exfiltration.
+// Une zone de la run : lieux sur une carte, gaz qui se resserre vers le point d'exfiltration.
 import { Rng, rngFor } from './rng';
 import type { NodeType } from './run';
-import { THREATS, Threat } from '../data/threats';
+import { BOSS_THREATS, THREATS, Threat } from '../data/threats';
+import { BIOMES, BiomeId } from '../data/biomes';
 
 export interface Poi {
   id: number;
@@ -14,15 +15,21 @@ export interface Poi {
 }
 
 export interface Zone {
+  biome: BiomeId;
+  /** Position de la zone dans la run (0, 1 ou 2). */
+  stage: number;
   pois: Poi[];
+  /** Menaces du gardien de l'exfiltration. */
+  exfilThreats: Threat[];
   exfil: { x: number; y: number };
   visited: number[];
   /** Lieu actuel : -1 = pas encore largué, EXFIL_ID = point d'exfiltration. */
   pos: number;
 }
 
-/** Nombre de tours : 7 lieux puis l'exfiltration. */
-export const TURNS = 8;
+/** Nombre de tours d'une zone : 6 lieux puis l'exfiltration. */
+export const TURNS = 7;
+export const STAGES = 3;
 /** Tour (index 0) à partir duquel l'extraction anticipée est possible. */
 export const EARLY_EXFIL_TURN = 3;
 export const MAP_SIZE = 1000;
@@ -31,10 +38,18 @@ export const EXFIL_ID = -2;
 const POI_COUNT = 16;
 const MIN_SPACING = 125;
 
-const NAMES = [
-  'Usine', 'Ferme', 'Hôpital', 'École', 'Dépôt', 'Silo', 'Garage', 'Église', 'Supermarché', 'Château d\'eau',
-  'Station-service', 'Caserne', 'Scierie', 'Motel', 'Pont', 'Antenne', 'Carrière', 'Gare', 'Mairie', 'Entrepôt',
-];
+/** Menaces possibles selon la position de la zone : Assaut n'apparaît qu'à partir de la 2e zone. */
+export function stageThreats(stage: number): Threat[] {
+  return stage === 0 ? THREATS.filter((t) => t !== 'assaut') : [...THREATS];
+}
+
+/** Menaces du gardien : Cdt Kesh (Assaut + une menace du biome) en 3e zone, sinon une menace du biome. */
+export function guardianThreats(biome: BiomeId, stage: number): Threat[] {
+  const allowed = stageThreats(stage);
+  const own = BIOMES[biome].threats.filter((t) => allowed.includes(t));
+  if (stage === STAGES - 1) return [...BOSS_THREATS, ...own.filter((t) => !BOSS_THREATS.includes(t)).slice(0, 1)];
+  return own.slice(0, 1);
+}
 
 /** Rayon de la zone sûre au moment d'arriver au tour `turn` (0 = largage). */
 export function gasRadius(turn: number): number {
@@ -53,8 +68,8 @@ function shuffle<T>(rng: Rng, arr: T[]): T[] {
   return arr;
 }
 
-export function genZone(seed: number): Zone {
-  const rng = rngFor(seed, 'zone');
+export function genZone(seed: number, biome: BiomeId = 'banlieue', stage = 0): Zone {
+  const rng = rngFor(seed, 'zone', stage);
   const exfil = { x: 500 + (rng() - 0.5) * 240, y: 500 + (rng() - 0.5) * 240 };
   const pts: { x: number; y: number }[] = [];
   for (let tries = 0; tries < 4000 && pts.length < POI_COUNT; tries++) {
@@ -72,17 +87,34 @@ export function genZone(seed: number): Zone {
     ...Array<Poi['type']>(2).fill('elite'),
     ...Array<Poi['type']>(2).fill('planque'),
   ]);
-  const names = shuffle(rng, [...NAMES]);
+  const names = shuffle(rng, [...BIOMES[biome].places]);
   const pois: Poi[] = pts.map((p, i) => ({ id: i, x: Math.round(p.x), y: Math.round(p.y), type: types[i % types.length], name: names[i % names.length], threats: [] }));
-  // Menaces : distribuées en cycle pour qu'aucune ne couvre plus d'un tiers des combats.
-  const cycle = shuffle(rng, [...THREATS]);
+  // Menaces : distribuées en cycle, celles du biome en double, pour qu'aucune ne couvre plus d'un tiers des combats.
+  const allowed = stageThreats(stage);
+  const cycle = shuffle(rng, [...allowed, ...BIOMES[biome].threats.filter((t) => allowed.includes(t))]);
+  // Plafond : une menace ne couvre jamais plus d'un tiers des lieux de combat.
+  const fights = pois.filter((p) => p.type === 'contrat' || p.type === 'elite');
+  const cap = Math.ceil(fights.length / 3);
+  const used = new Map<Threat, number>();
   let c = 0;
-  for (const p of pois) {
-    if (p.type !== 'contrat' && p.type !== 'elite') continue;
-    p.threats.push(cycle[c++ % cycle.length]);
-    if (p.type === 'elite') p.threats.push(cycle[c++ % cycle.length]);
+  const next = (not?: Threat): Threat => {
+    for (let i = 0; i < cycle.length * 2; i++) {
+      const t = cycle[c++ % cycle.length];
+      if (t !== not && (used.get(t) ?? 0) < cap) {
+        used.set(t, (used.get(t) ?? 0) + 1);
+        return t;
+      }
+    }
+    return cycle.find((t) => t !== not) ?? cycle[0];
+  };
+  for (const p of fights) {
+    p.threats.push(next());
+    if (p.type === 'elite') p.threats.push(next(p.threats[0]));
   }
-  return { pois, exfil: { x: Math.round(exfil.x), y: Math.round(exfil.y) }, visited: [], pos: -1 };
+  return {
+    biome, stage, pois, exfilThreats: guardianThreats(biome, stage),
+    exfil: { x: Math.round(exfil.x), y: Math.round(exfil.y) }, visited: [], pos: -1,
+  };
 }
 
 export function posOf(z: Zone): { x: number; y: number } | null {

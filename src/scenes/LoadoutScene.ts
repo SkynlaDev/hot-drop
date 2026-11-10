@@ -2,14 +2,14 @@ import Phaser from 'phaser';
 import { BUTTON, C, CELL, COMBAT, GRID_X, GRID_Y, MONO, RESERVE, SELL, STATUS, TRAY, W } from '../config';
 import { buildEncounter } from '../data/enemies';
 import { FAMILY_INFO, ITEMS } from '../data/items';
-import { BOSS_THREATS, THREAT_INFO, Threat } from '../data/threats';
+import { THREAT_INFO, Threat } from '../data/threats';
 import { CombatEvent, CombatResult, EnemyUnit, simulate } from '../logic/combat';
 import { COLS, ItemInst, ROWS, Rot, canPlace, cellKey, cellZones, cellsAt, dims, expandable, itemAt, maskOf, nextRot, overlapping, rotationIsNoop } from '../logic/grid';
 import { RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
 import { hashParts, rngFor } from '../logic/rng';
 import {
   EXTENSION_CELLS, FLOORS, NODE_INFO, NodeType, REROLL_COST, extensionPrice, RESERVE_MAX, RunState, START_SURSIS, addDrops, canFuse, fuse, isCombat,
-  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem,
+  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level,
 } from '../logic/run';
 import { computeLoadout, describe, estimateDps, OPERATOR, sellValue } from '../logic/stats';
 import { Button, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
@@ -97,11 +97,16 @@ export default class LoadoutScene extends Phaser.Scene {
     super('loadout');
   }
 
+  /** Vrai dans la 3e et dernière zone : l'exfiltration est gardée par Cdt Kesh. */
+  private get finalZone(): boolean {
+    return this.run.stage >= 2;
+  }
+
   init(data: { node: NodeType; place?: string; threats?: Threat[] }) {
     this.run = this.registry.get('run');
     this.node = data.node;
     this.place = data.place ?? NODE_INFO[data.node].name;
-    this.threats = data.node === 'boss' ? BOSS_THREATS : data.threats ?? [];
+    this.threats = data.node === 'boss' ? this.run.zone?.exfilThreats ?? [] : data.threats ?? [];
     this.famTiers = null;
     this.phase = isCombat(this.node) ? 'prep' : 'post';
     this.views = new Map();
@@ -116,7 +121,10 @@ export default class LoadoutScene extends Phaser.Scene {
     this.lastCredits = -1;
     this.freeze = 0;
     this.hidden = new Set();
-    this.enemies = isCombat(this.node) ? buildEncounter(this.node, this.run.floor, rngFor(this.run.seed, this.run.floor, 'enc'), this.threats) : [];
+    const node = this.node;
+    this.enemies = isCombat(node)
+      ? buildEncounter(node === 'boss' && !this.finalZone ? 'gardien' : node, level(this.run), rngFor(this.run.seed, this.run.stage, this.run.floor, 'enc'), this.threats)
+      : [];
   }
 
   create() {
@@ -309,7 +317,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     this.lastCredits = r.credits;
     this.statusText.setText(`Sursis ${'●'.repeat(r.sursis)}${'○'.repeat(Math.max(0, 3 - r.sursis))}   ${r.credits} cr`);
-    this.statusRight.setText(`Tour ${Math.min(r.floor + 1, FLOORS)}/${FLOORS} · ${this.place}`);
+    this.statusRight.setText(`Z${r.stage + 1} · Tour ${Math.min(r.floor + 1, FLOORS)}/${FLOORS} · ${this.place}`);
 
     if (this.phase !== 'combat') this.drawPreview(loadout, links.length);
     this.updateButtons();
@@ -726,8 +734,8 @@ export default class LoadoutScene extends Phaser.Scene {
   /** Récompense des nœuds sans combat, donnée une seule fois par étage. */
   private claimNodeReward() {
     const r = this.run;
-    if (r.claimedFloor === r.floor) return;
-    r.claimedFloor = r.floor;
+    if (r.claimedFloor === level(r)) return;
+    r.claimedFloor = level(r);
     const center = { x: COMBAT.x + COMBAT.w / 2 + 120, y: COMBAT.y + 200 };
     if (this.node === 'caisse') {
       const { taken, credits } = addDrops(r, rollDrops(r, 2, 0, 'caisse'));
@@ -819,6 +827,11 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private continueRun() {
+    if (!this.run.zone) {
+      saveRun(this.run);
+      this.scene.start('briefing');
+      return;
+    }
     this.run.floor++;
     this.run.shop = undefined;
     saveRun(this.run);
@@ -835,7 +848,7 @@ export default class LoadoutScene extends Phaser.Scene {
   private startCombat() {
     const { loadout } = computeLoadout(this.run.items);
     this.run.attempts++;
-    const result = simulate(loadout, this.enemies, hashParts(this.run.seed, this.run.floor, 'combat', this.run.attempts), this.threats);
+    const result = simulate(loadout, this.enemies, hashParts(this.run.seed, this.run.stage, this.run.floor, 'combat', this.run.attempts), this.threats);
     this.phase = 'combat';
     this.resultText = '';
     const L = this.combatLayer;
@@ -1081,19 +1094,24 @@ export default class LoadoutScene extends Phaser.Scene {
     const r = this.run;
     // Chaque ennemi abattu lâche un objet, même en cas de défaite.
     const killedAt = P.enemies.filter((a) => a.hp <= 0).map((a) => ({ x: a.x, y: a.feet - 90 }));
-    const loot = killedAt.length && !(P.result.win && this.node === 'boss')
-      ? addDrops(r, rollDrops(r, killedAt.length, this.node === 'elite' ? 2 : 0, `combat-${r.attempts}`))
+    const loot = killedAt.length && !(P.result.win && this.node === 'boss' && this.finalZone)
+      ? addDrops(r, rollDrops(r, killedAt.length, this.node === 'elite' || this.node === 'boss' ? 2 : 0, `combat-${r.attempts}`))
       : { taken: [] as ItemInst[], credits: 0 };
     loot.taken.forEach((it) => this.hidden.add(it.uid));
     if (P.result.win) {
-      const gain = rewardCredits(this.node, r.floor);
+      const gain = rewardCredits(this.node === 'boss' ? 'elite' : this.node, level(r));
       r.credits += gain;
       vibrate(40);
-      if (this.node === 'boss') {
+      if (this.node === 'boss' && completeZone(r)) {
         r.over = 'win';
         this.phase = 'over';
         this.resultText = 'Cdt Kesh neutralisé.\nL\'hélico est en approche : extraction !';
         banner(this, 'EXTRACTION', C.goodStr, 236);
+      } else if (this.node === 'boss') {
+        this.phase = 'post';
+        this.resultText = `Lieutenant neutralisé, +${gain} crédits.\nExfiltration réussie : direction\nla zone suivante.`;
+        banner(this, 'ZONE TERMINÉE', C.goodStr, 236);
+        toast(this, `+${gain} crédits`, C.accentStr, 330);
       } else {
         this.phase = 'post';
         this.resultText = `Victoire en ${Math.round(P.result.duration)} s.\n+${gain} crédits.\nRange ton butin puis continue.`;
@@ -1112,7 +1130,7 @@ export default class LoadoutScene extends Phaser.Scene {
         banner(this, 'DÉFAITE', C.dangerStr, 236);
       } else if (this.node === 'boss') {
         this.phase = 'prep';
-        this.resultText = `${P.result.timeout ? 'Temps écoulé' : 'Défaite'} : −1 sursis.\nLe boss t'attend toujours.\nRéorganise ton gilet et retente.`;
+        this.resultText = `${P.result.timeout ? 'Temps écoulé' : 'Défaite'} : −1 sursis.\n${this.finalZone ? 'Le Cdt Kesh' : 'Le lieutenant'} t'attend toujours.\nRéorganise ton gilet et retente.`;
         banner(this, 'DÉFAITE', C.dangerStr, 236);
         toast(this, '−1 sursis', C.dangerStr, 330);
       } else {

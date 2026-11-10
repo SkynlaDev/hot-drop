@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { C, H, W } from './config';
+import BriefingScene from './scenes/BriefingScene';
 import EndScene from './scenes/EndScene';
 import LoadoutScene from './scenes/LoadoutScene';
 import MapScene from './scenes/MapScene';
@@ -13,7 +14,7 @@ const game = new Phaser.Game({
   backgroundColor: C.bg,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   input: { activePointers: 1 },
-  scene: [MenuScene, MapScene, LoadoutScene, EndScene],
+  scene: [MenuScene, BriefingScene, MapScene, LoadoutScene, EndScene],
 });
 
 // Accès de débogage depuis la console.

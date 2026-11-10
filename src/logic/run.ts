@@ -3,7 +3,8 @@ import { ItemInst, START_UNLOCKED, canPlace } from './grid';
 import { MAX_RARITY, rollRarity } from './rarity';
 import { Rng, rngFor } from './rng';
 import { itemPrice } from './stats';
-import { TURNS, Zone, genZone } from './zone';
+import { STAGES, TURNS, Zone, genZone } from './zone';
+import { BIOME_IDS, BiomeId } from '../data/biomes';
 
 export type NodeType = 'contrat' | 'elite' | 'marchand' | 'caisse' | 'planque' | 'boss';
 
@@ -16,14 +17,14 @@ export const NODE_INFO: Record<NodeType, { name: string; letter: string; desc: s
   boss: { name: 'Boss', letter: 'B', desc: 'Cdt Kesh et son escorte. Victoire = extraction' },
 };
 
-/** Nombre de tours d'une run (7 lieux + exfiltration). */
+/** Nombre de tours d'une zone (6 lieux + exfiltration). */
 export const FLOORS = TURNS;
 export const RESERVE_MAX = 6;
 export const START_SURSIS = 3;
 export const REROLL_COST = 2;
 /** Une extension débloque ce nombre de cases du gilet. */
 export const EXTENSION_CELLS = 3;
-const SAVE_KEY = 'loadout.run.v4';
+const SAVE_KEY = 'hotdrop.run.v5';
 
 export interface ShopOffer {
   inst: ItemInst;
@@ -32,11 +33,20 @@ export interface ShopOffer {
 }
 
 export interface RunState {
-  version: 4;
+  version: 5;
   seed: number;
-  /** Nombre de lieux déjà visités = tour en cours (0 = largage). Sert aussi à la difficulté. */
+  /** Les 3 biomes de la run, tirés au début. */
+  biomes: BiomeId[];
+  /** Biomes déjà terminés, dans l'ordre de visite. */
+  done: BiomeId[];
+  /** Position de la zone en cours dans la run (0, 1 ou 2). */
+  stage: number;
+  /** Tour en cours dans la zone (0 = largage). */
   floor: number;
-  zone: Zone;
+  /** Zone en cours ; null = au briefing, avant de choisir la prochaine zone. */
+  zone: Zone | null;
+  /** Lieux visités sur toute la run. */
+  placesTotal: number;
   credits: number;
   sursis: number;
   items: ItemInst[];
@@ -49,7 +59,7 @@ export interface RunState {
   nextUid: number;
   attempts: number;
   shop?: { floor: number; rerolls: number; offers: ShopOffer[] };
-  /** Dernier étage dont la récompense hors combat (caisse, planque) a été donnée. */
+  /** Dernier niveau (voir level) dont la récompense hors combat (caisse, planque) a été donnée. */
   claimedFloor?: number;
   speed: number;
   over?: 'win' | 'lose';
@@ -59,12 +69,53 @@ export function isCombat(n: NodeType): n is 'contrat' | 'elite' | 'boss' {
   return n === 'contrat' || n === 'elite' || n === 'boss';
 }
 
+/** Niveau de difficulté : tour dans la zone, décalé de 4 par zone terminée. */
+export function level(run: RunState): number {
+  return run.floor + 4 * run.stage;
+}
+
+export function drawBiomes(seed: number): BiomeId[] {
+  const rng = rngFor(seed, 'biomes');
+  const ids = [...BIOME_IDS];
+  const out: BiomeId[] = [];
+  while (out.length < STAGES) out.push(ids.splice(Math.floor(rng() * ids.length), 1)[0]);
+  return out;
+}
+
+/** Biomes encore à jouer, dans l'ordre du tirage. */
+export function remainingBiomes(run: RunState): BiomeId[] {
+  return run.biomes.filter((b) => !run.done.includes(b));
+}
+
+/** Choix au briefing : génère la carte du biome pour la position actuelle. */
+export function enterZone(run: RunState, biome: BiomeId): void {
+  run.zone = genZone(run.seed, biome, run.stage);
+  run.floor = 0;
+  run.shop = undefined;
+}
+
+/** Exfiltration réussie : la zone est terminée. Renvoie vrai si c'était la dernière. */
+export function completeZone(run: RunState): boolean {
+  if (!run.zone) return false;
+  run.done.push(run.zone.biome);
+  if (run.done.length >= STAGES) return true;
+  run.stage++;
+  run.floor = 0;
+  run.zone = null;
+  run.shop = undefined;
+  return false;
+}
+
 export function newRun(seed = Math.floor(Math.random() * 1e9)): RunState {
   const run: RunState = {
-    version: 4,
+    version: 5,
     seed,
+    biomes: drawBiomes(seed),
+    done: [],
+    stage: 0,
     floor: 0,
-    zone: genZone(seed),
+    zone: null,
+    placesTotal: 0,
     credits: 10,
     sursis: START_SURSIS,
     items: [],
@@ -89,18 +140,19 @@ export function makeItem(run: RunState, defId: string, rarity: number): ItemInst
 }
 
 function randomItems(run: RunState, rng: Rng, count: number, guarantee: number): ItemInst[] {
+  const zoneOdds = run.stage;
   const ids = [...ITEM_IDS];
   const out: ItemInst[] = [];
   for (let i = 0; i < count && ids.length; i++) {
     const id = ids.splice(Math.floor(rng() * ids.length), 1)[0];
-    out.push({ uid: -1, defId: id, rarity: rollRarity(rng, 0, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
+    out.push({ uid: -1, defId: id, rarity: rollRarity(rng, zoneOdds, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
   }
   return out;
 }
 
 /** Butin tiré au hasard (ennemis abattus, caisse). Déterministe pour une graine et un usage donnés. */
 export function rollDrops(run: RunState, count: number, guarantee: number, salt: string | number): ItemInst[] {
-  return randomItems(run, rngFor(run.seed, run.floor, 'drops', salt), count, guarantee);
+  return randomItems(run, rngFor(run.seed, run.stage, run.floor, 'drops', salt), count, guarantee);
 }
 
 /** Ajoute le butin à la réserve ; ce qui ne rentre pas est revendu automatiquement. */
@@ -116,15 +168,15 @@ export function addDrops(run: RunState, drops: ItemInst[]): { taken: ItemInst[];
 }
 
 export function shopOffers(run: RunState): ShopOffer[] {
-  if (run.shop && run.shop.floor === run.floor) return run.shop.offers;
-  run.shop = { floor: run.floor, rerolls: 0, offers: [] };
+  if (run.shop && run.shop.floor === level(run)) return run.shop.offers;
+  run.shop = { floor: level(run), rerolls: 0, offers: [] };
   rollShop(run);
   return run.shop.offers;
 }
 
 export function rollShop(run: RunState): void {
   if (!run.shop) return;
-  const rng = rngFor(run.seed, run.floor, 'shop', run.shop.rerolls);
+  const rng = rngFor(run.seed, run.stage, run.floor, 'shop', run.shop.rerolls);
   run.shop.offers = randomItems(run, rng, 4, 0).map((inst) => ({ inst, price: itemPrice(inst.defId, inst.rarity), sold: false }));
 }
 
@@ -173,7 +225,7 @@ export function loadRun(): RunState | null {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const run = JSON.parse(raw) as RunState;
-    if (run.version !== 4 || run.over) return null;
+    if (run.version !== 5 || run.over) return null;
     sanitizeLayout(run);
     return run;
   } catch {

@@ -15,9 +15,9 @@ npx vite-node tests/balance.ts   # taux de victoire par étage, pour l'équilibr
 
 ## Structure
 
-- `src/data/` : objets et ennemis (valeurs de rareté Commun)
+- `src/data/` : objets, ennemis, menaces et biomes (valeurs de rareté Commun)
 - `src/logic/` : règles pures, sans Phaser : grille, rareté, stats et synergies, simulation de combat déterministe, run et sauvegarde
-- `src/scenes/` : Menu, Carte, Gilet (préparation, combat, boutique, loot), Fin
+- `src/scenes/` : Menu, Briefing (choix de la prochaine zone), Carte, Gilet (préparation, combat, boutique, loot), Fin
 - `src/ui/` : boutons, vues d'objets, modales
 
 ## Contrôles

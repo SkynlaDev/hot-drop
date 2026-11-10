@@ -4,8 +4,9 @@ import { simulate } from '../src/logic/combat';
 import { ItemInst, Rot, START_UNLOCKED, expandable, canPlace, cellZones, cellsAt, inZone, maskOf, sharedEdge } from '../src/logic/grid';
 import { rollRarity } from '../src/logic/rarity';
 import { mulberry32, rngFor } from '../src/logic/rng';
-import { RESERVE_MAX, addDrops, canFuse, fuse, newRun, rollDrops, sanitizeLayout } from '../src/logic/run';
-import { EXFIL_ID, MOVE_RANGE, TURNS, dist, genZone, inSafeZone, options } from '../src/logic/zone';
+import { RESERVE_MAX, addDrops, canFuse, completeZone, enterZone, fuse, level, newRun, remainingBiomes, rollDrops, sanitizeLayout } from '../src/logic/run';
+import { BIOMES, BIOME_IDS } from '../src/data/biomes';
+import { EXFIL_ID, MOVE_RANGE, TURNS, dist, genZone, guardianThreats, inSafeZone, options } from '../src/logic/zone';
 import { computeLoadout, familyStates } from '../src/logic/stats';
 import { BLINDES_REDUCTION, THREATS } from '../src/data/threats';
 
@@ -259,5 +260,45 @@ describe('menaces', () => {
         expect(n).toBeLessThanOrEqual(Math.ceil(fights.length / 3));
       }
     }
+  });
+});
+
+describe('run en 3 zones', () => {
+  it('tire 3 biomes différents, de façon déterministe', () => {
+    const r = newRun(11);
+    expect(new Set(r.biomes).size).toBe(3);
+    expect(newRun(11).biomes).toEqual(r.biomes);
+    expect(r.zone).toBeNull();
+  });
+
+  it('enchaîne briefing, zones et fin de run dans l’ordre choisi', () => {
+    const r = newRun(4);
+    const order = [r.biomes[2], r.biomes[0], r.biomes[1]];
+    for (let i = 0; i < 3; i++) {
+      expect(remainingBiomes(r)).toHaveLength(3 - i);
+      enterZone(r, order[i]);
+      expect(r.zone!.biome).toBe(order[i]);
+      expect(r.zone!.stage).toBe(i);
+      r.floor = 5;
+      expect(level(r)).toBe(5 + 4 * i);
+      expect(completeZone(r)).toBe(i === 2);
+    }
+    expect(r.done).toEqual(order);
+  });
+
+  it('pas d’Assaut en 1re zone ; Cdt Kesh a Assaut en 3e zone', () => {
+    for (const b of BIOME_IDS) {
+      for (let seed = 1; seed < 20; seed++) {
+        const z = genZone(seed, b, 0);
+        expect(z.pois.some((p) => p.threats.includes('assaut'))).toBe(false);
+        expect(z.exfilThreats).not.toContain('assaut');
+      }
+      expect(guardianThreats(b, 2)).toContain('assaut');
+    }
+  });
+
+  it('les noms des lieux viennent du biome', () => {
+    const z = genZone(3, 'port', 1);
+    for (const p of z.pois) expect(BIOMES.port.places).toContain(p.name);
   });
 });

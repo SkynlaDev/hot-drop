@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { C, H, W } from '../config';
-import { BOSS_THREATS, THREAT_INFO, Threat } from '../data/threats';
+import { BIOMES } from '../data/biomes';
+import { THREAT_INFO, Threat } from '../data/threats';
 import { rngFor } from '../logic/rng';
-import { NODE_INFO, NodeType, RunState, START_SURSIS, saveRun } from '../logic/run';
-import { EARLY_EXFIL_TURN, EXFIL_ID, MAP_SIZE, MOVE_RANGE, Poi, TURNS, dist, gasRadius, inSafeZone, options, posOf } from '../logic/zone';
+import { NODE_INFO, NodeType, RunState, START_SURSIS, level, saveRun } from '../logic/run';
+import { EARLY_EXFIL_TURN, EXFIL_ID, MAP_SIZE, MOVE_RANGE, Poi, STAGES, TURNS, Zone, dist, gasRadius, inSafeZone, options, posOf } from '../logic/zone';
 import { Button, button, fadeIn, panel, txt, vibrate } from '../ui/widgets';
 
 const MAP = { x: 20, y: 128, w: 680, h: 680 };
@@ -24,6 +25,7 @@ type Target = { kind: 'poi'; poi: Poi } | { kind: 'exfil' };
 
 export default class MapScene extends Phaser.Scene {
   private run!: RunState;
+  private zone!: Zone;
   private gasG!: Phaser.GameObjects.Graphics;
   private marker!: Phaser.GameObjects.Container;
   private selG!: Phaser.GameObjects.Graphics;
@@ -40,6 +42,7 @@ export default class MapScene extends Phaser.Scene {
 
   init() {
     this.run = this.registry.get('run');
+    if (this.run.zone) this.zone = this.run.zone;
     this.selected = null;
     this.busy = false;
   }
@@ -52,8 +55,12 @@ export default class MapScene extends Phaser.Scene {
   }
 
   create() {
+    if (!this.run.zone) {
+      this.scene.start('briefing');
+      return;
+    }
     fadeIn(this);
-    const z = this.run.zone;
+    const z = this.zone;
     const turn = this.run.floor;
     const opts = options(z, turn);
     this.reachable = new Set(opts.pois.map((p) => p.id));
@@ -109,17 +116,18 @@ export default class MapScene extends Phaser.Scene {
   // ---------------------------------------------------------------- dessin
 
   private drawTerrain() {
-    const rng = rngFor(this.run.seed, 'terrain');
+    const rng = rngFor(this.run.seed, 'terrain', this.zone.stage);
+    const biome = BIOMES[this.zone.biome];
     const g = this.add.graphics();
-    g.fillStyle(0x1c2217, 1);
+    g.fillStyle(biome.ground, 1);
     g.fillRect(MAP.x, MAP.y, MAP.w, MAP.h);
-    const tones = [0x232b1c, 0x2a291d, 0x1e2924, 0x262f1f];
+    const tones = biome.tones;
     for (let i = 0; i < 26; i++) {
       g.fillStyle(tones[i % tones.length], 0.9);
       g.fillEllipse(MAP.x + rng() * MAP.w, MAP.y + rng() * MAP.h, 60 + rng() * 180, 40 + rng() * 120);
     }
     // Rivière
-    g.lineStyle(14, 0x22343a, 1);
+    g.lineStyle(this.zone.biome === 'port' ? 30 : 14, biome.water, 1);
     const pts: Phaser.Math.Vector2[] = [];
     const y0 = MAP.y + MAP.h * (0.2 + rng() * 0.6);
     for (let i = 0; i <= 12; i++) pts.push(new Phaser.Math.Vector2(MAP.x + (i / 12) * MAP.w, y0 + Math.sin(i * 0.9 + rng()) * 50));
@@ -131,7 +139,7 @@ export default class MapScene extends Phaser.Scene {
       g.lineBetween(MAP.x, MAP.y + i * 100 * K, MAP.x + MAP.w, MAP.y + i * 100 * K);
     }
     // Routes : chaque lieu relié à ses 2 voisins les plus proches
-    const z = this.run.zone;
+    const z = this.zone;
     const nodes = [...z.pois, { id: EXFIL_ID, ...z.exfil }];
     const done = new Set<string>();
     g.lineStyle(5, 0x3e4334, 1);
@@ -147,7 +155,7 @@ export default class MapScene extends Phaser.Scene {
   }
 
   private drawGas(r: number) {
-    const z = this.run.zone;
+    const z = this.zone;
     const g = this.gasG;
     g.clear();
     const cx = this.sx(z.exfil.x);
@@ -183,7 +191,7 @@ export default class MapScene extends Phaser.Scene {
   }
 
   private drawPois(turn: number) {
-    const z = this.run.zone;
+    const z = this.zone;
     for (const p of z.pois) {
       const x = this.sx(p.x);
       const y = this.sy(p.y);
@@ -229,7 +237,7 @@ export default class MapScene extends Phaser.Scene {
   }
 
   private drawExfil() {
-    const z = this.run.zone;
+    const z = this.zone;
     const x = this.sx(z.exfil.x);
     const y = this.sy(z.exfil.y);
     if (this.exfilOk) {
@@ -247,7 +255,7 @@ export default class MapScene extends Phaser.Scene {
     g.fillStyle(0x111410, 1);
     g.fillRect(x - 7, y - 12, 3, 24);
     g.fillTriangle(x - 4, y - 12, x + 11, y - 6, x - 4, y);
-    BOSS_THREATS.forEach((th, i) => this.threatBadge(x + 26 + i * 22, y - 22, th));
+    z.exfilThreats.forEach((th, i) => this.threatBadge(x + 26 + i * 22, y - 22, th));
     txt(this, x, y + 38, 'EXFIL', 16, C.accentStr, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 4 }).setOrigin(0.5);
     const zone = this.add.zone(x, y + 8, 84, 80).setInteractive({ useHandCursor: this.exfilOk });
     zone.on('pointerup', () => {
@@ -270,8 +278,8 @@ export default class MapScene extends Phaser.Scene {
     panel(this, PANEL.x, PANEL.y, PANEL.w, PANEL.h).setDepth(30);
 
     const r = this.run;
-    txt(this, 24, 34, 'ZONE DE VESTRA', 30, C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5).setDepth(31);
-    txt(this, W - 24, 34, `GAZ · TOUR ${Math.min(turn + 1, TURNS)}/${TURNS}`, 24, '#d4ec6a', { fontStyle: 'bold' }).setOrigin(1, 0.5).setDepth(31);
+    txt(this, 24, 34, BIOMES[this.zone.biome].name.toUpperCase(), 30, C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5).setDepth(31);
+    txt(this, W - 24, 34, `ZONE ${this.zone.stage + 1}/${STAGES} · TOUR ${Math.min(turn + 1, TURNS)}/${TURNS}`, 24, '#d4ec6a', { fontStyle: 'bold' }).setOrigin(1, 0.5).setDepth(31);
     txt(this, 24, 84, `Sursis ${'●'.repeat(r.sursis)}${'○'.repeat(Math.max(0, START_SURSIS - r.sursis))}   ${r.credits} cr`, 24, C.quiet).setOrigin(0, 0.5).setDepth(31);
     txt(this, W - 24, 84, '- - -  prochaine zone sûre', 18, C.quiet).setOrigin(1, 0.5).setDepth(31);
   }
@@ -287,7 +295,7 @@ export default class MapScene extends Phaser.Scene {
   private select(t: Target) {
     this.selected = t;
     vibrate(8);
-    const z = this.run.zone;
+    const z = this.zone;
     const here = posOf(z);
     const to = t.kind === 'poi' ? t.poi : z.exfil;
     this.selG.clear();
@@ -309,8 +317,8 @@ export default class MapScene extends Phaser.Scene {
 
   private threat(type: NodeType): number {
     if (type === 'boss') return 5;
-    if (type === 'elite') return Math.min(5, 2 + Math.floor(this.run.floor / 2));
-    if (type === 'contrat') return Math.min(4, 1 + Math.floor(this.run.floor / 2));
+    if (type === 'elite') return Math.min(5, 2 + Math.floor(level(this.run) / 3));
+    if (type === 'contrat') return Math.min(4, 1 + Math.floor(level(this.run) / 3));
     return 0;
   }
 
@@ -320,7 +328,7 @@ export default class MapScene extends Phaser.Scene {
     const x0 = PANEL.x + 28;
     let y = PANEL.y + 26;
     const t = this.selected;
-    const landing = this.run.zone.pos === -1;
+    const landing = this.zone.pos === -1;
     if (!t) {
       I.add(txt(this, x0, y, landing ? 'Choisis ton point de largage' : 'Choisis ta destination', 30, C.text, { fontStyle: 'bold' }));
       I.add(txt(this, x0, y + 52, landing
@@ -338,10 +346,13 @@ export default class MapScene extends Phaser.Scene {
     I.add(txt(this, PANEL.x + PANEL.w - 28, y + 8, NODE_INFO[type].name.toUpperCase(), 22, col, { fontStyle: 'bold' }).setOrigin(1, 0));
     y += 56;
     const early = t.kind === 'exfil' && this.run.floor < TURNS - 1;
+    const last = this.zone.stage === STAGES - 1;
+    const guard = last ? 'le Cdt Kesh' : 'un lieutenant';
+    const after = last ? 'la run est finie' : 'tu passes à la zone suivante';
     const desc = t.kind === 'exfil'
       ? early
-        ? 'Extraction anticipée : le Cdt Kesh garde le point.\nGagne et la run est finie, plus tôt que prévu.'
-        : 'Le gaz s\'est refermé. Le Cdt Kesh garde le\npoint d\'exfiltration : bats-le pour t\'extraire.'
+        ? `Extraction anticipée : ${guard} garde le point.\nGagne et ${after}, plus tôt que prévu.`
+        : `Le gaz s'est refermé. ${guard[0].toUpperCase() + guard.slice(1)} garde le\npoint d'exfiltration : bats-le et ${after}.`
       : NODE_INFO[type].desc;
     I.add(txt(this, x0, y, desc, 21, C.quiet, { wordWrap: { width: PANEL.w - 56 }, lineSpacing: 6 }));
     y += 64;
@@ -355,7 +366,7 @@ export default class MapScene extends Phaser.Scene {
       }
       I.add(g);
     }
-    const threats = t.kind === 'poi' ? t.poi.threats : BOSS_THREATS;
+    const threats = t.kind === 'poi' ? t.poi.threats : this.zone.exfilThreats;
     let ty = y + 38;
     for (const th of threats) {
       const ti = THREAT_INFO[th];
@@ -377,13 +388,16 @@ export default class MapScene extends Phaser.Scene {
     this.busy = true;
     this.goBtn.setEnabled(false);
     const run = this.run;
-    const z = run.zone;
+    const z = this.zone;
     const landing = z.pos === -1;
     const to = t.kind === 'poi' ? t.poi : z.exfil;
     const node: NodeType = t.kind === 'poi' ? t.poi.type : 'boss';
     const place = t.kind === 'poi' ? t.poi.name : 'Exfiltration';
     z.pos = t.kind === 'poi' ? t.poi.id : EXFIL_ID;
-    if (t.kind === 'poi') z.visited.push(t.poi.id);
+    if (t.kind === 'poi') {
+      z.visited.push(t.poi.id);
+      run.placesTotal++;
+    }
     saveRun(run);
     vibrate(15);
 
@@ -406,7 +420,7 @@ export default class MapScene extends Phaser.Scene {
       onUpdate: () => this.drawGas(state.r),
       onComplete: () => {
         this.cameras.main.fadeOut(220, 20, 22, 15);
-        this.time.delayedCall(240, () => this.scene.start('loadout', { node, place, threats: t.kind === 'poi' ? t.poi.threats : BOSS_THREATS }));
+        this.time.delayedCall(240, () => this.scene.start('loadout', { node, place, threats: t.kind === 'poi' ? t.poi.threats : z.exfilThreats }));
       },
     });
   }

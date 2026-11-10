@@ -24,7 +24,7 @@ export default class EndScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const lines = [
-      `Lieux visités : ${run.zone.visited.length}${win ? ' · extraction réussie' : ''}`,
+      `Lieux visités : ${run.placesTotal} · zones terminées : ${run.done.length}/3${win ? ' · extraction réussie' : ''}`,
       `Objets dans le gilet : ${run.items.filter((i) => i.placed).length}`,
       `Crédits restants : ${run.credits}`,
     ];
@@ -33,7 +33,7 @@ export default class EndScene extends Phaser.Scene {
       const r = newRun();
       saveRun(r);
       this.registry.set('run', r);
-      this.scene.start('map');
+      this.scene.start('briefing');
     }, { primary: true });
     button(this, 160, 944, 400, 84, 'Menu', () => this.scene.start('menu'));
   }

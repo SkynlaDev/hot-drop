@@ -16,7 +16,7 @@ export default class MenuScene extends Phaser.Scene {
     for (let y = 0; y < 1280; y += 46) g.lineBetween(0, y, W, y);
 
     this.add.text(W / 2, 300, 'HOT DROP', { fontFamily: FONT, fontSize: '104px', fontStyle: 'bold', color: C.accentStr, resolution: 2 }).setOrigin(0.5);
-    txt(this, W / 2, 380, 'Zone de Vestra · prototype', 28, C.quiet).setOrigin(0.5);
+    txt(this, W / 2, 380, 'Région de Vestra · prototype', 28, C.quiet).setOrigin(0.5);
     txt(this, W / 2, 470, 'Range ton gilet. Chaque case compte.', 30).setOrigin(0.5);
 
     const saved = loadRun();
@@ -33,7 +33,7 @@ export default class MenuScene extends Phaser.Scene {
       const run = newRun();
       saveRun(run);
       this.registry.set('run', run);
-      this.scene.start('map');
+      this.scene.start('briefing');
     }, { primary: !saved });
 
     const help = [
