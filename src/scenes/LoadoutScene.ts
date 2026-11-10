@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BUTTON, C, CELL, COMBAT, GRID_X, GRID_Y, MONO, RESERVE, SELL, STATUS, TRAY, W } from '../config';
 import { buildEncounter } from '../data/enemies';
-import { FAMILY_INFO, ITEMS } from '../data/items';
+import { FAMILY_INFO, Family, ITEMS } from '../data/items';
 import { THREAT_INFO, Threat } from '../data/threats';
 import { CombatEvent, CombatResult, EnemyUnit, simulate } from '../logic/combat';
 import { COLS, ItemInst, ROWS, Rot, canPlace, cellKey, cellZones, cellsAt, dims, expandable, itemAt, maskOf, nextRot, overlapping, rotationIsNoop } from '../logic/grid';
@@ -62,6 +62,8 @@ export default class LoadoutScene extends Phaser.Scene {
   private node!: NodeType;
   private place = '';
   private threats: Threat[] = [];
+  /** Famille de butin annoncée par le lieu. */
+  private family?: Family;
   private famTiers: Map<string, number> | null = null;
   private phase: Phase = 'prep';
   private enemies: EnemyUnit[] = [];
@@ -102,8 +104,9 @@ export default class LoadoutScene extends Phaser.Scene {
     return this.run.stage >= 2;
   }
 
-  init(data: { node: NodeType; place?: string; threats?: Threat[] }) {
+  init(data: { node: NodeType; place?: string; threats?: Threat[]; family?: Family }) {
     this.run = this.registry.get('run');
+    this.family = data.family;
     this.node = data.node;
     this.place = data.place ?? NODE_INFO[data.node].name;
     this.threats = data.node === 'boss' ? this.run.zone?.exfilThreats ?? [] : data.threats ?? [];
@@ -738,7 +741,7 @@ export default class LoadoutScene extends Phaser.Scene {
     r.claimedFloor = level(r);
     const center = { x: COMBAT.x + COMBAT.w / 2 + 120, y: COMBAT.y + 200 };
     if (this.node === 'caisse') {
-      const { taken, credits } = addDrops(r, rollDrops(r, 2, 0, 'caisse'));
+      const { taken, credits } = addDrops(r, rollDrops(r, 2, 0, 'caisse', this.family));
       this.resultText = 'Caisse de ravitaillement ouverte.';
       this.flyToReserve(taken, [center]);
       this.announceLoot(taken.length, credits);
@@ -1095,7 +1098,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // Chaque ennemi abattu lâche un objet, même en cas de défaite.
     const killedAt = P.enemies.filter((a) => a.hp <= 0).map((a) => ({ x: a.x, y: a.feet - 90 }));
     const loot = killedAt.length && !(P.result.win && this.node === 'boss' && this.finalZone)
-      ? addDrops(r, rollDrops(r, killedAt.length, this.node === 'elite' || this.node === 'boss' ? 2 : 0, `combat-${r.attempts}`))
+      ? addDrops(r, rollDrops(r, killedAt.length, this.node === 'elite' || this.node === 'boss' ? 2 : 0, `combat-${r.attempts}`, this.family))
       : { taken: [] as ItemInst[], credits: 0 };
     loot.taken.forEach((it) => this.hidden.add(it.uid));
     if (P.result.win) {

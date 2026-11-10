@@ -1,4 +1,4 @@
-import { ITEMS, ITEM_IDS } from '../data/items';
+import { Family, ITEMS, ITEM_IDS } from '../data/items';
 import { ItemInst, START_UNLOCKED, canPlace } from './grid';
 import { MAX_RARITY, rollRarity } from './rarity';
 import { Rng, rngFor } from './rng';
@@ -139,20 +139,26 @@ export function makeItem(run: RunState, defId: string, rarity: number): ItemInst
   return { uid: run.nextUid++, defId, rarity, rot: 0, x: 0, y: 0, placed: false };
 }
 
-function randomItems(run: RunState, rng: Rng, count: number, guarantee: number): ItemInst[] {
+/** Chance qu'un objet tombé dans un lieu spécialisé soit de la famille annoncée. */
+export const FAMILY_DROP_CHANCE = 0.6;
+
+function randomItems(run: RunState, rng: Rng, count: number, guarantee: number, family?: Family): ItemInst[] {
   const zoneOdds = run.stage;
   const ids = [...ITEM_IDS];
   const out: ItemInst[] = [];
   for (let i = 0; i < count && ids.length; i++) {
-    const id = ids.splice(Math.floor(rng() * ids.length), 1)[0];
+    const fam = family && rng() < FAMILY_DROP_CHANCE ? ids.filter((x) => ITEMS[x].family === family) : [];
+    const pool = fam.length ? fam : ids;
+    const id = pool[Math.floor(rng() * pool.length)];
+    ids.splice(ids.indexOf(id), 1);
     out.push({ uid: -1, defId: id, rarity: rollRarity(rng, zoneOdds, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
   }
   return out;
 }
 
 /** Butin tiré au hasard (ennemis abattus, caisse). Déterministe pour une graine et un usage donnés. */
-export function rollDrops(run: RunState, count: number, guarantee: number, salt: string | number): ItemInst[] {
-  return randomItems(run, rngFor(run.seed, run.stage, run.floor, 'drops', salt), count, guarantee);
+export function rollDrops(run: RunState, count: number, guarantee: number, salt: string | number, family?: Family): ItemInst[] {
+  return randomItems(run, rngFor(run.seed, run.stage, run.floor, 'drops', salt), count, guarantee, family);
 }
 
 /** Ajoute le butin à la réserve ; ce qui ne rentre pas est revendu automatiquement. */

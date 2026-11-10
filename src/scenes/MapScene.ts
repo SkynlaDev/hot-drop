@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { C, H, W } from '../config';
 import { BIOMES } from '../data/biomes';
+import { FAMILY_INFO } from '../data/items';
 import { THREAT_INFO, Threat } from '../data/threats';
 import { rngFor } from '../logic/rng';
-import { NODE_INFO, NodeType, RunState, START_SURSIS, level, saveRun } from '../logic/run';
+import { FAMILY_DROP_CHANCE, NODE_INFO, NodeType, RunState, START_SURSIS, level, saveRun } from '../logic/run';
 import { EARLY_EXFIL_TURN, EXFIL_ID, MAP_SIZE, MOVE_RANGE, Poi, STAGES, TURNS, Zone, dist, gasRadius, inSafeZone, options, posOf } from '../logic/zone';
 import { Button, button, fadeIn, panel, txt, vibrate } from '../ui/widgets';
 
@@ -210,12 +211,19 @@ export default class MapScene extends Phaser.Scene {
       g.fillCircle(x, y, 20);
       g.fillStyle(col, visited ? 0.25 : reach ? 0.9 : 0.55);
       g.fillCircle(x, y, 17);
+      // Anneau aux couleurs de la famille de butin annoncée
+      if (p.family) {
+        g.lineStyle(4, FAMILY_INFO[p.family].color, 1);
+        g.strokeCircle(x, y, 21);
+      }
       const alpha = visited ? 0.45 : gassed ? 0.3 : reach ? 1 : 0.65;
       g.setAlpha(alpha);
       txt(this, x, y, visited ? '✓' : NODE_INFO[p.type].letter, 18, '#111410', { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(alpha);
-      txt(this, x, y + 30, p.name, 15, reach ? C.text : C.quiet, { fontStyle: reach ? 'bold' : 'normal', stroke: '#0d0f0a', strokeThickness: 4 })
+      const label = txt(this, x, y + 30, p.name, 14, reach ? C.text : C.quiet, { fontStyle: reach ? 'bold' : 'normal', stroke: '#0d0f0a', strokeThickness: 4 })
         .setOrigin(0.5)
         .setAlpha(alpha);
+      // L'étiquette reste dans le cadre de la carte.
+      label.x = Phaser.Math.Clamp(x, MAP.x + label.width / 2 + 4, MAP.x + MAP.w - label.width / 2 - 4);
       p.threats.forEach((th, i) => this.threatBadge(x + 20 + i * 22, y - 18, th, alpha));
       const zone = this.add.zone(x, y + 8, 76, 70).setInteractive({ useHandCursor: reach });
       zone.on('pointerup', () => {
@@ -354,8 +362,16 @@ export default class MapScene extends Phaser.Scene {
         ? `Extraction anticipée : ${guard} garde le point.\nGagne et ${after}, plus tôt que prévu.`
         : `Le gaz s'est refermé. ${guard[0].toUpperCase() + guard.slice(1)} garde le\npoint d'exfiltration : bats-le et ${after}.`
       : NODE_INFO[type].desc;
-    I.add(txt(this, x0, y, desc, 21, C.quiet, { wordWrap: { width: PANEL.w - 56 }, lineSpacing: 6 }));
-    y += 64;
+    const dt = txt(this, x0, y, desc, 21, C.quiet, { wordWrap: { width: PANEL.w - 56 }, lineSpacing: 6 });
+    I.add(dt);
+    y += dt.height + 16;
+    const fam = t.kind === 'poi' ? t.poi.family : undefined;
+    if (fam) {
+      I.add(txt(this, x0, y, 'Butin', 21, C.quiet));
+      I.add(txt(this, x0 + 110, y, `${FAMILY_INFO[fam].name}`, 21, FAMILY_INFO[fam].hex, { fontStyle: 'bold' }));
+      I.add(txt(this, x0 + 260, y + 2, `${Math.round(FAMILY_DROP_CHANCE * 100)} % des objets de cette famille`, 17, C.quiet));
+      y += 34;
+    }
     const th = this.threat(type);
     if (th > 0) {
       I.add(txt(this, x0, y, 'Menace', 21, C.quiet));
@@ -367,16 +383,18 @@ export default class MapScene extends Phaser.Scene {
       I.add(g);
     }
     const threats = t.kind === 'poi' ? t.poi.threats : this.zone.exfilThreats;
-    let ty = y + 38;
+    let ty = y + 34;
     for (const th of threats) {
       const ti = THREAT_INFO[th];
       I.add(txt(this, x0, ty, ti.name.toUpperCase(), 19, ti.hex, { fontStyle: 'bold' }));
-      I.add(txt(this, x0 + 190, ty + 1, ti.effect, 17, C.text, { wordWrap: { width: PANEL.w - 250 } }));
-      I.add(txt(this, x0 + 190, ty + 24, `Contre : ${ti.counters}`, 15, C.quiet, { wordWrap: { width: PANEL.w - 250 } }));
-      ty += 56;
+      const ef = txt(this, x0 + 190, ty + 1, ti.effect, 17, C.text, { wordWrap: { width: PANEL.w - 250 } });
+      const co = txt(this, x0 + 190, ty + ef.height + 3, `Contre : ${ti.counters}`, 15, C.quiet, { wordWrap: { width: PANEL.w - 250 } });
+      I.add([ef, co]);
+      ty += ef.height + co.height + 10;
     }
     if (warning) I.add(txt(this, x0, ty + 4, warning, 22, C.dangerStr, { fontStyle: 'bold' }));
-    this.goBtn.setLabel(t.kind === 'exfil' ? 'Exfiltration ▸' : landing ? `Larguer · ${name} ▸` : `Aller · ${name} ▸`);
+    const short = name.length > 14;
+    this.goBtn.setLabel(t.kind === 'exfil' ? 'Exfiltration ▸' : landing ? (short ? 'Larguer ▸' : `Larguer · ${name} ▸`) : (short ? 'Y aller ▸' : `Aller · ${name} ▸`));
     this.goBtn.setEnabled(true);
   }
 
@@ -420,7 +438,7 @@ export default class MapScene extends Phaser.Scene {
       onUpdate: () => this.drawGas(state.r),
       onComplete: () => {
         this.cameras.main.fadeOut(220, 20, 22, 15);
-        this.time.delayedCall(240, () => this.scene.start('loadout', { node, place, threats: t.kind === 'poi' ? t.poi.threats : z.exfilThreats }));
+        this.time.delayedCall(240, () => this.scene.start('loadout', { node, place, threats: t.kind === 'poi' ? t.poi.threats : z.exfilThreats, family: t.kind === 'poi' ? t.poi.family : undefined }));
       },
     });
   }

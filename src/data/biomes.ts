@@ -21,17 +21,17 @@ export interface Biome {
 export const BIOMES: Record<BiomeId, Biome> = {
   banlieue: {
     id: 'banlieue', name: 'Banlieue en ruine', threats: ['essaim', 'medics'], families: ['rempart', 'rafale'],
-    places: ['Supermarché', 'École', 'Poste de secours', 'Mairie', 'Motel', 'Garage', 'Église', 'Pavillons', 'Gymnase', 'Station-service', 'Parking', 'Pharmacie', 'Lavomatic', 'Cité', 'Stade', 'Caserne de pompiers', 'Gare', 'Hôpital', 'Centre commercial', 'Château d\'eau'],
+    places: ['Supermarché', 'École', 'Poste de secours', 'Mairie', 'Motel', 'Garage', 'Église', 'Pavillons', 'Gymnase', 'Station-service', 'Parking', 'Pharmacie', 'Lavomatic', 'Cité', 'Stade', 'Pompiers', 'Gare', 'Hôpital', 'Centre co.', 'Château d\'eau'],
     ground: 0x1f211b, tones: [0x2a2a22, 0x25261f, 0x2e2c24, 0x232820], water: 0x22343a,
   },
   industrie: {
     id: 'industrie', name: 'Zone industrielle', threats: ['blindes', 'tireurs'], families: ['demolition', 'precision'],
-    places: ['Usine', 'Carrière', 'Armurerie', 'Silo', 'Dépôt', 'Fonderie', 'Raffinerie', 'Centrale', 'Entrepôt', 'Chantier', 'Casse auto', 'Cimenterie', 'Hangar', 'Gare de triage', 'Château d\'eau', 'Station d\'épuration', 'Atelier', 'Laboratoire', 'Transformateur', 'Pont'],
+    places: ['Usine', 'Carrière', 'Armurerie', 'Silo', 'Dépôt', 'Fonderie', 'Raffinerie', 'Centrale', 'Entrepôt', 'Chantier', 'Casse auto', 'Cimenterie', 'Hangar', 'Gare de triage', 'Château d\'eau', 'Épuration', 'Atelier', 'Laboratoire', 'Transformateur', 'Pont'],
     ground: 0x1d1e1c, tones: [0x2b2a26, 0x262624, 0x302c25, 0x23241f], water: 0x26323a,
   },
   port: {
     id: 'port', name: 'Port', threats: ['tireurs', 'assaut'], families: ['rafale', 'precision'],
-    places: ['Docks', 'Entrepôt', 'Dépôt de munitions', 'Grues', 'Capitainerie', 'Phare', 'Conserverie', 'Cale sèche', 'Terminal', 'Douanes', 'Chantier naval', 'Criée', 'Silo à grain', 'Marina', 'Jetée', 'Cuves', 'Hangar', 'Gare maritime', 'Ponton', 'Caserne'],
+    places: ['Docks', 'Entrepôt', 'Dépôt munitions', 'Grues', 'Capitainerie', 'Phare', 'Conserverie', 'Cale sèche', 'Terminal', 'Douanes', 'Chantier naval', 'Criée', 'Silo à grain', 'Marina', 'Jetée', 'Cuves', 'Hangar', 'Gare maritime', 'Ponton', 'Caserne'],
     ground: 0x1b2022, tones: [0x232a2c, 0x262b28, 0x1f2729, 0x2a2d29], water: 0x1d3442,
   },
   foret: {
@@ -41,9 +41,46 @@ export const BIOMES: Record<BiomeId, Biome> = {
   },
   base: {
     id: 'base', name: 'Base aérienne', threats: ['assaut', 'blindes'], families: ['rafale', 'rempart'],
-    places: ['Hangar', 'Caserne', 'Tour de contrôle', 'Piste', 'Radar', 'Dépôt de carburant', 'Infirmerie', 'Armurerie', 'Mess', 'Poste de garde', 'Héliport', 'Bunker', 'Atelier', 'Antenne', 'Hangar à drones', 'Soute', 'QG', 'Château d\'eau', 'Stand de tir', 'Parking'],
+    places: ['Hangar', 'Caserne', 'Tour de contrôle', 'Piste', 'Radar', 'Dépôt carburant', 'Infirmerie', 'Armurerie', 'Mess', 'Poste de garde', 'Héliport', 'Bunker', 'Atelier', 'Antenne', 'Hangar drones', 'Soute', 'QG', 'Château d\'eau', 'Stand de tir', 'Parking'],
     ground: 0x1e201b, tones: [0x2a2b24, 0x272822, 0x2d2c25, 0x22251e], water: 0x22343a,
   },
 };
 
 export const BIOME_IDS = Object.keys(BIOMES) as BiomeId[];
+
+/** Familles qu'un lieu peut annoncer comme butin (Tactique attend la radio et le drone). */
+export const LOOT_FAMILIES: Family[] = ['rafale', 'precision', 'demolition', 'rempart'];
+
+/** Noms de lieux crédibles, par biome et par famille de butin, pour les lieux spécialisés. */
+export const FAMILY_PLACES: Record<BiomeId, Record<Exclude<Family, 'tactique'>, string[]>> = {
+  banlieue: {
+    rafale: ['Commissariat', 'Poste de garde', 'Caserne', 'Armurerie civile'],
+    precision: ['Club de tir', 'Clocher', 'Tour HLM', 'Château d\'eau'],
+    demolition: ['Chantier', 'Station-service', 'Casse auto', 'Garage'],
+    rempart: ['Hôpital', 'Poste de secours', 'Pharmacie', 'Gymnase'],
+  },
+  industrie: {
+    rafale: ['Poste de garde', 'Dépôt munitions', 'Bureau des vigiles', 'Caserne'],
+    precision: ['Armurerie', 'Silo', 'Grue', 'Cheminée'],
+    demolition: ['Carrière', 'Raffinerie', 'Cimenterie', 'Casse auto'],
+    rempart: ['Infirmerie', 'Vestiaires', 'Poste de secours', 'Laboratoire'],
+  },
+  port: {
+    rafale: ['Douanes', 'Dépôt munitions', 'Caserne', 'Poste de garde'],
+    precision: ['Phare', 'Grues', 'Capitainerie', 'Silo à grain'],
+    demolition: ['Cuves', 'Chantier naval', 'Cale sèche', 'Dépôt carburant'],
+    rempart: ['Infirmerie', 'Gare maritime', 'Poste de secours', 'Criée'],
+  },
+  foret: {
+    rafale: ['Camp', 'Poste avancé', 'Bunker', 'Relais'],
+    precision: ['Stand de tir', 'Tour de guet', 'Relais de chasse', 'Crête'],
+    demolition: ['Carrière', 'Scierie', 'Barrage', 'Dépôt forestier'],
+    rempart: ['Refuge', 'Maison forestière', 'Poste de secours', 'Chapelle'],
+  },
+  base: {
+    rafale: ['Caserne', 'Poste de garde', 'Mess', 'QG'],
+    precision: ['Stand de tir', 'Tour de contrôle', 'Radar', 'Armurerie'],
+    demolition: ['Dépôt carburant', 'Soute', 'Hangar drones', 'Atelier'],
+    rempart: ['Infirmerie', 'Héliport', 'Bunker', 'Hangar'],
+  },
+};

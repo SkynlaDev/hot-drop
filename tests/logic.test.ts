@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { ITEMS } from '../src/data/items';
 import { buildEncounter } from '../src/data/enemies';
 import { simulate } from '../src/logic/combat';
 import { ItemInst, Rot, START_UNLOCKED, expandable, canPlace, cellZones, cellsAt, inZone, maskOf, sharedEdge } from '../src/logic/grid';
 import { rollRarity } from '../src/logic/rarity';
 import { mulberry32, rngFor } from '../src/logic/rng';
 import { RESERVE_MAX, addDrops, canFuse, completeZone, enterZone, fuse, level, newRun, remainingBiomes, rollDrops, sanitizeLayout } from '../src/logic/run';
-import { BIOMES, BIOME_IDS } from '../src/data/biomes';
-import { EXFIL_ID, MOVE_RANGE, TURNS, dist, genZone, guardianThreats, inSafeZone, options } from '../src/logic/zone';
+import { BIOMES, BIOME_IDS, FAMILY_PLACES, LOOT_FAMILIES } from '../src/data/biomes';
+import { EXFIL_ID, MIN_CHOICES, MOVE_RANGE, TURNS, dist, genZone, guardianThreats, inSafeZone, options } from '../src/logic/zone';
 import { computeLoadout, familyStates } from '../src/logic/stats';
 import { BLINDES_REDUCTION, THREATS } from '../src/data/threats';
 
@@ -111,8 +112,8 @@ describe('rareté et synergies', () => {
 describe('run', () => {
   it('génère une zone de lieux espacés, avec marchands et élites', () => {
     const z = genZone(7);
-    expect(z.pois.length).toBeGreaterThanOrEqual(12);
-    for (const a of z.pois) for (const b of z.pois) if (a !== b) expect(dist(a, b)).toBeGreaterThanOrEqual(125);
+    expect(z.pois.length).toBeGreaterThanOrEqual(18);
+    for (const a of z.pois) for (const b of z.pois) if (a !== b) expect(dist(a, b)).toBeGreaterThanOrEqual(112);
     expect(z.pois.filter((p) => p.type === 'marchand').length).toBeGreaterThanOrEqual(2);
     expect(genZone(7)).toEqual(z);
   });
@@ -130,7 +131,7 @@ describe('run', () => {
         // Les lieux proposés sont hors du gaz et à portée (sauf au largage).
         const here = z.pois.find((p) => p.id === z.pos);
         for (const p of o.pois) expect(inSafeZone(z, p, turn)).toBe(true);
-        if (here && o.pois.length > 0) expect(o.pois.some((p) => dist(p, here) <= MOVE_RANGE) || o.pois.length <= 3).toBe(true);
+        if (here && o.pois.length > 0) expect(o.pois.some((p) => dist(p, here) <= MOVE_RANGE) || o.pois.length <= MIN_CHOICES + 1).toBe(true);
         const next = o.pois[0];
         z.pos = next.id;
         z.visited.push(next.id);
@@ -299,6 +300,51 @@ describe('run en 3 zones', () => {
 
   it('les noms des lieux viennent du biome', () => {
     const z = genZone(3, 'port', 1);
-    for (const p of z.pois) expect(BIOMES.port.places).toContain(p.name);
+    const famNames = Object.values(FAMILY_PLACES.port).flat();
+    for (const p of z.pois) expect([...BIOMES.port.places, ...famNames]).toContain(p.name);
+    expect(new Set(z.pois.map((p) => p.name)).size).toBe(z.pois.length);
+  });
+});
+
+describe('choix sur la carte', () => {
+  it('chaque carte annonce les 4 familles de butin, sur les combats et caisses uniquement', () => {
+    for (const b of BIOME_IDS) for (let seed = 1; seed < 30; seed++) {
+      const z = genZone(seed, b, seed % 3);
+      for (const f of LOOT_FAMILIES) expect(z.pois.some((p) => p.family === f)).toBe(true);
+      for (const p of z.pois) expect(!!p.family).toBe(p.type === 'contrat' || p.type === 'elite' || p.type === 'caisse');
+    }
+  });
+
+  it('au moins 3 lieux proposés à chaque tour, dont 2 différents', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const z = genZone(seed, BIOME_IDS[seed % BIOME_IDS.length], seed % 3);
+      for (let turn = 0; turn < TURNS - 1; turn++) {
+        const o = options(z, turn);
+        expect(o.forced).toBe(false);
+        expect(o.pois.length).toBeGreaterThanOrEqual(MIN_CHOICES);
+        expect(new Set(o.pois.map((p) => `${p.type}/${p.family ?? ''}`)).size).toBeGreaterThanOrEqual(2);
+        // Une graine sur deux : pire trajet, on vide d'abord les lieux proches de l'exfiltration.
+        const next = seed % 2 ? [...o.pois].sort((p, q) => dist(p, z.exfil) - dist(q, z.exfil))[0] : o.pois[seed % o.pois.length];
+        z.pos = next.id;
+        z.visited.push(next.id);
+      }
+    }
+  });
+});
+
+describe('butin des lieux spécialisés', () => {
+  it('la famille annoncée domine le butin', () => {
+    const run = newRun(8);
+    let fam = 0;
+    let total = 0;
+    for (let i = 0; i < 400; i++) {
+      for (const it of rollDrops(run, 2, 0, i, 'demolition')) {
+        total++;
+        if (ITEMS[it.defId].family === 'demolition') fam++;
+      }
+    }
+    // 60 % forcés + la part naturelle de la famille (4 objets sur 26)
+    expect(fam / total).toBeGreaterThan(0.55);
+    expect(fam / total).toBeLessThan(0.8);
   });
 });
