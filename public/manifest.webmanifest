@@ -1,0 +1,10 @@
+{
+  "name": "LOADOUT",
+  "short_name": "LOADOUT",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#14160f",
+  "theme_color": "#14160f",
+  "icons": []
+}

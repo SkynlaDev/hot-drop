@@ -1,0 +1,201 @@
+import { ITEMS, ITEM_IDS } from '../data/items';
+import { ItemInst, START_UNLOCKED, canPlace } from './grid';
+import { MAX_RARITY, rollRarity } from './rarity';
+import { Rng, rngFor } from './rng';
+import { itemPrice } from './stats';
+import { TURNS, Zone, genZone } from './zone';
+
+export type NodeType = 'contrat' | 'elite' | 'marchand' | 'caisse' | 'planque' | 'boss';
+
+export const NODE_INFO: Record<NodeType, { name: string; letter: string; desc: string }> = {
+  contrat: { name: 'Contrat', letter: 'C', desc: 'Combat standard : chaque ennemi abattu lâche un objet' },
+  elite: { name: 'Élite', letter: 'É', desc: 'Combat difficile : butin Rare ou mieux' },
+  marchand: { name: 'Marchand', letter: '$', desc: 'Acheter, vendre, relancer la boutique' },
+  caisse: { name: 'Caisse', letter: 'R', desc: 'Ravitaillement : 2 objets au hasard, sans combat' },
+  planque: { name: 'Planque', letter: 'P', desc: 'Repos : récupère 1 sursis (ou 8 crédits si tu es au maximum)' },
+  boss: { name: 'Boss', letter: 'B', desc: 'Cdt Kesh et son escorte. Victoire = extraction' },
+};
+
+/** Nombre de tours d'une run (7 lieux + exfiltration). */
+export const FLOORS = TURNS;
+export const RESERVE_MAX = 6;
+export const START_SURSIS = 3;
+export const REROLL_COST = 2;
+/** Une extension débloque ce nombre de cases du gilet. */
+export const EXTENSION_CELLS = 3;
+const SAVE_KEY = 'loadout.run.v4';
+
+export interface ShopOffer {
+  inst: ItemInst;
+  price: number;
+  sold: boolean;
+}
+
+export interface RunState {
+  version: 4;
+  seed: number;
+  /** Nombre de lieux déjà visités = tour en cours (0 = largage). Sert aussi à la difficulté. */
+  floor: number;
+  zone: Zone;
+  credits: number;
+  sursis: number;
+  items: ItemInst[];
+  /** Cases débloquées du gilet ("x,y"). */
+  unlocked: string[];
+  /** Cases à débloquer en attente (achetées ou gagnées). */
+  extensions: number;
+  /** Nombre d'extensions achetées (le prix augmente). */
+  extBought: number;
+  nextUid: number;
+  attempts: number;
+  shop?: { floor: number; rerolls: number; offers: ShopOffer[] };
+  /** Dernier étage dont la récompense hors combat (caisse, planque) a été donnée. */
+  claimedFloor?: number;
+  speed: number;
+  over?: 'win' | 'lose';
+}
+
+export function isCombat(n: NodeType): n is 'contrat' | 'elite' | 'boss' {
+  return n === 'contrat' || n === 'elite' || n === 'boss';
+}
+
+export function newRun(seed = Math.floor(Math.random() * 1e9)): RunState {
+  const run: RunState = {
+    version: 4,
+    seed,
+    floor: 0,
+    zone: genZone(seed),
+    credits: 10,
+    sursis: START_SURSIS,
+    items: [],
+    unlocked: [...START_UNLOCKED],
+    extensions: 0,
+    extBought: 0,
+    nextUid: 1,
+    attempts: 0,
+    speed: 1,
+  };
+  const start: [string, number, number][] = [['casque', 2, 1], ['pistolet', 2, 3], ['chg_9mm', 4, 3]];
+  for (const [id, x, y] of start) {
+    const it = makeItem(run, id, 0);
+    Object.assign(it, { x, y, placed: true });
+    run.items.push(it);
+  }
+  return run;
+}
+
+export function makeItem(run: RunState, defId: string, rarity: number): ItemInst {
+  return { uid: run.nextUid++, defId, rarity, rot: 0, x: 0, y: 0, placed: false };
+}
+
+function randomItems(run: RunState, rng: Rng, count: number, guarantee: number): ItemInst[] {
+  const ids = [...ITEM_IDS];
+  const out: ItemInst[] = [];
+  for (let i = 0; i < count && ids.length; i++) {
+    const id = ids.splice(Math.floor(rng() * ids.length), 1)[0];
+    out.push({ uid: -1, defId: id, rarity: rollRarity(rng, 0, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
+  }
+  return out;
+}
+
+/** Butin tiré au hasard (ennemis abattus, caisse). Déterministe pour une graine et un usage donnés. */
+export function rollDrops(run: RunState, count: number, guarantee: number, salt: string | number): ItemInst[] {
+  return randomItems(run, rngFor(run.seed, run.floor, 'drops', salt), count, guarantee);
+}
+
+/** Ajoute le butin à la réserve ; ce qui ne rentre pas est revendu automatiquement. */
+export function addDrops(run: RunState, drops: ItemInst[]): { taken: ItemInst[]; credits: number } {
+  const taken: ItemInst[] = [];
+  let credits = 0;
+  for (const d of drops) {
+    if (reserve(run).length < RESERVE_MAX) taken.push(takeItem(run, d));
+    else credits += Math.max(1, Math.floor(itemPrice(d.defId, d.rarity) * 0.5));
+  }
+  run.credits += credits;
+  return { taken, credits };
+}
+
+export function shopOffers(run: RunState): ShopOffer[] {
+  if (run.shop && run.shop.floor === run.floor) return run.shop.offers;
+  run.shop = { floor: run.floor, rerolls: 0, offers: [] };
+  rollShop(run);
+  return run.shop.offers;
+}
+
+export function rollShop(run: RunState): void {
+  if (!run.shop) return;
+  const rng = rngFor(run.seed, run.floor, 'shop', run.shop.rerolls);
+  run.shop.offers = randomItems(run, rng, 4, 0).map((inst) => ({ inst, price: itemPrice(inst.defId, inst.rarity), sold: false }));
+}
+
+/** Ajoute un objet proposé (loot ou boutique) à la réserve. */
+export function takeItem(run: RunState, offer: ItemInst): ItemInst {
+  const it = makeItem(run, offer.defId, offer.rarity);
+  run.items.push(it);
+  return it;
+}
+
+export function reserve(run: RunState): ItemInst[] {
+  return run.items.filter((i) => !i.placed);
+}
+
+export function canFuse(a: ItemInst, b: ItemInst): boolean {
+  return a.uid !== b.uid && a.defId === b.defId && a.rarity === b.rarity && a.rarity < MAX_RARITY;
+}
+
+/** Fusionne `consumed` dans `keep` : `keep` monte d'une rareté, `consumed` disparaît. */
+export function fuse(run: RunState, keep: ItemInst, consumed: ItemInst): void {
+  if (!canFuse(keep, consumed)) return;
+  keep.rarity++;
+  run.items = run.items.filter((i) => i.uid !== consumed.uid);
+}
+
+export function extensionPrice(run: RunState): number {
+  return 6 + 4 * run.extBought;
+}
+
+export function rewardCredits(node: NodeType, floor: number): number {
+  if (node === 'elite') return 10 + 2 * floor;
+  if (node === 'boss') return 0;
+  return 6 + floor;
+}
+
+export function saveRun(run: RunState): void {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(run));
+  } catch {
+    /* stockage indisponible : on continue sans sauvegarde */
+  }
+}
+
+export function loadRun(): RunState | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const run = JSON.parse(raw) as RunState;
+    if (run.version !== 4 || run.over) return null;
+    sanitizeLayout(run);
+    return run;
+  } catch {
+    return null;
+  }
+}
+
+/** Remet en réserve les objets qui ne tiennent plus (ex. : sauvegarde d'une version aux formes différentes). */
+export function sanitizeLayout(run: RunState): void {
+  const kept: ItemInst[] = [];
+  const unlocked = new Set(run.unlocked);
+  for (const it of run.items) {
+    if (!it.placed) continue;
+    if (canPlace(kept, it, it.x, it.y, it.rot, unlocked)) kept.push(it);
+    else it.placed = false;
+  }
+}
+
+export function clearRun(): void {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* rien */
+  }
+}
