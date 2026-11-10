@@ -28,7 +28,7 @@ export default class MenuScene extends Phaser.Scene {
     }
     fade.fillStyle(C.bg, 1);
     fade.fillRect(0, 570, W, 720);
-    this.add.text(56, 560, 'HOT DROP', { fontFamily: FONT, fontSize: '128px', fontStyle: 'bold italic', color: C.accentStr, resolution: 2, stroke: '#000000', strokeThickness: 10 }).setOrigin(0, 1);
+    this.add.text(56, 560, 'HOT DROP', { fontFamily: FONT, fontSize: '128px', fontStyle: 'bold italic', color: C.accentStr, resolution: 2, stroke: '#000000', strokeThickness: 10, padding: { left: 8, right: 40, top: 8, bottom: 4 } }).setOrigin(0, 1);
     txt(this, 62, 572, 'RÉGION DE VESTRA · PROTOTYPE', 24, C.quiet, { fontStyle: 'bold' });
     txt(this, 62, 612, 'Range ton gilet. Chaque case compte.', 28);
 

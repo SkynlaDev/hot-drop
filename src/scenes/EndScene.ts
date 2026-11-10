@@ -36,13 +36,14 @@ export default class EndScene extends Phaser.Scene {
         fontStyle: 'bold italic',
         stroke: '#000000',
         strokeThickness: 10,
+        padding: { left: 40, right: 40, top: 10, bottom: 4 },
         align: 'center',
         color: win ? C.goodStr : C.dangerStr,
         resolution: 2,
       })
       .setOrigin(0.5);
     const lines = [
-      `Lieux visités : ${run.placesTotal} · zones terminées : ${run.done.length}/3${win ? ' · extraction réussie' : ''}`,
+      `Lieux visités : ${run.placesTotal} · zones terminées : ${run.done.length}/3`,
       `Objets dans le gilet : ${run.items.filter((i) => i.placed).length}`,
       `Crédits restants : ${run.credits}`,
     ];
