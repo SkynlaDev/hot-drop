@@ -48,25 +48,39 @@ export function button(
   const root = scene.add.container(x, y);
   root.setSize(w, h);
   const g = scene.add.graphics();
-  const t = txt(scene, w / 2, h / 2, label, opts.size ?? 28, C.text, { fontStyle: 'bold' }).setOrigin(0.5);
+  const t = txt(scene, w / 2, h / 2, label.toUpperCase(), opts.size ?? 28, C.text, { fontStyle: 'bold' }).setOrigin(0.5);
   const zone = scene.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
   let enabled = true;
+  // Bouton de jeu mobile : lèvre 3D de 6 px qui s'écrase à l'appui, reflet sur la moitié haute.
+  const LIP = 6;
+  const r = 14;
   const draw = (pressed = false) => {
     g.clear();
-    if (opts.primary && enabled) {
-      g.fillStyle(0x000000, 0.35);
-      g.fillRoundedRect(0, pressed ? 2 : 6, w, h, 16);
+    const dy = pressed ? LIP - 2 : 0;
+    const prim = !!opts.primary && enabled;
+    // Ombre portée et lèvre
+    g.fillStyle(0x000000, 0.4);
+    g.fillRoundedRect(0, LIP + 3, w, h - LIP, r);
+    g.fillStyle(prim ? 0xb85a00 : enabled ? 0x14170f : 0x101209, 1);
+    g.fillRoundedRect(0, LIP, w, h - LIP, r);
+    // Face
+    const face = prim ? (pressed ? 0xf07f10 : C.accent) : enabled ? 0x2c3224 : 0x1a1d15;
+    g.fillStyle(face, 1);
+    g.fillRoundedRect(0, dy, w, h - LIP, r);
+    // Reflet
+    g.fillStyle(0xffffff, prim ? 0.22 : enabled ? 0.06 : 0.02);
+    g.fillRoundedRect(4, dy + 3, w - 8, (h - LIP) * 0.42, { tl: r - 3, tr: r - 3, bl: 4, br: 4 });
+    g.lineStyle(2, prim ? 0xffb15a : enabled ? 0x4a5240 : 0x2a2e22, 1);
+    g.strokeRoundedRect(0, dy, w, h - LIP, r);
+    if (!enabled) {
+      // Hachures d'un bouton désactivé
+      g.lineStyle(2, 0xffffff, 0.04);
+      const fh = h - LIP;
+      for (let hx = r; hx + fh < w - r; hx += 16) g.lineBetween(hx, dy + fh - 3, hx + fh - 6, dy + 3);
     }
-    const fill = opts.primary ? C.accent : C.panel;
-    g.fillStyle(fill, enabled ? (opts.primary ? (pressed ? 0.75 : 1) : 1) : 0.12);
-    g.fillRoundedRect(0, pressed ? 4 : 0, w, h - 4, 16);
-    if (!opts.primary) {
-      g.lineStyle(2, C.panelLine, enabled ? 1 : 0.35);
-      g.strokeRoundedRect(0, pressed ? 4 : 0, w, h - 4, 16);
-    }
-    t.setY(h / 2 - 2 + (pressed ? 4 : 0));
-    t.setColor(opts.primary && enabled ? '#1a1206' : C.text);
-    t.setAlpha(enabled ? 1 : 0.4);
+    t.setY((h - LIP) / 2 + dy);
+    t.setColor(prim ? '#1a1206' : C.text);
+    t.setAlpha(enabled ? 1 : 0.35);
   };
   draw();
   zone.on('pointerdown', () => enabled && draw(true));
@@ -78,7 +92,7 @@ export function button(
   root.add([g, t, zone]);
   return {
     root,
-    setLabel: (s) => t.setText(s),
+    setLabel: (s) => t.setText(s.toUpperCase()),
     setEnabled: (on) => {
       enabled = on;
       draw();
@@ -263,8 +277,12 @@ export function modalBase(scene: Scene, onBackdrop?: () => void): Container {
 
 export function panel(scene: Scene, x: number, y: number, w: number, h: number, stroke = C.panelLine) {
   const g = scene.add.graphics();
+  g.fillStyle(0x000000, 0.35);
+  g.fillRoundedRect(x, y + 4, w, h, 18);
   g.fillStyle(C.panel, 1);
   g.fillRoundedRect(x, y, w, h, 18);
+  g.fillStyle(0xffffff, 0.03);
+  g.fillRoundedRect(x + 2, y + 2, w - 4, Math.min(60, h / 3), { tl: 16, tr: 16, bl: 0, br: 0 });
   g.lineStyle(2, stroke, 1);
   g.strokeRoundedRect(x, y, w, h, 18);
   return g;

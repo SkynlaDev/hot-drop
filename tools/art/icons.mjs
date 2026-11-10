@@ -25,6 +25,7 @@ export const ICONS = {
   medkit: ['0 0 24 24', '<rect x="2.5" y="6" width="19" height="14.5" rx="2.6"/><path d="M9 6V3.8h6V6" ' + S + ' stroke-width="2"/><path d="M10.5 9h3v3h3v3h-3v3h-3v-3h-3v-3h3z" fill="#000" fill-opacity=".45"/>'],
   syringe: ['0 0 24 24', '<g transform="rotate(45 12 12)"><rect x="9" y="6" width="6" height="10" rx="1"/><rect x="11.2" y="16" width="1.6" height="6.5"/><rect x="7.5" y="3.5" width="9" height="2.2" rx=".6"/><rect x="11" y=".5" width="2" height="3"/></g>'],
   // Menaces
+  'p-etabli': ['0 0 24 24', '<path d="M15 2.5a5.5 5.5 0 0 0-5 7.6L2.8 17.3a2 2 0 0 0 0 2.8l1.1 1.1a2 2 0 0 0 2.8 0l7.2-7.2a5.5 5.5 0 0 0 7.6-5l-3.2 3.2-3.4-.9-.9-3.4 3.2-3.2a5.5 5.5 0 0 0-1.2-.2z"/>'],
   't-blindes': ['0 0 24 24', '<path d="M3 14C3 8 7 3.5 12 3.5S21 8 21 14v6H3z"/><rect x="5.5" y="11" width="13" height="3.5" rx="1" fill="#000" fill-opacity=".55"/>'],
   't-tireurs': ['0 0 24 24', '<circle cx="10" cy="14" r="6.5" ' + S + ' stroke-width="2.4"/><circle cx="10" cy="14" r="2"/><path d="M18 1.5l1.3 4 4 1.3-4 1.3-1.3 4-1.3-4-4-1.3 4-1.3z"/>'],
   't-essaim': ['0 0 24 24', '<circle cx="12" cy="6.5" r="3.2"/><path d="M6.5 15c0-3.2 2.4-5 5.5-5s5.5 1.8 5.5 5z"/><circle cx="5" cy="11" r="2.5"/><path d="M.8 19c0-2.6 1.7-3.8 4.2-3.8S9.2 16.4 9.2 19z"/><circle cx="19" cy="11" r="2.5"/><path d="M14.8 19c0-2.6 1.7-3.8 4.2-3.8s4.2 1.2 4.2 3.8z"/>'],

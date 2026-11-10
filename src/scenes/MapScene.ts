@@ -219,7 +219,7 @@ export default class MapScene extends Phaser.Scene {
       }
       const alpha = visited ? 0.45 : gassed ? 0.3 : reach ? 1 : 0.65;
       g.setAlpha(alpha);
-      txt(this, x, y, visited ? '✓' : NODE_INFO[p.type].letter, 18, '#111410', { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(alpha);
+      this.add.image(x, y, visited ? 'ic-check' : `ic-p-${p.type}`).setDisplaySize(22, 22).setTint(0x111410).setAlpha(alpha);
       const label = txt(this, x, y + 30, p.name, 14, reach ? C.text : C.quiet, { fontStyle: reach ? 'bold' : 'normal', stroke: '#0d0f0a', strokeThickness: 4 })
         .setOrigin(0.5)
         .setAlpha(alpha);
@@ -235,14 +235,21 @@ export default class MapScene extends Phaser.Scene {
     }
   }
 
+  /** Écusson de menace : forme de blason sur fond rouge sombre, icône à la couleur de la menace. */
   private threatBadge(x: number, y: number, th: Threat, alpha = 1) {
     const ti = THREAT_INFO[th];
     const g = this.add.graphics().setAlpha(alpha);
-    g.fillStyle(0x0d0f0a, 1);
-    g.fillRoundedRect(x - 12, y - 9, 24, 18, 6);
+    const shield = (s: number) => [
+      new Phaser.Math.Vector2(x - 10 * s, y - 10 * s), new Phaser.Math.Vector2(x + 10 * s, y - 10 * s),
+      new Phaser.Math.Vector2(x + 10 * s, y + 2 * s), new Phaser.Math.Vector2(x, y + 11 * s), new Phaser.Math.Vector2(x - 10 * s, y + 2 * s),
+    ];
+    g.fillStyle(0x000000, 1);
+    g.fillPoints(shield(1.18), true);
+    g.fillStyle(0x3a1214, 1);
+    g.fillPoints(shield(1), true);
     g.lineStyle(2, ti.color, 1);
-    g.strokeRoundedRect(x - 12, y - 9, 24, 18, 6);
-    txt(this, x, y, ti.short, 11, ti.hex, { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(alpha);
+    g.strokePoints(shield(1), true);
+    this.add.image(x, y - 1, `ic-t-${th}`).setDisplaySize(13, 13).setTint(ti.color).setAlpha(alpha);
   }
 
   private drawExfil() {
@@ -260,10 +267,7 @@ export default class MapScene extends Phaser.Scene {
     g.fillCircle(x, y, 26);
     g.fillStyle(NODE_COLORS.boss, this.exfilOk ? 1 : 0.6);
     g.fillCircle(x, y, 22);
-    // Drapeau
-    g.fillStyle(0x111410, 1);
-    g.fillRect(x - 7, y - 12, 3, 24);
-    g.fillTriangle(x - 4, y - 12, x + 11, y - 6, x - 4, y);
+    this.add.image(x, y, 'ic-p-exfil').setDisplaySize(28, 28).setTint(0x111410);
     z.exfilThreats.forEach((th, i) => this.threatBadge(x + 26 + i * 22, y - 22, th));
     txt(this, x, y + 38, 'EXFIL', 16, C.accentStr, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 4 }).setOrigin(0.5);
     const zone = this.add.zone(x, y + 8, 84, 80).setInteractive({ useHandCursor: this.exfilOk });

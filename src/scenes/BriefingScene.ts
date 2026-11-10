@@ -78,20 +78,18 @@ export default class BriefingScene extends Phaser.Scene {
     const x = CARD.x;
     const g = this.add.graphics();
     this.cards.set(id, g);
-    // Aperçu de la carte : fond et taches du biome
+    // Vignette : le décor de combat du biome, recadré en portrait
     const sw = 168;
-    const pv = this.add.graphics();
-    pv.fillStyle(b.ground, 1);
-    pv.fillRoundedRect(x + 16, y + 16, sw, CARD.h - 32, 10);
-    const rng = new Phaser.Math.RandomDataGenerator([id]);
-    for (let i = 0; i < 9; i++) {
-      pv.fillStyle(b.tones[i % b.tones.length], 1);
-      const ew = 30 + rng.frac() * 60;
-      const eh = 20 + rng.frac() * 40;
-      pv.fillEllipse(x + 16 + ew / 2 + rng.frac() * (sw - ew), y + 16 + eh / 2 + rng.frac() * (CARD.h - 32 - eh), ew, eh);
-    }
-    pv.lineStyle(id === 'port' ? 16 : 7, b.water, 1);
-    pv.lineBetween(x + 16, y + CARD.h * 0.62, x + 16 + sw, y + CARD.h * 0.5);
+    const vh = CARD.h - 32;
+    const tex = this.textures.get(`bg-${id}`).getSourceImage() as HTMLImageElement;
+    const cropW = (tex.height * sw) / vh;
+    const img = this.add.image(x + 16, y + 16, `bg-${id}`).setOrigin(0).setScale(vh / tex.height);
+    img.setCrop((tex.width - cropW) / 2, 0, cropW, tex.height);
+    img.x -= ((tex.width - cropW) / 2) * img.scaleX;
+    const frame = this.add.graphics();
+    frame.lineStyle(3, 0x000000, 0.6);
+    frame.strokeRoundedRect(x + 16, y + 16, sw, vh, 6);
+    void b.ground;
 
     const tx = x + sw + 36;
     txt(this, tx, y + 22, b.name.toUpperCase(), 28, C.text, { fontStyle: 'bold' });
