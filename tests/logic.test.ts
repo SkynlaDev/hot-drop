@@ -5,7 +5,7 @@ import { simulate } from '../src/logic/combat';
 import { ItemInst, Rot, START_UNLOCKED, expandable, canPlace, cellZones, cellsAt, inZone, maskOf, sharedEdge } from '../src/logic/grid';
 import { rollRarity } from '../src/logic/rarity';
 import { mulberry32, rngFor } from '../src/logic/rng';
-import { RESERVE_MAX, addDrops, canFuse, completeZone, enterZone, fuse, level, newRun, remainingBiomes, rollDrops, sanitizeLayout } from '../src/logic/run';
+import { RESERVE_MAX, addDrops, canFuse, completeZone, enterZone, fuse, level, newRun, remainingBiomes, rollDrops, sanitizeLayout, shopOffers } from '../src/logic/run';
 import { BIOMES, BIOME_IDS, FAMILY_PLACES, LOOT_FAMILIES } from '../src/data/biomes';
 import { EXFIL_ID, MIN_CHOICES, MOVE_RANGE, TURNS, dist, genZone, guardianThreats, inSafeZone, options } from '../src/logic/zone';
 import { computeLoadout, estimateDps, familyStates } from '../src/logic/stats';
@@ -389,5 +389,41 @@ describe('chaque case compte', () => {
       const bad = estimateDps(computeLoadout(b.map((i, n) => ({ ...i, x: 20 + n * 8, y: 20 }))).loadout);
       expect(bad / good).toBeLessThan(0.75);
     }
+  });
+});
+
+describe('butin orienté', () => {
+  const share = (run: ReturnType<typeof newRun>, fam: string, shop = false) => {
+    let f = 0;
+    let n = 0;
+    for (let i = 0; i < 800; i++) {
+      const items = shop ? (run.shop = undefined, run.floor = i, shopOffers(run).map((o) => o.inst)) : rollDrops(run, 1, 0, i);
+      for (const it of items) {
+        n++;
+        if (ITEMS[it.defId].family === fam) f++;
+      }
+    }
+    return f / n;
+  };
+
+  it('les familles posées dans le gilet tombent environ 2 fois plus souvent', () => {
+    const plain = newRun(3);
+    plain.items = [];
+    const vest = newRun(3);
+    vest.items = [inst(1, 'bipied', 0, 0)];
+    const ratio = share(vest, 'precision') / share(plain, 'precision');
+    expect(ratio).toBeGreaterThan(1.5);
+    expect(ratio).toBeLessThan(2.1);
+  });
+
+  it('la réserve ne compte pas, et la boutique reste neutre', () => {
+    const plain = newRun(5);
+    plain.items = [];
+    const reserved = newRun(5);
+    reserved.items = [{ ...inst(1, 'bipied', 0, 0), placed: false }];
+    expect(share(reserved, 'precision')).toBeCloseTo(share(plain, 'precision'), 5);
+    const vest = newRun(5);
+    vest.items = [inst(1, 'bipied', 0, 0)];
+    expect(share(vest, 'precision', true)).toBeCloseTo(share(plain, 'precision', true), 5);
   });
 });

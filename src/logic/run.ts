@@ -146,27 +146,36 @@ export const CATEGORY_WEIGHTS: Record<Category, number> = {
 const CATEGORY_SIZE = ITEM_IDS.reduce((m, id) => m.set(ITEMS[id].category, (m.get(ITEMS[id].category) ?? 0) + 1), new Map<Category, number>());
 const itemWeight = (id: string) => CATEGORY_WEIGHTS[ITEMS[id].category] / (CATEGORY_SIZE.get(ITEMS[id].category) ?? 1);
 
-function pickWeighted(rng: Rng, ids: string[]): string {
-  const total = ids.reduce((s, id) => s + itemWeight(id), 0);
+/** Butin orienté : poids des objets d'une famille déjà posée dans le gilet. */
+export const VEST_FAMILY_BOOST = 2;
+
+function pickWeighted(rng: Rng, ids: string[], boost?: Set<Family>): string {
+  const w = (id: string) => itemWeight(id) * (boost?.has(ITEMS[id].family) ? VEST_FAMILY_BOOST : 1);
+  const total = ids.reduce((s, id) => s + w(id), 0);
   let r = rng() * total;
   for (const id of ids) {
-    r -= itemWeight(id);
+    r -= w(id);
     if (r <= 0) return id;
   }
   return ids[ids.length - 1];
 }
 
+/** Familles des objets posés dans le gilet. */
+export function vestFamilies(run: RunState): Set<Family> {
+  return new Set(run.items.filter((i) => i.placed).map((i) => ITEMS[i.defId].family));
+}
+
 /** Chance qu'un objet tombé dans un lieu spécialisé soit de la famille annoncée. */
 export const FAMILY_DROP_CHANCE = 0.6;
 
-function randomItems(run: RunState, rng: Rng, count: number, guarantee: number, family?: Family): ItemInst[] {
+function randomItems(run: RunState, rng: Rng, count: number, guarantee: number, family?: Family, boost?: Set<Family>): ItemInst[] {
   const zoneOdds = run.stage;
   const ids = [...ITEM_IDS];
   const out: ItemInst[] = [];
   for (let i = 0; i < count && ids.length; i++) {
     const fam = family && rng() < FAMILY_DROP_CHANCE ? ids.filter((x) => ITEMS[x].family === family) : [];
     const pool = fam.length ? fam : ids;
-    const id = pickWeighted(rng, pool);
+    const id = pickWeighted(rng, pool, boost);
     ids.splice(ids.indexOf(id), 1);
     out.push({ uid: -1, defId: id, rarity: rollRarity(rng, zoneOdds, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
   }
@@ -175,7 +184,8 @@ function randomItems(run: RunState, rng: Rng, count: number, guarantee: number, 
 
 /** Butin tiré au hasard (ennemis abattus, caisse). Déterministe pour une graine et un usage donnés. */
 export function rollDrops(run: RunState, count: number, guarantee: number, salt: string | number, family?: Family): ItemInst[] {
-  return randomItems(run, rngFor(run.seed, run.stage, run.floor, 'drops', salt), count, guarantee, family);
+  // Le butin penche vers les familles du gilet ; la boutique, elle, reste neutre.
+  return randomItems(run, rngFor(run.seed, run.stage, run.floor, 'drops', salt), count, guarantee, family, vestFamilies(run));
 }
 
 /** Ajoute le butin à la réserve ; ce qui ne rentre pas est revendu automatiquement. */

@@ -9,7 +9,7 @@ import { RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
 import { hashParts, rngFor } from '../logic/rng';
 import {
   EXTENSION_CELLS, FLOORS, NODE_INFO, NodeType, REROLL_COST, extensionPrice, RESERVE_MAX, RunState, START_SURSIS, addDrops, canFuse, fuse, isCombat,
-  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level,
+  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level, VEST_FAMILY_BOOST,
 } from '../logic/run';
 import { computeLoadout, describe, estimateDps, OPERATOR, sellValue } from '../logic/stats';
 import { Button, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
@@ -383,8 +383,9 @@ export default class LoadoutScene extends Phaser.Scene {
       L.add(txt(this, x0, y, fi.name, 17, f.tier ? fi.hex : C.quiet, { fontStyle: f.tier ? 'bold' : 'normal' }));
       L.add(txt(this, x0 + 120, y - 1, pips, 17, fi.hex));
       if (f.count > 4) L.add(txt(this, x0 + 200, y, `+${f.count - 4}`, 15, fi.hex));
-      y += 24;
+      y += 22;
     }
+    if (loadout.families.length) L.add(txt(this, x0, y + 2, `Butin ×${VEST_FAMILY_BOOST} pour ces familles`, 14, C.quiet));
 
     const x1 = COMBAT.x + 340;
     let y1 = COMBAT.y + 20;
