@@ -1,4 +1,4 @@
-import { Category, Family, ITEMS, ITEM_IDS } from '../data/items';
+import { Category, Family, ITEMS, LOOT_IDS } from '../data/items';
 import { ItemInst, START_UNLOCKED, canPlace } from './grid';
 import { MAX_RARITY, rollRarity } from './rarity';
 import { Rng, rngFor } from './rng';
@@ -6,7 +6,7 @@ import { itemPrice } from './stats';
 import { STAGES, TURNS, Zone, genZone } from './zone';
 import { BIOME_IDS, BiomeId } from '../data/biomes';
 
-export type NodeType = 'contrat' | 'elite' | 'marchand' | 'caisse' | 'planque' | 'boss';
+export type NodeType = 'contrat' | 'elite' | 'marchand' | 'caisse' | 'planque' | 'etabli' | 'boss';
 
 export const NODE_INFO: Record<NodeType, { name: string; letter: string; desc: string }> = {
   contrat: { name: 'Contrat', letter: 'C', desc: 'Combat standard : chaque ennemi abattu lâche un objet' },
@@ -14,6 +14,7 @@ export const NODE_INFO: Record<NodeType, { name: string; letter: string; desc: s
   marchand: { name: 'Marchand', letter: '$', desc: 'Acheter, vendre, relancer la boutique' },
   caisse: { name: 'Caisse', letter: 'R', desc: 'Ravitaillement : 2 objets au hasard, sans combat' },
   planque: { name: 'Planque', letter: 'P', desc: 'Repos : récupère 1 sursis (ou 8 crédits si tu es au maximum)' },
+  etabli: { name: 'Établi', letter: 'A', desc: 'Armurier : assemble les recettes dont les ingrédients se touchent dans ton gilet' },
   boss: { name: 'Boss', letter: 'B', desc: 'Cdt Kesh et son escorte. Victoire = extraction' },
 };
 
@@ -143,7 +144,7 @@ export function makeItem(run: RunState, defId: string, rarity: number): ItemInst
 export const CATEGORY_WEIGHTS: Record<Category, number> = {
   arme: 20, munition: 25, accessoire: 22, protection: 12, explosif: 11, medical: 10,
 };
-const CATEGORY_SIZE = ITEM_IDS.reduce((m, id) => m.set(ITEMS[id].category, (m.get(ITEMS[id].category) ?? 0) + 1), new Map<Category, number>());
+const CATEGORY_SIZE = LOOT_IDS.reduce((m, id) => m.set(ITEMS[id].category, (m.get(ITEMS[id].category) ?? 0) + 1), new Map<Category, number>());
 const itemWeight = (id: string) => CATEGORY_WEIGHTS[ITEMS[id].category] / (CATEGORY_SIZE.get(ITEMS[id].category) ?? 1);
 
 /** Une victoire rapporte au moins ce nombre d'objets, même contre un seul ennemi. */
@@ -173,7 +174,7 @@ export const FAMILY_DROP_CHANCE = 0.6;
 
 function randomItems(run: RunState, rng: Rng, count: number, guarantee: number, family?: Family, boost?: Set<Family>): ItemInst[] {
   const zoneOdds = run.stage;
-  const ids = [...ITEM_IDS];
+  const ids = [...LOOT_IDS];
   const out: ItemInst[] = [];
   for (let i = 0; i < count && ids.length; i++) {
     const fam = family && rng() < FAMILY_DROP_CHANCE ? ids.filter((x) => ITEMS[x].family === family) : [];

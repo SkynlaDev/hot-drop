@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ITEMS } from '../src/data/items';
+import { RECIPES } from '../src/data/recipes';
+import { craft, findCraftable } from '../src/logic/recipes';
 import { buildEncounter } from '../src/data/enemies';
 import { simulate } from '../src/logic/combat';
 import { ItemInst, Rot, START_UNLOCKED, expandable, canPlace, cellZones, cellsAt, inZone, maskOf, sharedEdge } from '../src/logic/grid';
@@ -29,7 +31,8 @@ describe('grille', () => {
     expect(maskOf('pistolet', 1)).toEqual([[true, true], [false, true]]);
     expect(maskOf('pistolet', 2)).toEqual([[false, true], [true, true]]);
     expect(maskOf('fusil_assaut', 1)).toHaveLength(4);
-    expect(cellsAt({ defId: 'ifak', rot: 0 }, 0, 0)).toHaveLength(5);
+    expect(cellsAt({ defId: 'plaque', rot: 0 }, 0, 0)).toHaveLength(6);
+    expect(maskOf('plaque', 1)).toHaveLength(2); // 2 × 3 couché devient 3 × 2
   });
 
   it('une forme en L laisse sa case vide libre', () => {
@@ -425,5 +428,54 @@ describe('butin orienté', () => {
     const vest = newRun(5);
     vest.items = [inst(1, 'bipied', 0, 0)];
     expect(share(vest, 'precision', true)).toBeCloseTo(share(plain, 'precision', true), 5);
+  });
+});
+
+describe('recettes de l’Armurier', () => {
+  it('une recette n’est prête que si ses ingrédients se touchent', () => {
+    // Pompe Sanglier (XXXX / X...) en (0,0) ; cartouches 12G juste à droite ou loin.
+    expect(findCraftable([inst(1, 'pompe', 0, 0), inst(2, 'chg_12g', 4, 0)]).map((c) => c.recipe.id)).toEqual(['pompe_dragon']);
+    expect(findCraftable([inst(1, 'pompe', 0, 0), inst(2, 'chg_12g', 6, 6)])).toHaveLength(0);
+    expect(findCraftable([inst(1, 'pompe', 0, 0), { ...inst(2, 'chg_12g', 4, 0), placed: false }])).toHaveLength(0);
+  });
+
+  it('une recette à 3 ingrédients demande un seul bloc', () => {
+    // Aigle (XXXXX / ..X..) en (0,1), lunette au-dessus, bipied loin : pas prête ; bipied sous la crosse : prête.
+    const base = [inst(1, 'precision', 0, 1), inst(2, 'lunette', 0, 0)];
+    expect(findCraftable([...base, inst(3, 'bipied', 5, 5)])).toHaveLength(0);
+    expect(findCraftable([...base, inst(3, 'bipied', 3, 2)]).map((c) => c.recipe.id)).toEqual(['aigle_longuevue']);
+  });
+
+  it('assembler retire les ingrédients et garde la meilleure rareté', () => {
+    const run = newRun(1);
+    run.items = [inst(1, 'plaque', 1, 1, 0), inst(2, 'casque', 3, 1, 2)];
+    run.nextUid = 10;
+    const [c] = findCraftable(run.items);
+    const made = craft(run, c);
+    expect(made.defId).toBe('armure_lourde');
+    expect(made.rarity).toBe(2);
+    expect(run.items.map((i) => i.defId)).toEqual(['armure_lourde']);
+    expect(made.placed).toBe(true);
+  });
+
+  it('les objets assemblés ne tombent jamais dans le butin', () => {
+    const run = newRun(4);
+    for (let i = 0; i < 500; i++) for (const d of rollDrops(run, 2, 0, i)) expect(ITEMS[d.defId].crafted).toBeFalsy();
+  });
+
+  it('chaque recette donne un objet assemblé, à partir d’objets du butin', () => {
+    for (const r of RECIPES) {
+      expect(ITEMS[r.output].crafted).toBe(true);
+      for (const id of r.inputs) expect(ITEMS[id].crafted).toBeFalsy();
+    }
+  });
+
+  it('les effets des objets assemblés s’appliquent', () => {
+    const magnum = computeLoadout([inst(1, 'taureau_magnum', 0, 0)]).loadout.weapons[0];
+    expect(magnum.fed).toBe(true);
+    expect(magnum.critStun).toBeGreaterThan(0);
+    const kr = computeLoadout([inst(1, 'kr4_tactique', 0, 0), inst(2, 'chg_9mm', 4, 0)]).loadout.weapons[0];
+    expect(kr.fed).toBe(true); // n'importe quel chargeur l'alimente
+    expect(computeLoadout([inst(1, 'armure_lourde', 0, 0)]).loadout.flatReduce).toBe(2);
   });
 });

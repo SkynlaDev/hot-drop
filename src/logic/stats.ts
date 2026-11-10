@@ -1,5 +1,6 @@
 import { CATEGORY_NAMES, FAMILY_INFO, Family, ITEMS } from '../data/items';
 import { ItemInst, cellCount, inZone, sharedEdge } from './grid';
+import { recipeLabel, recipesUsing } from './recipes';
 import { EFFECT_MULT, EXTRA_CHARGES, MAG_MULT, MAX_RARITY, PRICE_MULT, RARITY_NAMES, RECHARGE_MULT } from './rarity';
 
 export const OPERATOR = { name: 'Viper', maxHp: 100 };
@@ -26,6 +27,10 @@ export interface WeaponRt {
   ricochetEvery: number;
   /** Un chargeur de son calibre la touche ; sinon la recharge est 2 fois plus lente. */
   fed: boolean;
+  /** Un critique retarde le prochain tir de la cible (s). */
+  critStun: number;
+  /** Dégâts en plus à chaque touche, qui ignorent l'armure. */
+  trueDmg: number;
 }
 
 export interface ActiveRt {
@@ -55,6 +60,8 @@ export interface PlayerLoadout {
   critMult: number;
   /** Armure régénérée par seconde (Rempart palier 4). */
   armorRegen: number;
+  /** Chaque balle reçue perd ce nombre de dégâts (minimum 1). */
+  flatReduce: number;
   families: FamilyState[];
 }
 
@@ -93,6 +100,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
   const actives: ActiveRt[] = [];
   let armor = 0;
   let reflect = 0;
+  let flatReduce = 0;
 
   for (const it of placed) {
     const d = ITEMS[it.defId];
@@ -105,10 +113,10 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
       let reload = d.weapon.reload * RECHARGE_MULT[it.rarity];
       if (inZone(it, 'flancs')) reload *= 0.9;
       let crit = 0.05 + (tier('precision') >= 1 ? 0.1 : 0);
-      let firstCrit = false;
+      let firstCrit = !!d.weapon.firstCrit;
       let magBonus = 0;
       let magCount = 0;
-      let armorPierce = 0;
+      let armorPierce = d.weapon.armorPierce ?? 0;
       let ignoreBlindes = false;
       let dmgMult = 1;
       let grip = 0;
@@ -120,7 +128,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         const edge = sharedEdge(o, it);
         if (!edge) continue;
         const om = EFFECT_MULT[o.rarity];
-        if (od.synergy.kind === 'mag' && od.caliber === d.caliber && magCount < 3) {
+        if (od.synergy.kind === 'mag' && (od.caliber === d.caliber || d.weapon.feedsAny) && magCount < 3) {
           magCount++;
           magBonus += od.synergy.value * om;
           links.push({ a: o.uid, b: it.uid, label: `−${pct(od.synergy.value * om)} de recharge`, edge });
@@ -152,7 +160,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         armorPierce = 1;
         ignoreBlindes = true;
       }
-      const fed = magCount > 0;
+      const fed = magCount > 0 || !!d.weapon.selfFed;
       reload *= fed ? Math.max(0.3, 1 - magBonus) : UNFED_RELOAD;
       interval /= 1 + grip;
       weapons.push({
@@ -170,6 +178,8 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         ignoreBlindes,
         ricochetEvery: d.family === 'rafale' && tier('rafale') >= 2 ? 8 : 0,
         fed,
+        critStun: d.weapon.critStun ?? 0,
+        trueDmg: (d.weapon.trueDmg ?? 0) * m,
       });
     }
 
@@ -177,6 +187,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
       let a = d.armor * m;
       if (inZone(it, 'poitrine')) a *= 1.25;
       armor += a;
+      flatReduce += d.flatReduce ?? 0;
       if (it.rarity === MAX_RARITY && d.id === 'plaque') reflect += 0.1;
     }
 
@@ -196,7 +207,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
         charges: d.active.charges + EXTRA_CHARGES[it.rarity] + (explosive && tier('demolition') >= 1 ? 1 : 0),
         duration,
         threshold: d.active.threshold ?? 0.5,
-        ignoreArmor: kind === 'frag' && tier('demolition') >= 2,
+        ignoreArmor: kind === 'frag' && (tier('demolition') >= 2 || !!d.active.pierce),
       });
     }
   }
@@ -212,6 +223,7 @@ export function computeLoadout(items: ItemInst[]): { loadout: PlayerLoadout; lin
       actives,
       critMult: tier('precision') >= 2 ? 2.5 : 2,
       armorRegen: tier('rempart') >= 2 ? 2 : 0,
+      flatReduce,
       families,
     },
     links,
@@ -223,7 +235,7 @@ export function estimateDps(l: PlayerLoadout): number {
   let dps = 0;
   for (const w of l.weapons) {
     const cycle = w.mag * w.interval + w.reload;
-    dps += (w.dmg * (1 + w.crit * (l.critMult - 1)) * 0.85 * w.mag * w.targets) / cycle;
+    dps += ((w.dmg * (1 + w.crit * (l.critMult - 1)) + w.trueDmg) * 0.85 * w.mag * w.targets) / cycle;
   }
   return dps;
 }
@@ -250,19 +262,26 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     const wp = d.weapon;
     lines.push(`Dégâts ${r1(wp.dmg * m)} toutes les ${r1(wp.interval)} s`);
     lines.push(`Chargeur ${Math.round(wp.mag * MAG_MULT[inst.rarity])} · recharge ${r1(wp.reload * RECHARGE_MULT[inst.rarity])} s`);
-    lines.push(`Alimentation : un chargeur ${d.caliber} adjacent, sinon recharge ×${UNFED_RELOAD}`);
+    if (wp.selfFed) lines.push('Alimentation intégrée : jamais à sec');
+    else if (wp.feedsAny) lines.push(`Alimentation : n'importe quel chargeur adjacent, sinon recharge ×${UNFED_RELOAD}`);
+    else lines.push(`Alimentation : un chargeur ${d.caliber} adjacent, sinon recharge ×${UNFED_RELOAD}`);
+    if (wp.firstCrit) lines.push('Son 1er tir est toujours critique');
+    if (wp.armorPierce) lines.push(`Ignore ${pct(wp.armorPierce)} de l'armure`);
+    if (wp.critStun) lines.push(`Ses critiques retardent la cible de ${r1(wp.critStun)} s`);
+    if (wp.trueDmg) lines.push(`Incendiaire : +${Math.round(wp.trueDmg * m)} dégâts qui ignorent l'armure`);
     if (wp.targets && wp.targets > 1) lines.push(`Touche ${wp.targets} cibles`);
     if (inst.rarity === MAX_RARITY) lines.push("Trait légendaire : 1 balle sur 5 ignore l'armure");
   }
   if (d.armor) {
     lines.push(`Armure +${Math.round(d.armor * m)} (+25 % en Poitrine)`);
     if (inst.rarity === MAX_RARITY && d.id === 'plaque') lines.push('Trait légendaire : renvoie 10 % des dégâts bloqués');
+    if (d.flatReduce) lines.push(`Chaque balle reçue perd ${d.flatReduce} dégâts`);
   }
   if (d.active) {
     const a = d.active;
     const cd = r1(a.cooldown * RECHARGE_MULT[inst.rarity]);
     const ch = a.charges + EXTRA_CHARGES[inst.rarity];
-    if (a.kind === 'frag') lines.push(`${Math.round(a.value * m)} dégâts à toute l'escouade`);
+    if (a.kind === 'frag') lines.push(`${Math.round(a.value * m)} dégâts à toute l'escouade${a.pierce ? ", ignore l'armure" : ''}`);
     if (a.kind === 'smoke') lines.push(`Précision ennemie −50 % pendant ${r1((a.duration ?? 0) * m)} s`);
     if (a.kind === 'heal') lines.push(`Soigne ${Math.round(a.value * m)} PV quand les PV passent sous 50 %`);
     if (a.kind === 'flash') lines.push(`Étourdit toute l'escouade ${r1(a.value * m)} s`);
@@ -280,6 +299,8 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     if (d.synergy.kind === 'holo') lines.push(`Adjacent à une arme courte : +${v} de critique`);
     if (d.synergy.kind === 'bipod') lines.push(`Adjacent à une arme longue : +${v} de dégâts`);
   }
+  if (d.crafted) lines.push("Assemblé à l'Établi");
+  for (const r of recipesUsing(d.id)) lines.push(`Recette : ${recipeLabel(r)} (à l'Établi, ingrédients adjacents)`);
   const f = FAMILY_INFO[d.family];
   lines.push(`Famille ${f.name}${inst.rarity === MAX_RARITY ? ' (compte double)' : ''} : 2 → ${f.tier2.toLowerCase()} · 4 → ${f.tier4.toLowerCase()}`);
   lines.push(`${cellCount(inst.defId)} case${cellCount(inst.defId) > 1 ? 's' : ''} · revente ${sellValue(inst)} cr`);

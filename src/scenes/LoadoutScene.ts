@@ -4,9 +4,11 @@ import { buildEncounter } from '../data/enemies';
 import { FAMILY_INFO, Family, ITEMS } from '../data/items';
 import { THREAT_INFO, Threat } from '../data/threats';
 import { CombatEvent, CombatResult, EnemyUnit, simulate } from '../logic/combat';
-import { COLS, ItemInst, ROWS, Rot, canPlace, cellKey, cellZones, cellsAt, dims, expandable, itemAt, maskOf, nextRot, overlapping, rotationIsNoop } from '../logic/grid';
+import { COLS, ItemInst, ROWS, Rot, canPlace, cellKey, cellZones, cellsAt, dims, expandable, itemAt, maskOf, nextRot, overlapping, rotationIsNoop, sharedEdge } from '../logic/grid';
 import { RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
 import { hashParts, rngFor } from '../logic/rng';
+import { craft, findCraftable, recipeLabel } from '../logic/recipes';
+import { RECIPES } from '../data/recipes';
 import {
   EXTENSION_CELLS, FLOORS, NODE_INFO, NodeType, REROLL_COST, extensionPrice, RESERVE_MAX, RunState, START_SURSIS, addDrops, canFuse, fuse, isCombat,
   reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level, VEST_FAMILY_BOOST, MIN_WIN_DROPS,
@@ -65,6 +67,7 @@ export default class LoadoutScene extends Phaser.Scene {
   /** Famille de butin annoncée par le lieu. */
   private family?: Family;
   private famTiers: Map<string, number> | null = null;
+  private recipeKeys: Set<string> | null = null;
   private phase: Phase = 'prep';
   private enemies: EnemyUnit[] = [];
   private views = new Map<number, Container>();
@@ -113,6 +116,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.place = data.place ?? NODE_INFO[data.node].name;
     this.threats = data.node === 'boss' ? this.run.zone?.exfilThreats ?? [] : data.threats ?? [];
     this.famTiers = null;
+    this.recipeKeys = null;
     this.phase = isCombat(this.node) ? 'prep' : 'post';
     this.views = new Map();
     this.trayViews = new Map();
@@ -149,7 +153,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.extHint = txt(this, W / 2, GRID_Y - 6, '', 18, '#7ddc86', { fontStyle: 'bold', backgroundColor: '#0d0f0acc', padding: { x: 10, y: 4 } }).setOrigin(0.5, 1).setDepth(30);
 
     this.mainBtn = button(this, BUTTON.x + 240, BUTTON.y, BUTTON.w - 240, BUTTON.h, '', () => this.onMain(), { primary: true });
-    this.altBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, 'Boutique', () => this.openShop(), { size: 24 });
+    this.altBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, this.node === 'etabli' ? 'Établi' : 'Boutique',
+      () => (this.node === 'etabli' ? this.openWorkshop() : this.openShop()), { size: 24 });
     this.speedBtn = button(this, COMBAT.x + COMBAT.w - 232, COMBAT.y + 12, 106, 52, '×1', () => this.cycleSpeed(), { size: 22 });
     this.skipBtn = button(this, COMBAT.x + COMBAT.w - 118, COMBAT.y + 12, 106, 52, 'Passer', () => this.skipCombat(), { size: 22 });
     for (const b of [this.mainBtn, this.altBtn, this.speedBtn, this.skipBtn]) b.root.setDepth(20);
@@ -163,6 +168,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.refresh();
 
     if (this.node === 'marchand') this.openShop();
+    if (this.node === 'etabli') this.time.delayedCall(300, () => this.openWorkshop());
     if (this.node === 'caisse' || this.node === 'planque') this.time.delayedCall(350, () => this.claimNodeReward());
   }
 
@@ -295,6 +301,32 @@ export default class LoadoutScene extends Phaser.Scene {
       if (dx !== 0) this.linkG.fillRoundedRect(ex - 5, ey - 22, 10, 44, 4);
       else this.linkG.fillRoundedRect(ex - 22, ey - 5, 44, 10, 4);
     }
+    // Recettes prêtes : liens dorés en pointillés entre les ingrédients qui se touchent.
+    const craftable = findCraftable(this.run.items);
+    for (const c of craftable) {
+      for (let i = 0; i < c.parts.length; i++) {
+        for (let j = i + 1; j < c.parts.length; j++) {
+          const e = sharedEdge(c.parts[i], c.parts[j]);
+          if (!e) continue;
+          const ex = GRID_X + (e.cx + 0.5 + e.dx * 0.5) * CELL;
+          const ey = GRID_Y + (e.cy + 0.5 + e.dy * 0.5) * CELL;
+          this.linkG.fillStyle(0xf2c94c, 1);
+          for (let k = -1; k <= 1; k++) {
+            if (e.dx !== 0) this.linkG.fillRoundedRect(ex - 6, ey + k * 22 - 6, 12, 12, 3);
+            else this.linkG.fillRoundedRect(ex + k * 22 - 6, ey - 6, 12, 12, 3);
+          }
+        }
+      }
+    }
+    const recipeKeys = new Set(craftable.map((c) => c.recipe.id));
+    if (this.recipeKeys) {
+      const fresh = craftable.find((c) => !this.recipeKeys!.has(c.recipe.id));
+      if (fresh) {
+        toast(this, `Recette prête : ${ITEMS[fresh.recipe.output].name} · à l'Établi`, '#f2c94c', 300);
+        vibrate([10, 30, 10, 30, 10]);
+      }
+    }
+    this.recipeKeys = recipeKeys;
     // Armes sans chargeur de leur calibre : pastille « recharge ×2 » sur leur première case.
     this.unfedLayer.removeAll(true);
     for (const w of loadout.weapons) {
@@ -425,7 +457,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const p = this.phase;
     this.mainBtn.setLabel(p === 'prep' ? 'PRÊT · lancer le combat' : p === 'combat' ? 'Combat en cours…' : p === 'over' ? 'Voir le bilan' : 'Continuer →');
     this.mainBtn.setEnabled(p !== 'combat' && !this.modal);
-    this.altBtn.root.setVisible(this.node === 'marchand');
+    this.altBtn.root.setVisible(this.node === 'marchand' || this.node === 'etabli');
     this.speedBtn.root.setVisible(p === 'combat');
     this.skipBtn.root.setVisible(p === 'combat');
     this.speedBtn.setLabel(`×${this.run.speed}`);
@@ -664,12 +696,18 @@ export default class LoadoutScene extends Phaser.Scene {
       }
       this.closeModal();
     });
-    const h = 150 + info.lines.length * 40;
+    const lineViews = info.lines.map((l) => txt(this, 76, 0, l, 22, C.text, { wordWrap: { width: W - 150 } }));
+    const h = 150 + lineViews.reduce((s, t) => s + t.height + 12, 0);
     const y = 640 - h / 2;
     m.add(panel(this, 40, y, W - 80, h, Phaser.Display.Color.HexStringToColor(RARITY_HEX[inst.rarity]).color));
     m.add(txt(this, 76, y + 30, info.title, 32, C.text, { fontStyle: 'bold' }));
     m.add(txt(this, 76, y + 74, info.subtitle, 22, RARITY_HEX[inst.rarity]));
-    info.lines.forEach((l, i) => m.add(txt(this, 76, y + 124 + i * 40, l, 22, C.text, { wordWrap: { width: W - 150 } })));
+    let ly = y + 124;
+    for (const t of lineViews) {
+      t.setY(ly);
+      ly += t.height + 12;
+      m.add(t);
+    }
     m.add(txt(this, W / 2, y + h + 30, 'Touche pour fermer', 20, C.quiet).setOrigin(0.5));
     this.modal = m;
     this.updateButtons();
@@ -822,6 +860,54 @@ export default class LoadoutScene extends Phaser.Scene {
       this.reopenShop(false);
     }, { size: 22 }).root);
     m.add(button(this, 370, 1020, 320, 84, 'Fermer', () => {
+      this.closeModal();
+      this.refresh();
+    }, { size: 22 }).root);
+    this.modal = m;
+    this.updateButtons();
+  }
+
+  /** Établi : recettes prêtes à assembler, et carnet des recettes. */
+  private openWorkshop() {
+    if (this.modal) return;
+    const ready = findCraftable(this.run.items);
+    const m = modalBase(this);
+    m.add(panel(this, 16, 104, W - 32, 1028, 0xd9b86c));
+    m.add(txt(this, W / 2, 150, 'ÉTABLI · ARMURIER', 36, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
+    m.add(txt(this, W / 2, 196, ready.length
+      ? 'Les ingrédients se touchent : assemble-les'
+      : 'Aucune recette prête : place les ingrédients côte à côte', 22, ready.length ? C.goodStr : C.quiet).setOrigin(0.5));
+    const cw = 320;
+    const ch = 300;
+    ready.slice(0, 4).forEach((c, i) => {
+      const x = 30 + (i % 2) * (cw + 20);
+      const y = 236 + Math.floor(i / 2) * (ch + 20);
+      const preview: ItemInst = { uid: -1, defId: c.recipe.output, rarity: Math.max(...c.parts.map((p) => p.rarity)), rot: 0, x: 0, y: 0, placed: false };
+      this.card(m, x, y, cw, ch, preview, 'Assembler', C.accentStr, () => {
+        const made = craft(this.run, c);
+        this.closeModal();
+        this.linkKeys = null;
+        this.refresh();
+        vibrate([20, 60, 30]);
+        this.cameras.main.flash(180, 255, 200, 120);
+        banner(this, 'ASSEMBLÉ', C.accentStr, 236);
+        toast(this, made.placed ? `${ITEMS[made.defId].name} posé dans le gilet` : `${ITEMS[made.defId].name} → réserve`, C.accentStr, 900);
+        saveRun(this.run);
+      }, false, i * 70);
+    });
+    // Carnet des recettes
+    let y = ready.length > 2 ? 876 : ready.length ? 556 : 250;
+    m.add(txt(this, 40, y, 'CARNET DE RECETTES', 20, C.quiet, { fontStyle: 'bold' }));
+    y += 34;
+    const owned = new Set(this.run.items.map((i) => i.defId));
+    for (const r of RECIPES) {
+      if (y > 1000) break;
+      const have = r.inputs.filter((id) => owned.has(id)).length;
+      const col = have === r.inputs.length ? C.goodStr : have ? C.text : C.quiet;
+      m.add(txt(this, 40, y, `${recipeLabel(r)}  (${have}/${r.inputs.length})`, 18, col, { wordWrap: { width: W - 80 } }));
+      y += 30;
+    }
+    m.add(button(this, 200, 1030, 320, 84, 'Fermer', () => {
       this.closeModal();
       this.refresh();
     }, { size: 22 }).root);

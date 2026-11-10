@@ -18,6 +18,7 @@ const NODE_COLORS: Record<NodeType, number> = {
   marchand: 0xf2c94c,
   caisse: 0x5fbf6a,
   planque: 0x4f9bff,
+  etabli: 0xd9b86c,
   boss: 0xff8c1a,
 };
 const GAS = 0x9bbf3a;

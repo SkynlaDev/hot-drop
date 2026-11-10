@@ -107,7 +107,14 @@ export function simulate(l: PlayerLoadout, enemiesIn: EnemyUnit[], seed: number,
         const crit = !miss && ((s.w.firstCrit && s.shots === 0) || rng() < s.w.crit);
         let amount = miss ? 0 : Math.round(s.w.dmg * (crit ? l.critMult : 1));
         if (!miss && blindes && !s.w.ignoreBlindes && !legendary) amount = Math.max(1, amount - BLINDES_REDUCTION);
-        if (!miss) applyDamage(target.cur, amount, legendary ? 1 : s.w.armorPierce);
+        if (!miss) {
+          applyDamage(target.cur, amount, legendary ? 1 : s.w.armorPierce);
+          if (s.w.trueDmg > 0) {
+            target.cur.hp = Math.max(0, target.cur.hp - Math.round(s.w.trueDmg));
+            amount += Math.round(s.w.trueDmg);
+          }
+          if (crit && s.w.critStun > 0) target.next = Math.max(target.next, t) + s.w.critStun;
+        }
         events.push({
           t, kind: 'shot', from: 'p', uid: s.w.uid, to: ti, amount, crit, miss,
           pierce: !miss && (legendary || s.w.armorPierce > 0), ricochet: ricochet && n === targets.length - 1,
@@ -174,7 +181,7 @@ export function simulate(l: PlayerLoadout, enemiesIn: EnemyUnit[], seed: number,
       if (t >= u.next) {
         const acc = u.e.acc * (t < smokeUntil ? 0.5 : 1);
         const miss = rng() > acc;
-        const amount = miss ? 0 : Math.round(u.e.dmg * dmgMult);
+        const amount = miss ? 0 : Math.max(1, Math.round(u.e.dmg * dmgMult) - l.flatReduce);
         const absorbed = miss ? 0 : applyDamage(p, amount);
         events.push({ t, kind: 'shot', from: i, to: 'p', amount, crit: false, miss, pierce: false, hp: p.hp, armor: p.armor });
         u.next = t + u.e.interval;

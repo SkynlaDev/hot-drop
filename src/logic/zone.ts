@@ -96,10 +96,11 @@ export function genZone(seed: number, biome: BiomeId = 'banlieue', stage = 0): Z
   }
   const types = shuffle(rng, [
     ...Array<Poi['type']>(8).fill('contrat'),
-    ...Array<Poi['type']>(4).fill('caisse'),
+    ...Array<Poi['type']>(3).fill('caisse'),
     ...Array<Poi['type']>(2).fill('marchand'),
     ...Array<Poi['type']>(3).fill('elite'),
-    ...Array<Poi['type']>(3).fill('planque'),
+    ...Array<Poi['type']>(2).fill('planque'),
+    ...Array<Poi['type']>(2).fill('etabli'),
   ]);
   const pois: Poi[] = pts.map((p, i) => ({ id: i, x: Math.round(p.x), y: Math.round(p.y), type: types[i % types.length], name: '', threats: [] }));
 
