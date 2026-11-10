@@ -1,45 +1,99 @@
 // Outil d'équilibrage : npx vite-node tests/balance.ts
-// Taux de victoire de gilets types contre les rencontres de chaque étage.
-import { buildEncounter } from '../src/data/enemies';
-import { simulate } from '../src/logic/combat';
+// Sacs de départ des opérateurs contre les bots générés, et bots entre eux par qualité.
+import { OPERATORS, OPERATOR_IDS, OperatorId } from '../src/data/operators';
+import { BotBuild, generateBot, botLoadout } from '../src/logic/bots';
+import { simulateDuel } from '../src/logic/combat';
 import { ItemInst } from '../src/logic/grid';
-import { rngFor } from '../src/logic/rng';
-import { computeLoadout } from '../src/logic/stats';
-import { THREATS, Threat, BOSS_THREATS } from '../src/data/threats';
+import { computeLoadout, maxHpFor } from '../src/logic/stats';
 
-const it = (uid: number, defId: string, x: number, y: number, rarity = 0, rot: 0 | 1 | 2 | 3 = 0): ItemInst => ({ uid, defId, rarity, rot, x, y, placed: true });
+const N = 400;
+const pctS = (w: number, n: number) => `${Math.round((w / n) * 100)}%`.padEnd(8);
 
-const builds: Record<string, ItemInst[]> = {
-  depart: [it(3, 'casque', 1, 0), it(1, 'pistolet', 1, 2), it(2, 'chg_9mm', 3, 2)],
-  'depart+smg': [it(3, 'casque', 1, 0), it(1, 'pistolet', 1, 2), it(2, 'chg_9mm', 3, 2), it(4, 'smg', 3, 2), it(5, 'frag', 0, 5)],
-  milieu: [it(1, 'fusil_assaut', 0, 3), it(2, 'chg_556', 4, 3), it(3, 'plaque', 1, 0, 1), it(4, 'pistolet', 3, 0), it(5, 'chg_9mm', 3, 1), it(6, 'frag', 0, 5), it(7, 'ifak', 1, 5)],
-  fort: [it(1, 'fusil_assaut', 0, 3, 2), it(2, 'chg_556', 4, 3, 1), it(3, 'lunette', 0, 2, 1), it(4, 'plaque', 1, 0, 2), it(5, 'smg', 3, 0, 1), it(6, 'chg_9mm', 3, 2), it(7, 'frag', 0, 5, 1), it(8, 'ifak', 1, 5), it(9, 'fumigene', 4, 5)],
-};
+const startItems = (op: OperatorId): ItemInst[] =>
+  OPERATORS[op].start.map(([defId, x, y], i) => ({ uid: 100 + i, defId, rarity: 0, rot: 0, x, y, placed: true }));
 
-const builds2: Record<string, ItemInst[]> = {
-  ...builds,
-  rafale: [it(1, 'smg', 0, 0, 1), it(2, 'chg_9mm', 3, 0), it(3, 'fusil_assaut', 0, 3, 1), it(4, 'chg_556', 4, 3), it(5, 'casque', 1, 4), it(6, 'ifak', 2, 1)],
-  precision: [it(1, 'precision', 0, 3, 2), it(2, 'chg_762', 0, 2), it(3, 'lunette', 1, 2, 1), it(4, 'silencieux', 3, 2, 2), it(5, 'plaque', 1, 0, 1), it(6, 'pistolet', 3, 0)],
-  'rafale+perf': [it(1, 'smg', 0, 0, 1), it(2, 'chg_9mm', 3, 0), it(3, 'fusil_assaut', 0, 3, 1), it(4, 'perforantes', 4, 3, 2), it(5, 'casque', 1, 4), it(6, 'ifak', 2, 1)],
-  demolition: [it(1, 'pompe', 0, 3, 1), it(2, 'frag', 0, 5, 1), it(3, 'frag', 1, 5), it(4, 'flash', 2, 5), it(5, 'plaque', 1, 0, 1), it(6, 'pistolet', 3, 0), it(7, 'chg_9mm', 4, 1)],
-};
-
-const N = 150;
-const cases: [string, 'contrat' | 'elite' | 'boss', number, Threat[]][] = [
-  ...THREATS.map((t) => [`c5 ${t}`, 'contrat', 5, [t]] as [string, 'contrat', number, Threat[]]),
-  ['boss', 'boss', 7, BOSS_THREATS],
-];
-console.log('build'.padEnd(12), cases.map((c) => c[0].padEnd(12)).join(''));
-for (const [name, items] of Object.entries(builds2)) {
-  const { loadout } = computeLoadout(items);
-  const row: string[] = [];
-  for (const [, kind, floor, threats] of cases) {
-    let wins = 0;
-    for (let s = 0; s < N; s++) {
-      const r = simulate(loadout, buildEncounter(kind, floor, rngFor(s, floor, 'enc'), threats), s * 7 + 1, threats);
-      if (r.win) wins++;
+// Bots générés une fois par (tour, danger), rangés par qualité.
+const cache = new Map<string, Record<string, BotBuild[]>>();
+function bucket(round: number, danger: number): Record<string, BotBuild[]> {
+  const key = `${round}|${danger}`;
+  let c = cache.get(key);
+  if (!c) {
+    c = { faible: [], normal: [], fort: [], any: [] };
+    for (let s = 0; c.faible.length < N || c.normal.length < N || c.fort.length < N; s++) {
+      const b = generateBot(s, round, { danger });
+      if (c[b.quality].length < N) c[b.quality].push(b);
+      if (c.any.length < N) c.any.push(b);
     }
-    row.push(`${Math.round((wins / N) * 100)}%`.padEnd(12));
+    cache.set(key, c);
   }
-  console.log(name.padEnd(12), row.join(''));
+  return c;
+}
+function botOf(quality: BotBuild['quality'] | 'any', s: number, round: number, danger = 0): BotBuild {
+  const list = bucket(round, danger)[quality];
+  return list[s % list.length];
+}
+
+console.log('Sac de départ vs bots (taux de victoire du joueur)');
+console.log('op/tour'.padEnd(16), ['faible', 'normal', 'fort', 'tous'].map((q) => q.padEnd(8)).join(''));
+for (const op of OPERATOR_IDS) {
+  for (let round = 0; round <= 4; round++) {
+    const me = computeLoadout(startItems(op), op, maxHpFor(round)).loadout;
+    const row = (['faible', 'normal', 'fort', 'any'] as const).map((q) => {
+      let w = 0;
+      for (let s = 0; s < N; s++) if (simulateDuel(me, botLoadout(botOf(q, s, round)), s * 7 + 1).win) w++;
+      return pctS(w, N);
+    });
+    console.log(`${op} t${round}`.padEnd(16), row.join(''));
+  }
+}
+
+console.log('\nBot vs bot (taux de victoire de la ligne contre la colonne), même tour');
+for (let round = 0; round <= 4; round += 2) {
+  console.log(`tour ${round}`.padEnd(16), ['faible', 'normal', 'fort'].map((q) => q.padEnd(8)).join(''));
+  for (const qa of ['faible', 'normal', 'fort'] as const) {
+    const row = (['faible', 'normal', 'fort'] as const).map((qb) => {
+      let w = 0;
+      for (let s = 0; s < N; s++) if (simulateDuel(botLoadout(botOf(qa, s, round)), botLoadout(botOf(qb, s + 1, round)), s).win) w++;
+      return pctS(w, N);
+    });
+    console.log(`  ${qa}`.padEnd(16), row.join(''));
+  }
+}
+
+console.log('\nTop 1 vs bots forts du tour 4 / vs bots normaux du tour 4');
+{
+  let w1 = 0;
+  let w2 = 0;
+  for (let s = 0; s < N; s++) {
+    const fin = botLoadout(generateBot(s, 5, { final: true }));
+    if (simulateDuel(fin, botLoadout(botOf('fort', s, 4)), s).win) w1++;
+    if (simulateDuel(fin, botLoadout(botOf('normal', s, 4)), s).win) w2++;
+  }
+  console.log('final'.padEnd(16), pctS(w1, N), pctS(w2, N));
+}
+
+console.log('\nDanger de zone (tour 2, bots tous) : sac de départ vs danger 0 / 0,5 / 1');
+for (const op of OPERATOR_IDS) {
+  const me = computeLoadout(startItems(op), op, maxHpFor(2)).loadout;
+  const row = [0, 0.5, 1].map((danger) => {
+    let w = 0;
+    for (let s = 0; s < N; s++) if (simulateDuel(me, botLoadout(botOf('any', s, 2, danger)), s).win) w++;
+    return pctS(w, N);
+  });
+  console.log(op.padEnd(16), row.join(''));
+}
+
+console.log('\nRampe : bot normal de la manche r-1 (PV de la manche r) vs bots normaux de la manche r');
+{
+  const row: string[] = [];
+  for (let round = 1; round <= 4; round++) {
+    let w = 0;
+    for (let s = 0; s < N; s++) {
+      const prev = botOf('normal', s, round - 1);
+      const me = computeLoadout(prev.items, prev.operator, maxHpFor(round)).loadout;
+      if (simulateDuel(me, botLoadout(botOf('normal', s + 7, round)), s).win) w++;
+    }
+    row.push(`t${round} ${pctS(w, N)}`);
+  }
+  console.log(row.join(''));
 }

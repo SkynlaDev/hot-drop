@@ -302,3 +302,67 @@ export function vibrate(ms: number | number[]) {
 export function fadeIn(scene: Scene) {
   scene.cameras.main.fadeIn(220, 20, 22, 15);
 }
+
+/** Teinte de chaque sacoche (cuir, toile, sangle). */
+const BAG_TINT: Record<string, [number, number]> = {
+  pochette: [0x7a5634, 0xb3875a],
+  sacoche: [0x6b4a2e, 0x9a7048],
+  ceinture: [0x4d4a33, 0x8a8560],
+  sac_tactique: [0x5a5a36, 0x9c9a62],
+};
+
+/**
+ * Vue d'une sacoche (data/bags.ts) : cuir ou toile cousu, une encoche par case.
+ * Conteneur dont l'origine est le coin haut-gauche de sa boîte englobante.
+ */
+export function bagView(scene: Scene, inst: { defId: string; rot: ItemInst['rot'] }, cell: number): Container {
+  const mask = maskOf(inst.defId, inst.rot);
+  const [body, line] = BAG_TINT[inst.defId] ?? BAG_TINT.sacoche;
+  const k = cell / 72;
+  const c = scene.add.container(0, 0);
+  const g = scene.add.graphics();
+  g.fillStyle(0x000000, 0.4);
+  fillMask(g, mask, cell, 0, 10 * k, 2 * k, 4 * k);
+  g.fillStyle(line, 1);
+  fillMask(g, mask, cell, 0, 10 * k);
+  g.fillStyle(body, 1);
+  fillMask(g, mask, cell, 3 * k, 8 * k);
+  // Grain du cuir : un léger reflet en haut de chaque case
+  g.fillStyle(0xffffff, 0.05);
+  mask.forEach((row, y) => row.forEach((on, x) => on && g.fillRect(x * cell + 4 * k, y * cell + 4 * k, cell - 8 * k, cell * 0.22)));
+  // Couture en pointillés le long du bord
+  const on = (x: number, y: number) => y >= 0 && y < mask.length && x >= 0 && x < mask[0].length && mask[y][x];
+  g.fillStyle(line, 0.9);
+  const inset = 7 * k;
+  const dash = 5 * k;
+  mask.forEach((row, y) => row.forEach((filled, x) => {
+    if (!filled) return;
+    const px = x * cell;
+    const py = y * cell;
+    for (let t = 0; t < cell; t += dash * 2) {
+      if (!on(x, y - 1)) g.fillRect(px + t, py + inset, dash, 1.5 * k + 0.5);
+      if (!on(x, y + 1)) g.fillRect(px + t, py + cell - inset, dash, 1.5 * k + 0.5);
+      if (!on(x - 1, y)) g.fillRect(px + inset, py + t, 1.5 * k + 0.5, dash);
+      if (!on(x + 1, y)) g.fillRect(px + cell - inset, py + t, 1.5 * k + 0.5, dash);
+    }
+    // Encoche de la case (où se pose un objet)
+    g.fillStyle(0x000000, 0.18);
+    g.fillRoundedRect(px + 11 * k, py + 11 * k, cell - 22 * k, cell - 22 * k, 6 * k);
+    g.fillStyle(line, 0.9);
+  }));
+  // Boucle de sangle sur la première case
+  const fy = mask.findIndex((r) => r.some(Boolean));
+  const fx = mask[fy].findIndex(Boolean);
+  g.fillStyle(0x23201a, 1);
+  g.fillRoundedRect(fx * cell + cell / 2 - 9 * k, fy * cell - 2 * k, 18 * k, 12 * k, 3 * k);
+  g.lineStyle(2 * k, 0xc9b48a, 1);
+  g.strokeRoundedRect(fx * cell + cell / 2 - 7 * k, fy * cell, 14 * k, 8 * k, 2 * k);
+  c.add(g);
+  const flash = scene.add.graphics().setAlpha(0);
+  c.add(flash);
+  c.setSize(mask[0].length * cell, mask.length * cell);
+  c.setData('flash', flash);
+  c.setData('mask', mask);
+  c.setData('cell', cell);
+  return c;
+}

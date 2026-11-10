@@ -1,4 +1,4 @@
-// Recettes de l'Armurier : des objets différents, adjacents dans le gilet, assemblés à l'Établi (voir GDD).
+// Recettes : des objets différents, adjacents dans le sac, assemblés automatiquement hors combat (pas d'Établi).
 
 export interface Recipe {
   id: string;

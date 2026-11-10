@@ -1,41 +1,37 @@
+// Carte battle royale : zones de tailles différentes, cercle de gaz qui se resserre à chaque manche.
+// Le joueur choisit une zone dans le cercle et s'y largue.
 import Phaser from 'phaser';
 import { C, H, W } from '../config';
-import { BIOMES } from '../data/biomes';
-import { FAMILY_INFO } from '../data/items';
-import { THREAT_INFO, Threat } from '../data/threats';
 import { rngFor } from '../logic/rng';
-import { FAMILY_DROP_CHANCE, NODE_INFO, NodeType, RunState, START_SURSIS, level, saveRun } from '../logic/run';
-import { EARLY_EXFIL_TURN, EXFIL_ID, MAP_SIZE, MOVE_RANGE, Poi, STAGES, TURNS, Zone, dist, gasRadius, inSafeZone, options, posOf } from '../logic/zone';
-import { Button, button, fadeIn, panel, txt, vibrate } from '../ui/widgets';
+import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
+import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
+import { CARD_INFO, SIZE_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
+import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate } from '../ui/widgets';
 
-const MAP = { x: 20, y: 128, w: 680, h: 680 };
+const MAP = { x: 20, y: 150, w: 680, h: 680 };
 const K = MAP.w / MAP_SIZE;
-const PANEL = { x: 20, y: 824, w: 680, h: 440 };
-
-const NODE_COLORS: Record<NodeType, number> = {
-  contrat: 0xd8d0b0,
-  elite: 0xe5484d,
-  marchand: 0xf2c94c,
-  caisse: 0x5fbf6a,
-  planque: 0x4f9bff,
-  etabli: 0xd9b86c,
-  boss: 0xff8c1a,
-};
+const PANEL = { x: 20, y: 846, w: 680, h: 414 };
 const GAS = 0x9bbf3a;
 
-type Target = { kind: 'poi'; poi: Poi } | { kind: 'exfil' };
+const HEAT_DESC: Record<MapZone['size'], string> = {
+  petite: 'Zone calme : peu de squads, des bots plus faibles. Plus de caisses et de boutiques.',
+  moyenne: 'Zone disputée : un peu de tout, des bots un peu plus forts.',
+  grande: 'Zone chaude : beaucoup de squads et des bots plus forts. Plus de cartes, plus de butin.',
+};
+
+interface ZoneView {
+  zone: MapZone;
+  root: Phaser.GameObjects.Container;
+}
 
 export default class MapScene extends Phaser.Scene {
   private run!: RunState;
-  private zone!: Zone;
   private gasG!: Phaser.GameObjects.Graphics;
-  private marker!: Phaser.GameObjects.Container;
   private selG!: Phaser.GameObjects.Graphics;
   private info!: Phaser.GameObjects.Container;
   private goBtn!: Button;
-  private selected: Target | null = null;
-  private reachable = new Set<number>();
-  private exfilOk = false;
+  private views: ZoneView[] = [];
+  private selected: MapZone | null = null;
   private busy = false;
 
   constructor() {
@@ -44,9 +40,9 @@ export default class MapScene extends Phaser.Scene {
 
   init() {
     this.run = this.registry.get('run');
-    if (this.run.zone) this.zone = this.run.zone;
     this.selected = null;
     this.busy = false;
+    this.views = [];
   }
 
   private sx(x: number) {
@@ -57,114 +53,115 @@ export default class MapScene extends Phaser.Scene {
   }
 
   create() {
-    if (!this.run.zone) {
-      this.scene.start('briefing');
+    const run = this.run;
+    if (!run) {
+      this.scene.start('menu');
       return;
     }
-    fadeIn(this);
-    const z = this.zone;
-    const turn = this.run.floor;
-    const opts = options(z, turn);
-    this.reachable = new Set(opts.pois.map((p) => p.id));
-    this.exfilOk = opts.exfil;
-
-    this.drawTerrain();
-
-    // Gaz actuel et prochaine zone sûre (pointillés)
-    this.gasG = this.add.graphics();
-    this.drawGas(gasRadius(Math.max(0, turn - 1)));
-    this.tweens.add({ targets: this.gasG, alpha: 0.82, yoyo: true, repeat: -1, duration: 1400, ease: 'Sine.InOut' });
-    const next = this.add.graphics();
-    this.dashedCircle(next, this.sx(z.exfil.x), this.sy(z.exfil.y), gasRadius(turn) * K, 0xffffff, 0.75);
-
-    // Portée de déplacement
-    const here = posOf(z);
-    if (here && !opts.forced) {
-      const rg = this.add.graphics();
-      rg.fillStyle(C.accent, 0.06);
-      rg.fillCircle(this.sx(here.x), this.sy(here.y), MOVE_RANGE * K);
-      rg.lineStyle(2, C.accent, 0.3);
-      rg.strokeCircle(this.sx(here.x), this.sy(here.y), MOVE_RANGE * K);
+    // Aiguillage : la carte ne s'affiche que si le joueur doit choisir une zone.
+    if (run.over) {
+      this.scene.start('end');
+      return;
+    }
+    if (run.fight || run.pendingGoulag) {
+      this.scene.start('loadout', { mode: 'duel' });
+      return;
+    }
+    if (run.zoneId !== null) {
+      this.scene.start('zone');
+      return;
+    }
+    const seen = this.registry.get('mapSeen') as { seed: number; round: number } | undefined;
+    const shrink = !!seen && seen.seed === run.seed && seen.round < run.round;
+    this.registry.set('mapSeen', { seed: run.seed, round: run.round });
+    const final = run.round >= ROUNDS;
+    if (final && !shrink) {
+      this.startFinal();
+      return;
     }
 
-    this.selG = this.add.graphics();
-    this.drawPois(turn);
-    this.drawExfil();
+    fadeIn(this);
+    this.drawTerrain();
+    const from = shrink ? circle(run.map, run.round - 1) : circle(run.map, run.round);
+    const to = circle(run.map, run.round);
+    this.gasG = this.add.graphics();
+    this.drawGas(from);
+    if (!final && run.round + 1 < ROUNDS) this.dashedCircle(circle(run.map, run.round + 1));
+    this.selG = this.add.graphics().setDepth(5);
+    this.drawZones(shrink ? run.round - 1 : run.round);
+    this.drawHud();
 
-    // Marqueur du joueur
-    this.marker = this.add.container(here ? this.sx(here.x) : -100, here ? this.sy(here.y) : -100).setDepth(20);
-    const mg = this.add.graphics();
-    mg.fillStyle(C.accent, 1);
-    mg.fillCircle(0, 0, 11);
-    mg.lineStyle(3, 0xffffff, 1);
-    mg.strokeCircle(0, 0, 11);
-    const ring = this.add.graphics();
-    ring.lineStyle(3, C.accent, 1);
-    ring.strokeCircle(0, 0, 14);
-    this.marker.add([ring, mg]);
-    this.tweens.add({ targets: ring, scale: 2.4, alpha: 0, repeat: -1, duration: 1100, ease: 'Quad.Out' });
-    this.marker.setVisible(!!here);
-
-    this.drawFrameAndHud(turn);
     this.info = this.add.container(0, 0).setDepth(31);
-    this.goBtn = button(this, PANEL.x + 220, PANEL.y + PANEL.h - 104, PANEL.w - 220, 92, '', () => this.go(), { primary: true });
+    this.goBtn = button(this, PANEL.x + 196, PANEL.y + PANEL.h - 112, PANEL.w - 196 - 24, 92, 'Larguer ▸', () => this.drop(), { primary: true });
     this.goBtn.root.setDepth(31);
-    button(this, PANEL.x, PANEL.y + PANEL.h - 104, 204, 92, 'Menu', () => this.scene.start('menu'), { size: 24 }).root.setDepth(31);
+    button(this, PANEL.x + 24, PANEL.y + PANEL.h - 112, 156, 92, 'Sac', () => this.scene.start('loadout', { mode: 'manage' }), { size: 26 }).root.setDepth(31);
+    this.showInfo();
 
-    if (opts.forced) this.select({ kind: 'exfil' });
-    else this.showInfo();
+    if (shrink) {
+      this.busy = true;
+      this.time.delayedCall(350, () => this.animateShrink(from, to, final));
+    }
   }
 
   // ---------------------------------------------------------------- dessin
 
   private drawTerrain() {
-    const rng = rngFor(this.run.seed, 'terrain', this.zone.stage);
-    const biome = BIOMES[this.zone.biome];
+    const rng = rngFor(this.run.seed, 'terrain');
     const g = this.add.graphics();
-    g.fillStyle(biome.ground, 1);
+    g.fillStyle(0x2a3122, 1);
     g.fillRect(MAP.x, MAP.y, MAP.w, MAP.h);
-    const tones = biome.tones;
-    for (let i = 0; i < 26; i++) {
+    const tones = [0x323a28, 0x262c1e, 0x353d2a, 0x2d3524];
+    for (let i = 0; i < 30; i++) {
       g.fillStyle(tones[i % tones.length], 0.9);
-      g.fillEllipse(MAP.x + rng() * MAP.w, MAP.y + rng() * MAP.h, 60 + rng() * 180, 40 + rng() * 120);
+      g.fillEllipse(MAP.x + rng() * MAP.w, MAP.y + rng() * MAP.h, 60 + rng() * 200, 40 + rng() * 140);
+    }
+    // Forêts : amas de petits cercles sombres
+    for (let i = 0; i < 9; i++) {
+      const fx = MAP.x + rng() * MAP.w;
+      const fy = MAP.y + rng() * MAP.h;
+      g.fillStyle(0x1f2818, 0.9);
+      for (let j = 0; j < 14; j++) g.fillCircle(fx + (rng() - 0.5) * 90, fy + (rng() - 0.5) * 70, 7 + rng() * 9);
     }
     // Rivière
-    g.lineStyle(this.zone.biome === 'port' ? 30 : 14, biome.water, 1);
     const pts: Phaser.Math.Vector2[] = [];
-    const y0 = MAP.y + MAP.h * (0.2 + rng() * 0.6);
-    for (let i = 0; i <= 12; i++) pts.push(new Phaser.Math.Vector2(MAP.x + (i / 12) * MAP.w, y0 + Math.sin(i * 0.9 + rng()) * 50));
+    const x0 = MAP.x + MAP.w * (0.25 + rng() * 0.5);
+    const ph = rng() * 6;
+    for (let i = 0; i <= 14; i++) pts.push(new Phaser.Math.Vector2(x0 + Math.sin(i * 0.7 + ph) * 60, MAP.y + (i / 14) * MAP.h));
+    g.lineStyle(22, 0x1d3340, 1);
+    g.strokePoints(pts, false);
+    g.lineStyle(10, 0x27485a, 1);
     g.strokePoints(pts, false);
     // Quadrillage tactique
-    g.lineStyle(1, 0x000000, 0.18);
+    g.lineStyle(1, 0x000000, 0.2);
     for (let i = 1; i < 10; i++) {
       g.lineBetween(MAP.x + i * 100 * K, MAP.y, MAP.x + i * 100 * K, MAP.y + MAP.h);
       g.lineBetween(MAP.x, MAP.y + i * 100 * K, MAP.x + MAP.w, MAP.y + i * 100 * K);
     }
-    // Routes : chaque lieu relié à ses 2 voisins les plus proches
-    const z = this.zone;
-    const nodes = [...z.pois, { id: EXFIL_ID, ...z.exfil }];
+    // Routes : chaque zone reliée à ses 2 voisines les plus proches
+    const zones = this.run.map.zones;
     const done = new Set<string>();
-    g.lineStyle(5, 0x3e4334, 1);
-    for (const a of nodes) {
-      const near = nodes.filter((b) => b !== a).sort((p, q) => dist(a, p) - dist(a, q)).slice(0, 2);
+    for (const a of zones) {
+      const near = zones.filter((b) => b !== a).sort((p, q) => dist(a, p) - dist(a, q)).slice(0, 2);
       for (const b of near) {
         const key = [a.id, b.id].sort().join('/');
         if (done.has(key)) continue;
         done.add(key);
+        g.lineStyle(9, 0x1a1e14, 1);
+        g.lineBetween(this.sx(a.x), this.sy(a.y), this.sx(b.x), this.sy(b.y));
+        g.lineStyle(5, 0x484e3c, 1);
         g.lineBetween(this.sx(a.x), this.sy(a.y), this.sx(b.x), this.sy(b.y));
       }
     }
   }
 
-  private drawGas(r: number) {
-    const z = this.zone;
+  private drawGas(c: Circle) {
     const g = this.gasG;
     g.clear();
-    const cx = this.sx(z.exfil.x);
-    const cy = this.sy(z.exfil.y);
-    const R = r * K;
-    const R2 = R + 1400;
-    // Anneau plein (triangles) : du bord de la zone sûre jusqu'au-delà de la carte.
+    const cx = this.sx(c.x);
+    const cy = this.sy(c.y);
+    const R = c.r * K;
+    const R2 = R + 1600;
+    // Anneau plein du bord de la zone sûre jusqu'au-delà de la carte.
     g.fillStyle(GAS, 0.3);
     const n = 96;
     for (let i = 0; i < n; i++) {
@@ -178,107 +175,106 @@ export default class MapScene extends Phaser.Scene {
         new Phaser.Math.Vector2(cx + c1 * R, cy + s1 * R),
       ], true);
     }
+    g.lineStyle(10, GAS, 0.25);
+    g.strokeCircle(cx, cy, R + 5);
     g.lineStyle(4, 0xd4ec6a, 0.95);
     g.strokeCircle(cx, cy, R);
   }
 
-  private dashedCircle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, color: number, alpha: number) {
-    g.lineStyle(2, color, alpha);
-    const n = Math.max(24, Math.round(r / 6));
+  private dashedCircle(c: Circle) {
+    const g = this.add.graphics();
+    const cx = this.sx(c.x);
+    const cy = this.sy(c.y);
+    const r = c.r * K;
+    g.lineStyle(3, 0xffffff, 0.6);
+    const n = Math.max(24, Math.round(r / 7));
     for (let i = 0; i < n; i += 2) {
       const a0 = (i / n) * Math.PI * 2;
       const a1 = ((i + 1) / n) * Math.PI * 2;
       g.lineBetween(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, cx + Math.cos(a1) * r, cy + Math.sin(a1) * r);
     }
+    return g;
   }
 
-  private drawPois(turn: number) {
-    const z = this.zone;
-    for (const p of z.pois) {
-      const x = this.sx(p.x);
-      const y = this.sy(p.y);
-      const visited = z.visited.includes(p.id);
-      const reach = this.reachable.has(p.id);
-      const gassed = !visited && !inSafeZone(z, p, turn);
-      const col = NODE_COLORS[p.type];
-      if (reach) {
-        const halo = this.add.graphics();
-        halo.lineStyle(3, col, 1);
-        halo.strokeCircle(x, y, 26);
-        this.tweens.add({ targets: halo, alpha: 0.2, yoyo: true, repeat: -1, duration: 700 });
-      }
+  /** Zones vues à la manche `round` (avant le resserrement s'il est animé). */
+  private drawZones(round: number) {
+    for (const z of this.run.map.zones) {
+      const x = this.sx(z.x);
+      const y = this.sy(z.y);
+      const r = ZONE_RADIUS[z.size] * K;
+      const si = SIZE_INFO[z.size];
+      const root = this.add.container(x, y).setDepth(4);
+      root.setData('r', r);
       const g = this.add.graphics();
-      g.fillStyle(0x111410, 1);
-      g.fillCircle(x, y, 20);
-      g.fillStyle(col, visited ? 0.25 : reach ? 0.9 : 0.55);
-      g.fillCircle(x, y, 17);
-      // Anneau aux couleurs de la famille de butin annoncée
-      if (p.family) {
-        g.lineStyle(4, FAMILY_INFO[p.family].color, 1);
-        g.strokeCircle(x, y, 21);
+      // Lueur chaude des grandes zones
+      if (z.size === 'grande') {
+        const glow = this.add.graphics();
+        glow.fillStyle(si.color, 0.18);
+        glow.fillCircle(0, 0, r + 10);
+        root.add(glow);
+        this.tweens.add({ targets: glow, scale: 1.12, alpha: 0.4, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.InOut' });
       }
-      const alpha = visited ? 0.45 : gassed ? 0.3 : reach ? 1 : 0.65;
-      g.setAlpha(alpha);
-      this.add.image(x, y, visited ? 'ic-check' : `ic-p-${p.type}`).setDisplaySize(22, 22).setTint(0x111410).setAlpha(alpha);
-      const label = txt(this, x, y + 30, p.name, 14, reach ? C.text : C.quiet, { fontStyle: reach ? 'bold' : 'normal', stroke: '#0d0f0a', strokeThickness: 4 })
-        .setOrigin(0.5)
-        .setAlpha(alpha);
-      // L'étiquette reste dans le cadre de la carte.
-      label.x = Phaser.Math.Clamp(x, MAP.x + label.width / 2 + 4, MAP.x + MAP.w - label.width / 2 - 4);
-      p.threats.forEach((th, i) => this.threatBadge(x + 20 + i * 22, y - 18, th, alpha));
-      const zone = this.add.zone(x, y + 8, 76, 70).setInteractive({ useHandCursor: reach });
-      zone.on('pointerup', () => {
-        if (this.busy) return;
-        if (reach) this.select({ kind: 'poi', poi: p });
-        else this.reject(visited ? 'Déjà visité' : gassed ? 'Pris dans le gaz' : 'Hors de portée');
-      });
+      g.fillStyle(0x15180f, 0.85);
+      g.fillCircle(0, 0, r);
+      g.fillStyle(si.color, 0.16);
+      g.fillCircle(0, 0, r);
+      // Pâté de bâtiments
+      const rng = rngFor(this.run.seed, 'blocks', z.id);
+      const n = z.size === 'petite' ? 4 : z.size === 'moyenne' ? 7 : 11;
+      for (let i = 0; i < n; i++) {
+        const a = rng() * Math.PI * 2;
+        const d = Math.sqrt(rng()) * r * 0.62;
+        const bw = 7 + rng() * 11;
+        const bh = 6 + rng() * 9;
+        g.fillStyle(0x0a0c07, 0.8);
+        g.fillRect(Math.cos(a) * d - bw / 2 + 2, Math.sin(a) * d - bh / 2 + 2, bw, bh);
+        g.fillStyle(0x6b705c, 1);
+        g.fillRect(Math.cos(a) * d - bw / 2, Math.sin(a) * d - bh / 2, bw, bh);
+      }
+      g.lineStyle(3, si.color, 1);
+      g.strokeCircle(0, 0, r);
+      root.add(g);
+      // Nom et nombre de cartes
+      // Le nom est sur un calque au-dessus de toutes les zones, pour ne pas être masqué par une voisine.
+      const name = txt(this, x, y + r + 6, z.name.toUpperCase(), 17, C.text, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 5 }).setOrigin(0.5, 0).setDepth(7);
+      name.x = Phaser.Math.Clamp(x, MAP.x + name.width / 2 + 6, MAP.x + MAP.w - name.width / 2 - 6);
+      if (y + r + 28 > MAP.y + MAP.h) name.setY(y - r - 30);
+      root.setData('label', name);
+      const chip = this.add.graphics();
+      chip.fillStyle(0x0d0f0a, 1);
+      chip.fillRoundedRect(-22, -14, 44, 28, 14);
+      chip.lineStyle(2, si.color, 1);
+      chip.strokeRoundedRect(-22, -14, 44, 28, 14);
+      root.add(chip);
+      root.add(this.add.image(-8, 0, 'ic-tag').setDisplaySize(16, 16).setTint(si.color));
+      root.add(txt(this, 8, 0, `${CARDS_BY_SIZE[z.size]}`, 18, si.hex, { fontStyle: 'bold' }).setOrigin(0.5));
+      if (isGassed(this.run.map, z, round)) this.gassedLook(root, false);
+
+      const hit = this.add.zone(x, y, Math.max(2 * r, 80), Math.max(2 * r, 80) + 20).setInteractive({ useHandCursor: true }).setDepth(6);
+      hit.on('pointerup', () => this.tapZone(z));
+      this.views.push({ zone: z, root });
     }
   }
 
-  /** Écusson de menace : forme de blason sur fond rouge sombre, icône à la couleur de la menace. */
-  private threatBadge(x: number, y: number, th: Threat, alpha = 1) {
-    const ti = THREAT_INFO[th];
-    const g = this.add.graphics().setAlpha(alpha);
-    const shield = (s: number) => [
-      new Phaser.Math.Vector2(x - 10 * s, y - 10 * s), new Phaser.Math.Vector2(x + 10 * s, y - 10 * s),
-      new Phaser.Math.Vector2(x + 10 * s, y + 2 * s), new Phaser.Math.Vector2(x, y + 11 * s), new Phaser.Math.Vector2(x - 10 * s, y + 2 * s),
-    ];
-    g.fillStyle(0x000000, 1);
-    g.fillPoints(shield(1.18), true);
-    g.fillStyle(0x3a1214, 1);
-    g.fillPoints(shield(1), true);
-    g.lineStyle(2, ti.color, 1);
-    g.strokePoints(shield(1), true);
-    this.add.image(x, y - 1, `ic-t-${th}`).setDisplaySize(13, 13).setTint(ti.color).setAlpha(alpha);
-  }
-
-  private drawExfil() {
-    const z = this.zone;
-    const x = this.sx(z.exfil.x);
-    const y = this.sy(z.exfil.y);
-    if (this.exfilOk) {
-      const halo = this.add.graphics();
-      halo.lineStyle(3, NODE_COLORS.boss, 1);
-      halo.strokeCircle(x, y, 32);
-      this.tweens.add({ targets: halo, alpha: 0.2, yoyo: true, repeat: -1, duration: 600 });
+  private gassedLook(root: Phaser.GameObjects.Container, animate: boolean) {
+    if (root.getData('gassed')) return;
+    root.setData('gassed', true);
+    const veil = this.add.graphics();
+    veil.fillStyle(0x0d0f0a, 0.55);
+    veil.fillCircle(0, 0, root.getData('r') as number);
+    root.add(veil);
+    if (animate) {
+      veil.setAlpha(0);
+      this.tweens.add({ targets: veil, alpha: 1, duration: 400 });
+      this.tweens.add({ targets: [root, root.getData('label')], alpha: 0.5, duration: 400 });
+    } else {
+      root.setAlpha(0.5);
+      (root.getData('label') as Phaser.GameObjects.Text).setAlpha(0.5);
     }
-    const g = this.add.graphics();
-    g.fillStyle(0x111410, 1);
-    g.fillCircle(x, y, 26);
-    g.fillStyle(NODE_COLORS.boss, this.exfilOk ? 1 : 0.6);
-    g.fillCircle(x, y, 22);
-    this.add.image(x, y, 'ic-p-exfil').setDisplaySize(28, 28).setTint(0x111410);
-    z.exfilThreats.forEach((th, i) => this.threatBadge(x + 26 + i * 22, y - 22, th));
-    txt(this, x, y + 38, 'EXFIL', 16, C.accentStr, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 4 }).setOrigin(0.5);
-    const zone = this.add.zone(x, y + 8, 84, 80).setInteractive({ useHandCursor: this.exfilOk });
-    zone.on('pointerup', () => {
-      if (this.busy) return;
-      if (this.exfilOk) this.select({ kind: 'exfil' });
-      else this.reject(this.run.floor < EARLY_EXFIL_TURN ? `Exfiltration possible dès le tour ${EARLY_EXFIL_TURN + 1}` : 'Hors de portée');
-    });
   }
 
-  private drawFrameAndHud(turn: number) {
+  private drawHud() {
+    const run = this.run;
     // Caches opaques autour de la carte : le gaz est dessiné plus grand que la carte.
     const g = this.add.graphics().setDepth(30);
     g.fillStyle(C.bg, 1);
@@ -287,164 +283,193 @@ export default class MapScene extends Phaser.Scene {
     g.fillRect(0, 0, MAP.x, H);
     g.fillRect(MAP.x + MAP.w, 0, W - MAP.x - MAP.w, H);
     g.lineStyle(3, C.panelLine, 1);
-    g.strokeRoundedRect(MAP.x - 2, MAP.y - 2, MAP.w + 4, MAP.h + 4, 6);
+    g.strokeRoundedRect(MAP.x - 2, MAP.y - 2, MAP.w + 4, MAP.h + 4, 8);
     panel(this, PANEL.x, PANEL.y, PANEL.w, PANEL.h).setDepth(30);
 
-    const r = this.run;
-    txt(this, 24, 34, BIOMES[this.zone.biome].name.toUpperCase(), 30, C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5).setDepth(31);
-    txt(this, W - 24, 34, `ZONE ${this.zone.stage + 1}/${STAGES} · TOUR ${Math.min(turn + 1, TURNS)}/${TURNS}`, 24, '#d4ec6a', { fontStyle: 'bold' }).setOrigin(1, 0.5).setDepth(31);
-    txt(this, 24, 84, `Sursis ${'●'.repeat(r.sursis)}${'○'.repeat(Math.max(0, START_SURSIS - r.sursis))}   ${r.credits} cr`, 24, C.quiet).setOrigin(0, 0.5).setDepth(31);
-    txt(this, W - 24, 84, '- - -  prochaine zone sûre', 18, C.quiet).setOrigin(1, 0.5).setDepth(31);
+    iconButton(this, 50, 50, 'ic-menu', () => this.scene.start('menu')).setDepth(31);
+    const title = run.round >= ROUNDS ? 'DUEL FINAL' : `CERCLE ${run.round + 1}/${ROUNDS}`;
+    txt(this, 96, 50, title, 38, C.text, { fontStyle: 'bold italic' }).setOrigin(0, 0.5).setDepth(31);
+    statusPills(this, run, 50).setDepth(31);
+    roundTrack(this, 42, 112, run.round).setDepth(31);
+    const lg = this.add.graphics().setDepth(31);
+    lg.lineStyle(3, 0xffffff, 0.6);
+    for (let i = 0; i < 3; i++) lg.lineBetween(W - 236 + i * 12, 112, W - 229 + i * 12, 112);
+    txt(this, W - 194, 112, 'PROCHAIN CERCLE', 15, C.quiet, { fontStyle: 'bold' }).setOrigin(0, 0.5).setDepth(31);
+    lg.fillStyle(GAS, 0.5);
+    lg.fillRoundedRect(W - 236, 130, 30, 12, 3);
+    txt(this, W - 194, 136, 'GAZ', 15, '#b5d65a', { fontStyle: 'bold' }).setOrigin(0, 0.5).setDepth(31);
+  }
+
+  // ---------------------------------------------------------------- animation du cercle
+
+  private animateShrink(from: Circle, to: Circle, final: boolean) {
+    toast(this, final ? 'Dernier cercle !' : 'Le cercle se resserre !', '#d4ec6a', MAP.y + 70);
+    vibrate([20, 40, 20]);
+    const st = { t: 0 };
+    let marked = false;
+    this.tweens.add({
+      targets: st,
+      t: 1,
+      duration: 1500,
+      ease: 'Cubic.InOut',
+      onUpdate: () => {
+        const c = { x: from.x + (to.x - from.x) * st.t, y: from.y + (to.y - from.y) * st.t, r: from.r + (to.r - from.r) * st.t };
+        this.drawGas(c);
+        if (!marked && st.t > 0.6) {
+          marked = true;
+          for (const v of this.views) if (isGassed(this.run.map, v.zone, this.run.round)) this.gassedLook(v.root, true);
+        }
+      },
+      onComplete: () => {
+        this.drawGas(to);
+        this.cameras.main.shake(140, 0.003);
+        if (final) {
+          banner(this, 'DUEL FINAL', C.accentStr, MAP.y + MAP.h / 2);
+          this.time.delayedCall(1300, () => this.startFinal());
+          return;
+        }
+        this.busy = false;
+        // Les zones jouables rebondissent
+        for (const v of this.views) if (!v.root.getData('gassed')) this.tweens.add({ targets: v.root, scale: 1.12, yoyo: true, duration: 160, ease: 'Quad.Out' });
+      },
+    });
+  }
+
+  private startFinal() {
+    finalDuelParams(this.run);
+    saveRun(this.run);
+    this.cameras.main.fadeOut(220, 20, 22, 15);
+    this.time.delayedCall(240, () => this.scene.start('loadout', { mode: 'duel' }));
   }
 
   // ---------------------------------------------------------------- sélection
 
-  private reject(msg: string) {
-    vibrate(20);
-    this.cameras.main.shake(100, 0.003);
-    this.showInfo(msg);
-  }
-
-  private select(t: Target) {
-    this.selected = t;
-    vibrate(8);
-    const z = this.zone;
-    const here = posOf(z);
-    const to = t.kind === 'poi' ? t.poi : z.exfil;
-    this.selG.clear();
-    if (here) {
-      this.selG.lineStyle(4, C.accent, 0.9);
-      const x0 = this.sx(here.x);
-      const y0 = this.sy(here.y);
-      const x1 = this.sx(to.x);
-      const y1 = this.sy(to.y);
-      const n = Math.max(2, Math.round(Phaser.Math.Distance.Between(x0, y0, x1, y1) / 14));
-      for (let i = 0; i < n; i += 2) {
-        this.selG.lineBetween(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, x0 + ((x1 - x0) * (i + 1)) / n, y0 + ((y1 - y0) * (i + 1)) / n);
-      }
+  private tapZone(z: MapZone) {
+    if (this.busy) return;
+    if (!selectableZones(this.run).includes(z)) {
+      vibrate(20);
+      this.cameras.main.shake(100, 0.003);
+      toast(this, 'Zone dans le gaz', '#d4ec6a', MAP.y + MAP.h - 60);
+      return;
     }
+    if (this.selected === z) {
+      this.drop();
+      return;
+    }
+    this.selected = z;
+    vibrate(8);
+    this.selG.clear();
+    const r = ZONE_RADIUS[z.size] * K;
     this.selG.lineStyle(4, 0xffffff, 1);
-    this.selG.strokeCircle(this.sx(to.x), this.sy(to.y), t.kind === 'exfil' ? 34 : 28);
+    this.selG.strokeCircle(this.sx(z.x), this.sy(z.y), r + 7);
+    this.selG.setAlpha(1);
+    this.tweens.killTweensOf(this.selG);
+    this.tweens.add({ targets: this.selG, alpha: 0.35, yoyo: true, repeat: -1, duration: 500 });
+    const v = this.views.find((w) => w.zone === z);
+    if (v) this.tweens.add({ targets: v.root, scale: 1.1, yoyo: true, duration: 120 });
     this.showInfo();
   }
 
-  private threat(type: NodeType): number {
-    if (type === 'boss') return 5;
-    if (type === 'elite') return Math.min(5, 2 + Math.floor(level(this.run) / 3));
-    if (type === 'contrat') return Math.min(4, 1 + Math.floor(level(this.run) / 3));
-    return 0;
-  }
-
-  private showInfo(warning?: string) {
+  private showInfo() {
     const I = this.info;
     I.removeAll(true);
     const x0 = PANEL.x + 28;
-    let y = PANEL.y + 26;
-    const t = this.selected;
-    const landing = this.zone.pos === -1;
-    if (!t) {
-      I.add(txt(this, x0, y, landing ? 'Choisis ton point de largage' : 'Choisis ta destination', 30, C.text, { fontStyle: 'bold' }));
-      I.add(txt(this, x0, y + 52, landing
-        ? 'Tu peux atterrir n\'importe où dans la zone.\nLe gaz se resserrera ensuite vers l\'exfiltration.'
-        : 'Les lieux à portée clignotent. Le gaz avance\nà chaque tour : ne reste pas à la traîne.', 21, C.quiet, { lineSpacing: 8 }));
-      if (warning) I.add(txt(this, x0, y + 150, warning, 22, C.dangerStr, { fontStyle: 'bold' }));
-      this.goBtn.setLabel(landing ? 'Larguer ▸' : 'Y aller ▸');
+    const y0 = PANEL.y + 24;
+    const z = this.selected;
+    if (!z) {
+      I.add(txt(this, x0, y0, 'Choisis ta zone de largage', 32, C.text, { fontStyle: 'bold' }));
+      I.add(txt(this, x0, y0 + 50, 'Tu y joueras 3 cartes parmi celles tirées. Plus la zone\nest grande, plus il y a de cartes… et de danger.', 21, C.quiet, { lineSpacing: 6 }));
+      let x = x0;
+      for (const s of ['petite', 'moyenne', 'grande'] as const) {
+        const si = SIZE_INFO[s];
+        const g = this.add.graphics();
+        const r = 9 + (s === 'petite' ? 0 : s === 'moyenne' ? 4 : 8);
+        g.fillStyle(si.color, 0.25);
+        g.fillCircle(x + 17, y0 + 152, r);
+        g.lineStyle(3, si.color, 1);
+        g.strokeCircle(x + 17, y0 + 152, r);
+        const t = txt(this, x + 42, y0 + 152, `${si.name} · ${CARDS_BY_SIZE[s]} cartes`, 20, si.hex, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+        I.add([g, t]);
+        x += 42 + t.width + 24;
+      }
+      I.add(txt(this, x0, y0 + 196, 'Zones assombries : dans le gaz, inaccessibles.', 18, '#b5d65a'));
+      this.goBtn.setLabel('Larguer ▸');
       this.goBtn.setEnabled(false);
       return;
     }
-    const type: NodeType = t.kind === 'poi' ? t.poi.type : 'boss';
-    const name = t.kind === 'poi' ? t.poi.name : 'Point d\'exfiltration';
-    const col = Phaser.Display.Color.IntegerToColor(NODE_COLORS[type]).rgba;
-    I.add(txt(this, x0, y, name, 34, C.text, { fontStyle: 'bold' }));
-    I.add(txt(this, PANEL.x + PANEL.w - 28, y + 8, NODE_INFO[type].name.toUpperCase(), 22, col, { fontStyle: 'bold' }).setOrigin(1, 0));
-    y += 56;
-    const early = t.kind === 'exfil' && this.run.floor < TURNS - 1;
-    const last = this.zone.stage === STAGES - 1;
-    const guard = last ? 'le Cdt Kesh' : 'un lieutenant';
-    const after = last ? 'la run est finie' : 'tu passes à la zone suivante';
-    const desc = t.kind === 'exfil'
-      ? early
-        ? `Extraction anticipée : ${guard} garde le point.\nGagne et ${after}, plus tôt que prévu.`
-        : `Le gaz s'est refermé. ${guard[0].toUpperCase() + guard.slice(1)} garde le\npoint d'exfiltration : bats-le et ${after}.`
-      : NODE_INFO[type].desc;
-    const dt = txt(this, x0, y, desc, 21, C.quiet, { wordWrap: { width: PANEL.w - 56 }, lineSpacing: 6 });
-    I.add(dt);
-    y += dt.height + 16;
-    const fam = t.kind === 'poi' ? t.poi.family : undefined;
-    if (fam) {
-      I.add(txt(this, x0, y, 'Butin', 21, C.quiet));
-      I.add(txt(this, x0 + 110, y, `${FAMILY_INFO[fam].name}`, 21, FAMILY_INFO[fam].hex, { fontStyle: 'bold' }));
-      I.add(txt(this, x0 + 260, y + 2, `${Math.round(FAMILY_DROP_CHANCE * 100)} % des objets de cette famille`, 17, C.quiet));
-      y += 34;
+    const si = SIZE_INFO[z.size];
+    I.add(txt(this, x0, y0 - 4, z.name, 36, C.text, { fontStyle: 'bold' }));
+    const chipT = txt(this, 0, 0, `${si.name.toUpperCase()} · ${si.heat.toUpperCase()}`, 18, '#0d0f0a', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+    const cw = chipT.width + 26;
+    const chip = this.add.graphics();
+    chip.fillStyle(si.color, 1);
+    chip.fillRoundedRect(PANEL.x + PANEL.w - 24 - cw, y0 + 4, cw, 32, 16);
+    chipT.setPosition(PANEL.x + PANEL.w - 24 - 13, y0 + 20);
+    I.add([chip, chipT]);
+    I.add(txt(this, x0, y0 + 50, `${CARDS_BY_SIZE[z.size]} cartes tirées · 3 à jouer`, 22, si.hex, { fontStyle: 'bold' }));
+    I.add(txt(this, x0, y0 + 84, HEAT_DESC[z.size], 20, C.quiet, { wordWrap: { width: PANEL.w - 56 }, lineSpacing: 4 }));
+    // Répartition des cartes : barre empilée
+    const by = y0 + 158;
+    const bw = PANEL.w - 56;
+    const w = CARD_WEIGHTS[z.size];
+    const total = Object.values(w).reduce((a, b) => a + b, 0);
+    const g = this.add.graphics();
+    let x = x0;
+    const types = Object.keys(w) as CardType[];
+    let lx = x0;
+    for (const t of types) {
+      const seg = (w[t] / total) * bw;
+      g.fillStyle(CARD_INFO[t].color, 1);
+      g.fillRect(x, by, seg - 2, 14);
+      x += seg;
+      const lt = txt(this, lx + 18, by + 36, `${CARD_INFO[t].name} ${Math.round((w[t] / total) * 100)} %`, 17, CARD_INFO[t].hex, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      g.fillStyle(CARD_INFO[t].color, 1);
+      g.fillCircle(lx + 7, by + 36, 6);
+      I.add(lt);
+      lx += 18 + lt.width + 22;
     }
-    const th = this.threat(type);
-    if (th > 0) {
-      I.add(txt(this, x0, y, 'Menace', 21, C.quiet));
-      const g = this.add.graphics();
-      for (let i = 0; i < 5; i++) {
-        g.fillStyle(i < th ? C.danger : C.cellLine, 1);
-        g.fillRoundedRect(x0 + 110 + i * 34, y + 2, 28, 20, 4);
-      }
-      I.add(g);
-    }
-    const threats = t.kind === 'poi' ? t.poi.threats : this.zone.exfilThreats;
-    let ty = y + 34;
-    for (const th of threats) {
-      const ti = THREAT_INFO[th];
-      I.add(txt(this, x0, ty, ti.name.toUpperCase(), 19, ti.hex, { fontStyle: 'bold' }));
-      const ef = txt(this, x0 + 190, ty + 1, ti.effect, 17, C.text, { wordWrap: { width: PANEL.w - 250 } });
-      const co = txt(this, x0 + 190, ty + ef.height + 3, `Contre : ${ti.counters}`, 15, C.quiet, { wordWrap: { width: PANEL.w - 250 } });
-      I.add([ef, co]);
-      ty += ef.height + co.height + 10;
-    }
-    if (warning) I.add(txt(this, x0, ty + 4, warning, 22, C.dangerStr, { fontStyle: 'bold' }));
-    const short = name.length > 14;
-    this.goBtn.setLabel(t.kind === 'exfil' ? 'Exfiltration ▸' : landing ? (short ? 'Larguer ▸' : `Larguer · ${name} ▸`) : (short ? 'Y aller ▸' : `Aller · ${name} ▸`));
+    I.addAt(g, 0);
+    this.goBtn.setLabel(`Larguer · ${z.name.length > 16 ? 'Go' : z.name} ▸`);
     this.goBtn.setEnabled(true);
+    pop(this, this.goBtn.root, 1.04, 180);
   }
 
-  // ---------------------------------------------------------------- déplacement
+  // ---------------------------------------------------------------- largage
 
-  private go() {
-    const t = this.selected;
-    if (!t || this.busy) return;
+  private drop() {
+    const z = this.selected;
+    if (!z || this.busy) return;
+    if (!dropInZone(this.run, z.id)) {
+      toast(this, 'Impossible de se larguer ici', C.dangerStr);
+      return;
+    }
     this.busy = true;
+    saveRun(this.run);
     this.goBtn.setEnabled(false);
-    const run = this.run;
-    const z = this.zone;
-    const landing = z.pos === -1;
-    const to = t.kind === 'poi' ? t.poi : z.exfil;
-    const node: NodeType = t.kind === 'poi' ? t.poi.type : 'boss';
-    const place = t.kind === 'poi' ? t.poi.name : 'Exfiltration';
-    z.pos = t.kind === 'poi' ? t.poi.id : EXFIL_ID;
-    if (t.kind === 'poi') {
-      z.visited.push(t.poi.id);
-      run.placesTotal++;
-    }
-    saveRun(run);
     vibrate(15);
-
-    const tx = this.sx(to.x);
-    const ty = this.sy(to.y);
-    if (landing) {
-      this.marker.setPosition(tx, ty - 220).setVisible(true).setAlpha(0);
-      this.tweens.add({ targets: this.marker, y: ty, alpha: 1, duration: 650, ease: 'Bounce.Out' });
-    } else {
-      this.tweens.add({ targets: this.marker, x: tx, y: ty, duration: 700, ease: 'Cubic.InOut' });
-    }
-    // Le gaz avance jusqu'à la prochaine zone sûre.
-    const state = { r: gasRadius(Math.max(0, run.floor - 1)) };
-    this.tweens.add({
-      targets: state,
-      r: gasRadius(run.floor),
-      delay: 500,
-      duration: 700,
-      ease: 'Quad.InOut',
-      onUpdate: () => this.drawGas(state.r),
-      onComplete: () => {
-        this.cameras.main.fadeOut(220, 20, 22, 15);
-        this.time.delayedCall(240, () => this.scene.start('loadout', { node, place, threats: t.kind === 'poi' ? t.poi.threats : z.exfilThreats, family: t.kind === 'poi' ? t.poi.family : undefined }));
-      },
+    const tx = this.sx(z.x);
+    const ty = this.sy(z.y);
+    // Marqueur qui tombe sur la zone, puis la caméra plonge dessus.
+    const m = this.add.container(tx, ty - 260).setDepth(20).setAlpha(0);
+    const mg = this.add.graphics();
+    mg.fillStyle(0x000000, 0.4);
+    mg.fillCircle(2, 4, 14);
+    mg.fillStyle(C.accent, 1);
+    mg.fillCircle(0, 0, 14);
+    mg.lineStyle(4, 0xffffff, 1);
+    mg.strokeCircle(0, 0, 14);
+    const ring = this.add.graphics();
+    ring.lineStyle(4, C.accent, 1);
+    ring.strokeCircle(0, 0, 16);
+    m.add([ring, mg]);
+    this.tweens.add({ targets: m, y: ty, alpha: 1, duration: 600, ease: 'Bounce.Out' });
+    this.tweens.add({ targets: ring, scale: 3, alpha: 0, delay: 450, duration: 500, ease: 'Quad.Out' });
+    this.time.delayedCall(700, () => {
+      const cam = this.cameras.main;
+      cam.pan(tx, ty, 450, Phaser.Math.Easing.Cubic.In);
+      cam.zoomTo(2.2, 450, Phaser.Math.Easing.Cubic.In);
+      cam.fadeOut(420, 20, 22, 15);
     });
+    this.time.delayedCall(1150, () => this.scene.start('zone'));
   }
 }

@@ -1,14 +1,20 @@
 import { ITEMS } from '../data/items';
+import { BAGS, isBagId } from '../data/bags';
 
-/** Taille maximale du gilet. On commence avec un bloc central débloqué et on l'agrandit. */
-export const COLS = 7;
-export const ROWS = 7;
-/** Bloc débloqué au départ : colonnes 1 à 5, lignes 1 à 5. */
-export const START_UNLOCKED: string[] = (() => {
+/** Taille maximale de la grille. Le sac de base est au centre, les sacoches s'ajoutent autour. */
+export const COLS = 9;
+export const ROWS = 8;
+/** Sac de base, toujours utilisable : colonnes 2 à 6, lignes 2 à 5 (5×4). */
+export const BASE_X0 = 2;
+export const BASE_X1 = 6;
+export const BASE_Y0 = 2;
+export const BASE_Y1 = 5;
+export const BASE_CELLS: string[] = (() => {
   const out: string[] = [];
-  for (let y = 1; y <= 5; y++) for (let x = 1; x <= 5; x++) out.push(`${x},${y}`);
+  for (let y = BASE_Y0; y <= BASE_Y1; y++) for (let x = BASE_X0; x <= BASE_X1; x++) out.push(`${x},${y}`);
   return out;
 })();
+const BASE_SET = new Set(BASE_CELLS);
 export const cellKey = (x: number, y: number) => `${x},${y}`;
 
 /** Rotation par pas de 90° dans le sens horaire. */
@@ -24,10 +30,20 @@ export interface ItemInst {
   placed: boolean;
 }
 
-export type Zone = 'poitrine' | 'flancs' | 'ceinture' | 'epaules';
+/** Sacoche posée (ou en réserve si `placed` est faux). `defId` est un id de data/bags.ts. */
+export interface BagInst {
+  uid: number;
+  defId: string;
+  rot: Rot;
+  x: number;
+  y: number;
+  placed: boolean;
+}
+
 export type Mask = boolean[][];
 
 const maskCache = new Map<string, Mask>();
+const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const;
 
 function rotateCw(m: Mask): Mask {
   const h = m.length;
@@ -35,12 +51,17 @@ function rotateCw(m: Mask): Mask {
   return Array.from({ length: w }, (_, r) => Array.from({ length: h }, (__, c) => m[h - 1 - c][r]));
 }
 
-/** Masque de l'objet (lignes × colonnes) pour une rotation donnée. */
+/** Forme brute d'un objet ou d'une sacoche. */
+function shapeOf(defId: string): string[] {
+  return isBagId(defId) ? BAGS[defId].shape : ITEMS[defId].shape;
+}
+
+/** Masque de l'objet ou de la sacoche (lignes × colonnes) pour une rotation donnée. */
 export function maskOf(defId: string, rot: Rot): Mask {
   const key = `${defId}:${rot}`;
   let m = maskCache.get(key);
   if (!m) {
-    m = ITEMS[defId].shape.map((row) => [...row].map((ch) => ch === 'X'));
+    m = shapeOf(defId).map((row) => [...row].map((ch) => ch === 'X'));
     for (let i = 0; i < rot; i++) m = rotateCw(m);
     maskCache.set(key, m);
   }
@@ -57,10 +78,10 @@ export function rotationIsNoop(defId: string, rot: Rot): boolean {
 }
 
 export function cellCount(defId: string): number {
-  return ITEMS[defId].shape.join('').split('').filter((c) => c === 'X').length;
+  return shapeOf(defId).join('').split('').filter((c) => c === 'X').length;
 }
 
-/** Boîte englobante de l'objet. */
+/** Boîte englobante de l'objet (ou de la sacoche). */
 export function dims(inst: Pick<ItemInst, 'defId' | 'rot'>, rot: Rot = inst.rot): { w: number; h: number } {
   const m = maskOf(inst.defId, rot);
   return { w: m[0].length, h: m.length };
@@ -73,7 +94,7 @@ export function cellsAt(inst: Pick<ItemInst, 'defId' | 'rot'>, x: number, y: num
   return out;
 }
 
-export function cellsOf(inst: ItemInst): [number, number][] {
+export function cellsOf(inst: Pick<ItemInst, 'defId' | 'rot' | 'x' | 'y'>): [number, number][] {
   return cellsAt(inst, inst.x, inst.y, inst.rot);
 }
 
@@ -91,25 +112,15 @@ export function overlapping(items: ItemInst[], self: ItemInst, x: number, y: num
   return [...res];
 }
 
-/** Toutes les cases dans la grille et débloquées (si `unlocked` est fourni). */
-export function inBounds(self: Pick<ItemInst, 'defId' | 'rot'>, x: number, y: number, rot: Rot, unlocked?: Set<string>): boolean {
-  return cellsAt(self, x, y, rot).every(([cx, cy]) => cx >= 0 && cy >= 0 && cx < COLS && cy < ROWS && (!unlocked || unlocked.has(cellKey(cx, cy))));
+const inGrid = (cx: number, cy: number) => cx >= 0 && cy >= 0 && cx < COLS && cy < ROWS;
+
+/** Toutes les cases dans la grille et utilisables (si `usable` est fourni, voir usableCells). */
+export function inBounds(self: Pick<ItemInst, 'defId' | 'rot'>, x: number, y: number, rot: Rot, usable?: Set<string>): boolean {
+  return cellsAt(self, x, y, rot).every(([cx, cy]) => inGrid(cx, cy) && (!usable || usable.has(cellKey(cx, cy))));
 }
 
-export function canPlace(items: ItemInst[], self: ItemInst, x: number, y: number, rot: Rot, unlocked?: Set<string>): boolean {
-  return inBounds(self, x, y, rot, unlocked) && overlapping(items, self, x, y, rot).length === 0;
-}
-
-/** Cases verrouillées qu'on peut débloquer : voisines d'une case déjà débloquée. */
-export function expandable(unlocked: Set<string>): Set<string> {
-  const out = new Set<string>();
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      if (unlocked.has(cellKey(x, y))) continue;
-      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => unlocked.has(cellKey(x + dx, y + dy)))) out.add(cellKey(x, y));
-    }
-  }
-  return out;
+export function canPlace(items: ItemInst[], self: ItemInst, x: number, y: number, rot: Rot, usable?: Set<string>): boolean {
+  return inBounds(self, x, y, rot, usable) && overlapping(items, self, x, y, rot).length === 0;
 }
 
 /** Bord partagé entre deux objets posés : une cellule de `a` et la direction vers `b`. */
@@ -117,22 +128,84 @@ export function sharedEdge(a: ItemInst, b: ItemInst): { cx: number; cy: number; 
   if (!a.placed || !b.placed) return null;
   const bCells = new Set(cellsOf(b).map(([x, y]) => `${x},${y}`));
   for (const [cx, cy] of cellsOf(a)) {
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+    for (const [dx, dy] of DIRS) {
       if (bCells.has(`${cx + dx},${cy + dy}`)) return { cx, cy, dx, dy };
     }
   }
   return null;
 }
 
-export function cellZones(cx: number, cy: number): Zone[] {
-  const z: Zone[] = [];
-  if (cx >= 2 && cx <= 4 && cy >= 1 && cy <= 3) z.push('poitrine');
-  if (cx === 0 || cx === COLS - 1) z.push('flancs');
-  if (cy === ROWS - 1) z.push('ceinture');
-  return z;
+// ---------- Sacoches ----------
+
+export function bagMask(defId: string, rot: Rot): Mask {
+  return maskOf(defId, rot);
 }
 
-/** Vrai si au moins une case de l'objet est dans la zone. */
-export function inZone(inst: ItemInst, zone: Zone): boolean {
-  return inst.placed && cellsOf(inst).some(([x, y]) => cellZones(x, y).includes(zone));
+export function bagCells(bag: Pick<BagInst, 'defId' | 'rot' | 'x' | 'y'>): [number, number][] {
+  return cellsOf(bag);
+}
+
+/** Cases utilisables : le sac de base plus les cases des sacoches posées. */
+export function usableCells(bags: BagInst[]): Set<string> {
+  const out = new Set(BASE_CELLS);
+  for (const b of bags) if (b.placed) for (const [x, y] of bagCells(b)) out.add(cellKey(x, y));
+  return out;
+}
+
+export function bagAt(bags: BagInst[], cx: number, cy: number): BagInst | undefined {
+  return bags.find((b) => b.placed && bagCells(b).some(([x, y]) => x === cx && y === cy));
+}
+
+/** Uids des sacoches posées reliées au sac de base (directement ou via d'autres sacoches). */
+export function connectedBags(bags: BagInst[]): Set<number> {
+  const placed = bags.filter((b) => b.placed);
+  const reached = new Set(BASE_CELLS);
+  const done = new Set<number>();
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const b of placed) {
+      if (done.has(b.uid)) continue;
+      const cells = bagCells(b);
+      if (cells.some(([x, y]) => DIRS.some(([dx, dy]) => reached.has(cellKey(x + dx, y + dy))))) {
+        for (const [x, y] of cells) reached.add(cellKey(x, y));
+        done.add(b.uid);
+        grew = true;
+      }
+    }
+  }
+  return done;
+}
+
+/** Vrai si toutes les sacoches posées sont reliées au sac de base : le sac reste d'un seul bloc. */
+export function bagsConnected(bags: BagInst[]): boolean {
+  return connectedBags(bags).size === bags.filter((b) => b.placed).length;
+}
+
+/** Une sacoche ne peut être déplacée (ou retirée) que si aucun objet posé n'est dessus. */
+export function canMoveBag(items: ItemInst[], bag: BagInst): boolean {
+  if (!bag.placed) return true;
+  const cells = new Set(bagCells(bag).map(([x, y]) => cellKey(x, y)));
+  return !items.some((it) => it.placed && cellsOf(it).some(([x, y]) => cells.has(cellKey(x, y))));
+}
+
+/**
+ * Peut-on poser `bag` en (x, y, rot) ? Dans la grille, hors du sac de base, sans chevaucher une autre sacoche,
+ * en touchant (par un bord) le sac ou une sacoche posée, et sans détacher les autres sacoches :
+ * le sac reste d'un seul bloc. Si la sacoche est déjà posée (déplacement), elle doit être vide.
+ */
+export function canPlaceBag(bags: BagInst[], items: ItemInst[], bag: BagInst, x: number, y: number, rot: Rot): boolean {
+  if (!canMoveBag(items, bag)) return false;
+  const cells = cellsAt(bag, x, y, rot);
+  if (!cells.every(([cx, cy]) => inGrid(cx, cy) && !BASE_SET.has(cellKey(cx, cy)))) return false;
+  const others = bags.filter((b) => b.uid !== bag.uid);
+  if (cells.some(([cx, cy]) => bagAt(others, cx, cy))) return false;
+  const moved: BagInst = { ...bag, x, y, rot, placed: true };
+  return bagsConnected([...others, moved]);
+}
+
+/** Peut-on retirer cette sacoche de la grille (vers la réserve) ? Vide, et les autres restent reliées. */
+export function canRemoveBag(bags: BagInst[], items: ItemInst[], bag: BagInst): boolean {
+  if (!bag.placed) return false;
+  return canMoveBag(items, bag) && bagsConnected(bags.filter((b) => b.uid !== bag.uid));
 }

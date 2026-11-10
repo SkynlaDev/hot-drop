@@ -1,7 +1,6 @@
 // Images du jeu générées par tools/gen-art.mjs (dans public/art/) : chargement et correspondances.
 import Phaser from 'phaser';
 import manifest from './artManifest.json';
-import type { BiomeId } from './data/biomes';
 
 export const ART = manifest;
 
@@ -30,7 +29,16 @@ export function figureOf(name: string, opener?: boolean): string {
   return 'mil-stand';
 }
 
-export const bgKey = (b: BiomeId) => `bg-${b}`;
+/** Décors illustrés (public/art/bg) : plus de biomes, ce sont de simples ambiances. */
+export type BgId = 'banlieue' | 'industrie' | 'port' | 'foret' | 'base';
+export const BG_IDS = ART.backgrounds as BgId[];
+export const bgKey = (b: string) => `bg-${b}`;
+/** Décor d'ambiance d'une zone de la carte (stable pour un nom de zone). */
+export function zoneBg(name: string): BgId {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return BG_IDS[h % BG_IDS.length];
+}
 
 /** À appeler dans le preload de la première scène. */
 export function preloadArt(load: Phaser.Loader.LoaderPlugin) {

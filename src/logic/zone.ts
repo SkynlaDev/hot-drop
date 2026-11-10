@@ -1,71 +1,68 @@
-// Une zone de la run : lieux sur une carte, gaz qui se resserre vers le point d'exfiltration.
-import { Rng, rngFor } from './rng';
-import type { NodeType } from './run';
-import { BOSS_THREATS, THREATS, Threat } from '../data/threats';
-import { BIOMES, BiomeId, FAMILY_PLACES, LOOT_FAMILIES } from '../data/biomes';
-import type { Family } from '../data/items';
+// Carte battle royale : des zones de tailles différentes, un cercle de gaz qui se resserre manche après manche,
+// et les cartes tirées quand le joueur se largue dans une zone.
+import { Rng, rngFor, weighted } from './rng';
 
-export interface Poi {
+export type ZoneSize = 'petite' | 'moyenne' | 'grande';
+
+export interface MapZone {
   id: number;
+  name: string;
+  size: ZoneSize;
   x: number;
   y: number;
-  type: Exclude<NodeType, 'boss'>;
-  name: string;
-  /** Menaces annoncées (lieux de combat uniquement). */
-  threats: Threat[];
-  /** Famille de butin annoncée (combats et caisses). */
-  family?: Family;
 }
 
-export interface Zone {
-  biome: BiomeId;
-  /** Position de la zone dans la run (0, 1 ou 2). */
-  stage: number;
-  pois: Poi[];
-  /** Menaces du gardien de l'exfiltration. */
-  exfilThreats: Threat[];
-  exfil: { x: number; y: number };
-  visited: number[];
-  /** Lieu actuel : -1 = pas encore largué, EXFIL_ID = point d'exfiltration. */
-  pos: number;
+export interface Circle {
+  x: number;
+  y: number;
+  r: number;
 }
 
-/** Nombre de tours d'une zone : 6 lieux puis l'exfiltration. */
-export const TURNS = 7;
-export const STAGES = 3;
-/** Tour (index 0) à partir duquel l'extraction anticipée est possible. */
-export const EARLY_EXFIL_TURN = 3;
+export interface GameMap {
+  zones: MapZone[];
+  /** Cercle sûr de chaque manche (index 0 à ROUNDS - 1). */
+  circles: Circle[];
+  /** Point final vers lequel le cercle se resserre. */
+  final: { x: number; y: number };
+}
+
+export type CardType = 'squad' | 'solo' | 'caisse' | 'shop';
+
+export interface Card {
+  type: CardType;
+  /** Nombre de duels : 1 (solo), 2 ou 3 (squad), 0 (caisse, boutique). */
+  duels: number;
+}
+
+/** Nombre de cercles (manches) avant le duel final. */
+export const ROUNDS = 5;
+export const ZONE_COUNT = 9;
 export const MAP_SIZE = 1000;
-export const MOVE_RANGE = 340;
-export const EXFIL_ID = -2;
-const POI_COUNT = 20;
-const MIN_SPACING = 112;
-/** Distance minimale entre un lieu et le point d'exfiltration. */
-const EXFIL_CLEAR = 95;
-/** Rayon de la zone sûre au dernier tour. */
-const GAS_MIN = 220;
-/** Lieux placés d'office près de l'exfiltration, pour qu'il reste des choix en fin de zone. */
-const CORE_POIS = 8;
-/** Nombre minimal de lieux proposés à chaque tour. */
-export const MIN_CHOICES = 3;
+/** Actions (cartes jouées) par zone. */
+export const ACTIONS_PER_ZONE = 3;
+export const CARDS_BY_SIZE: Record<ZoneSize, number> = { petite: 4, moyenne: 6, grande: 8 };
+/** Niveaux de difficulté ajoutés aux bots selon la taille de la zone. */
+export const DANGER_BY_SIZE: Record<ZoneSize, number> = { petite: 0, moyenne: 0.5, grande: 1 };
+/** Rayon d'affichage de la zone sur la carte. */
+export const ZONE_RADIUS: Record<ZoneSize, number> = { petite: 48, moyenne: 68, grande: 92 };
+/** Poids de tirage des cartes selon la taille de la zone. */
+export const CARD_WEIGHTS: Record<ZoneSize, Record<CardType, number>> = {
+  petite: { squad: 8, solo: 40, caisse: 32, shop: 20 },
+  moyenne: { squad: 20, solo: 40, caisse: 20, shop: 20 },
+  grande: { squad: 35, solo: 40, caisse: 12, shop: 13 },
+};
+/** Manche (index 0) à partir de laquelle une squad enchaîne 3 duels au lieu de 2. */
+export const SQUAD3_FROM_ROUND = 2;
+/** Rayon du premier cercle : couvre toute la carte. */
+const FIRST_RADIUS = 760;
+const MIN_SPACING = 175;
+const MARGIN = 110;
 
-/** Menaces possibles selon la position de la zone : Assaut n'apparaît qu'à partir de la 2e zone. */
-export function stageThreats(stage: number): Threat[] {
-  return stage === 0 ? THREATS.filter((t) => t !== 'assaut') : [...THREATS];
-}
-
-/** Menaces du gardien : Cdt Kesh (Assaut + une menace du biome) en 3e zone, sinon une menace du biome. */
-export function guardianThreats(biome: BiomeId, stage: number): Threat[] {
-  const allowed = stageThreats(stage);
-  const own = BIOMES[biome].threats.filter((t) => allowed.includes(t));
-  if (stage === STAGES - 1) return [...BOSS_THREATS, ...own.filter((t) => !BOSS_THREATS.includes(t)).slice(0, 1)];
-  return own.slice(0, 1);
-}
-
-/** Rayon de la zone sûre au moment d'arriver au tour `turn` (0 = largage). */
-export function gasRadius(turn: number): number {
-  return GAS_MIN + (580 - GAS_MIN) * (1 - Math.min(turn, TURNS - 1) / (TURNS - 1));
-}
+export const ZONE_NAMES = [
+  'Gare de triage', 'Cité des Pins', 'Zone industrielle', 'Port de plaisance', 'Centre commercial',
+  'Château d’eau', 'Ferme des Saules', 'Station-service', 'Hôpital Saint-Roch', 'Carrière', 'Marché couvert',
+  'Dépôt de bus', 'Les Silos', 'Lotissement des Lilas', 'Scierie', 'Stade municipal', 'Base aérienne', 'Vieux moulin',
+];
 
 export function dist(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -79,111 +76,95 @@ function shuffle<T>(rng: Rng, arr: T[]): T[] {
   return arr;
 }
 
-export function genZone(seed: number, biome: BiomeId = 'banlieue', stage = 0): Zone {
-  const rng = rngFor(seed, 'zone', stage);
-  const exfil = { x: 500 + (rng() - 0.5) * 240, y: 500 + (rng() - 0.5) * 240 };
+/** Duels d'une carte squad selon la manche (index 0). */
+export function squadDuels(round: number): number {
+  return round >= SQUAD3_FROM_ROUND ? 3 : 2;
+}
+
+export function genMap(seed: number): GameMap {
+  const rng = rngFor(seed, 'map');
+  const sizes = shuffle(rng, [...Array<ZoneSize>(3).fill('petite'), ...Array<ZoneSize>(3).fill('moyenne'), ...Array<ZoneSize>(3).fill('grande')]);
   const pts: { x: number; y: number }[] = [];
-  for (let tries = 0; tries < 6000 && pts.length < POI_COUNT; tries++) {
-    const a = rng() * Math.PI * 2;
-    const core = pts.length < CORE_POIS && tries < 3000;
-    const r = Math.sqrt(rng()) * (core ? gasRadius(TURNS - 2) - 10 : 440);
-    const c = core ? exfil : { x: 500, y: 500 };
-    const p = { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
-    if (core && dist(p, { x: 500, y: 500 }) > 460) continue;
-    if (dist(p, exfil) < EXFIL_CLEAR) continue;
-    if (pts.some((q) => dist(p, q) < MIN_SPACING)) continue;
+  let spacing = MIN_SPACING;
+  for (let tries = 0; pts.length < ZONE_COUNT; tries++) {
+    if (tries > 0 && tries % 2000 === 0) spacing *= 0.85;
+    const p = { x: MARGIN + rng() * (MAP_SIZE - 2 * MARGIN), y: MARGIN + rng() * (MAP_SIZE - 2 * MARGIN) };
+    if (pts.some((q) => dist(p, q) < spacing)) continue;
     pts.push(p);
   }
-  const types = shuffle(rng, [
-    ...Array<Poi['type']>(8).fill('contrat'),
-    ...Array<Poi['type']>(3).fill('caisse'),
-    ...Array<Poi['type']>(2).fill('marchand'),
-    ...Array<Poi['type']>(3).fill('elite'),
-    ...Array<Poi['type']>(2).fill('planque'),
-    ...Array<Poi['type']>(2).fill('etabli'),
-  ]);
-  const pois: Poi[] = pts.map((p, i) => ({ id: i, x: Math.round(p.x), y: Math.round(p.y), type: types[i % types.length], name: '', threats: [] }));
+  const names = shuffle(rng, [...ZONE_NAMES]);
+  const zones: MapZone[] = pts.map((p, i) => ({ id: i, name: names[i], size: sizes[i], x: Math.round(p.x), y: Math.round(p.y) }));
 
-  // Lieux spécialisés : chaque famille de butin au moins une fois, puis tirage où celles du biome pèsent double.
-  const looters = shuffle(rng, pois.filter((p) => p.type === 'contrat' || p.type === 'elite' || p.type === 'caisse'));
-  const bag = [...LOOT_FAMILIES, ...LOOT_FAMILIES, ...BIOMES[biome].families.filter((f) => LOOT_FAMILIES.includes(f)).flatMap((f) => [f, f])];
-  looters.forEach((p, i) => {
-    p.family = i < LOOT_FAMILIES.length ? LOOT_FAMILIES[i] : bag[Math.floor(rng() * bag.length)];
-  });
-  // Noms : un lieu spécialisé prend un nom de sa famille (de préférence propre au biome), les autres un nom du biome.
-  const usedNames = new Set<string>();
-  const take = (list: string[]) => {
-    const free = list.filter((n) => !usedNames.has(n));
-    const n = free.length ? free[Math.floor(rng() * free.length)] : null;
-    if (n) usedNames.add(n);
-    return n;
-  };
-  const places = BIOMES[biome].places;
-  const famPlaces = FAMILY_PLACES[biome];
-  for (const p of pois) {
-    if (!p.family || p.family === 'tactique') continue;
-    p.name = take(famPlaces[p.family]) ?? '';
-  }
-  const neutral = places.filter((n) => !Object.values(famPlaces).some((l) => l.includes(n)));
-  for (const p of pois) if (!p.name) p.name = take(neutral) ?? take(places) ?? `Lieu ${p.id + 1}`;
-  // Menaces : distribuées en cycle, celles du biome en double, pour qu'aucune ne couvre plus d'un tiers des combats.
-  const allowed = stageThreats(stage);
-  const cycle = shuffle(rng, [...allowed, ...BIOMES[biome].threats.filter((t) => allowed.includes(t))]);
-  // Plafond : une menace ne couvre jamais plus d'un tiers des lieux de combat.
-  const fights = pois.filter((p) => p.type === 'contrat' || p.type === 'elite');
-  const cap = Math.ceil(fights.length / 3);
-  const used = new Map<Threat, number>();
-  let c = 0;
-  const next = (not?: Threat): Threat => {
-    for (let i = 0; i < cycle.length * 2; i++) {
-      const t = cycle[c++ % cycle.length];
-      if (t !== not && (used.get(t) ?? 0) < cap) {
-        used.set(t, (used.get(t) ?? 0) + 1);
-        return t;
-      }
-    }
-    return cycle.find((t) => t !== not) ?? cycle[0];
-  };
-  for (const p of fights) {
-    p.threats.push(next());
-    if (p.type === 'elite') p.threats.push(next(p.threats[0]));
-  }
-  return {
-    biome, stage, pois, exfilThreats: guardianThreats(biome, stage),
-    exfil: { x: Math.round(exfil.x), y: Math.round(exfil.y) }, visited: [], pos: -1,
-  };
-}
-
-export function posOf(z: Zone): { x: number; y: number } | null {
-  if (z.pos === EXFIL_ID) return z.exfil;
-  return z.pois.find((p) => p.id === z.pos) ?? null;
-}
-
-export function inSafeZone(z: Zone, p: { x: number; y: number }, turn: number): boolean {
-  return dist(p, z.exfil) <= gasRadius(turn);
-}
-
-/** Lieux où l'on peut aller pour le tour `turn`, et si l'exfiltration est possible. */
-export function options(z: Zone, turn: number): { pois: Poi[]; exfil: boolean; forced: boolean } {
-  if (turn >= TURNS - 1) return { pois: [], exfil: true, forced: true };
-  const here = posOf(z);
-  const free = z.pois.filter((p) => !z.visited.includes(p.id) && inSafeZone(z, p, turn));
-  let pois = here ? free.filter((p) => dist(p, here) <= MOVE_RANGE) : free;
-  if (here) {
-    // Au moins MIN_CHOICES lieux : on complète avec les lieux sûrs les plus proches, même hors de portée.
-    const byDist = [...free].sort((a, b) => dist(a, here) - dist(b, here));
-    for (const p of byDist) {
-      if (pois.length >= MIN_CHOICES) break;
-      if (!pois.includes(p)) pois.push(p);
-    }
-    // Au moins 2 options différentes (type ou famille de butin) quand la carte le permet.
-    const key = (p: Poi) => `${p.type}/${p.family ?? ''}`;
-    if (pois.length && pois.every((p) => key(p) === key(pois[0]))) {
-      const other = byDist.find((p) => key(p) !== key(pois[0]));
-      if (other) pois.push(other);
+  // Point final : entre deux zones de tailles différentes, proches l'une de l'autre, de préférence vers le centre.
+  const mid = { x: MAP_SIZE / 2, y: MAP_SIZE / 2 };
+  const pairs: [MapZone, MapZone, number][] = [];
+  for (let i = 0; i < zones.length; i++) {
+    for (let j = i + 1; j < zones.length; j++) {
+      const a = zones[i];
+      const b = zones[j];
+      if (a.size === b.size) continue;
+      const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      pairs.push([a, b, dist(a, b) + 0.6 * dist(c, mid)]);
     }
   }
-  const exfil = !!here && turn >= EARLY_EXFIL_TURN && dist(here, z.exfil) <= MOVE_RANGE;
-  if (!pois.length) return { pois: [], exfil: true, forced: true };
-  return { pois, exfil, forced: false };
+  pairs.sort((p, q) => p[2] - q[2]);
+  const [a, b] = pairs[Math.floor(rng() * Math.min(3, pairs.length))];
+  const final = { x: Math.round((a.x + b.x) / 2), y: Math.round((a.y + b.y) / 2) };
+  // Dernier cercle : englobe tout juste les centres des deux zones finales.
+  const lastR = Math.ceil(Math.max(dist(final, a), dist(final, b))) + 12;
+  // Les cercles interpolent centre et rayon : comme le premier et le dernier contiennent a et b, tous les contiennent.
+  const circles: Circle[] = [];
+  for (let r = 0; r < ROUNDS; r++) {
+    const t = r / (ROUNDS - 1);
+    circles.push({
+      x: Math.round(mid.x + (final.x - mid.x) * t),
+      y: Math.round(mid.y + (final.y - mid.y) * t),
+      r: Math.round(FIRST_RADIUS + (lastR - FIRST_RADIUS) * t),
+    });
+  }
+  // Sécurité : au moins 2 zones dans chaque cercle (agrandit le cercle si besoin).
+  for (const c of circles) {
+    const ds = zones.map((z) => dist(z, c)).sort((p, q) => p - q);
+    if (ds[1] > c.r) c.r = Math.ceil(ds[1]) + 1;
+  }
+  return { zones, circles, final };
+}
+
+/** Cercle sûr de la manche (la manche finale garde le dernier cercle). */
+export function circle(map: GameMap, round: number): Circle {
+  return map.circles[Math.max(0, Math.min(round, map.circles.length - 1))];
+}
+
+/** Une zone est gazée quand son centre est hors du cercle de la manche. */
+export function isGassed(map: GameMap, zone: MapZone, round: number): boolean {
+  const c = circle(map, round);
+  return dist(zone, c) > c.r;
+}
+
+/** Zones où l'on peut se larguer à cette manche. */
+export function zonesInCircle(map: GameMap, round: number): MapZone[] {
+  return map.zones.filter((z) => !isGassed(map, z, round));
+}
+
+/**
+ * Cartes tirées en arrivant dans une zone (face visible). Déterministe pour une graine, une manche et une zone.
+ * Au moins une carte de combat, au plus une boutique.
+ */
+export function drawCards(seed: number, round: number, zone: MapZone): Card[] {
+  const rng = rngFor(seed, 'cards', round, zone.id);
+  const w = CARD_WEIGHTS[zone.size];
+  const types: CardType[] = [];
+  for (let i = 0; i < CARDS_BY_SIZE[zone.size]; i++) {
+    const allowed = (Object.keys(w) as CardType[]).filter((t) => t !== 'shop' || !types.includes('shop'));
+    types.push(weighted(rng, allowed.map((t) => [t, w[t]] as const)));
+  }
+  if (!types.some((t) => t === 'squad' || t === 'solo')) {
+    // Remplace une carte au hasard par un duel solo.
+    types[Math.floor(rng() * types.length)] = 'solo';
+  }
+  return types.map((type) => ({ type, duels: type === 'squad' ? squadDuels(round) : type === 'solo' ? 1 : 0 }));
+}
+
+export function isFight(card: Card): boolean {
+  return card.type === 'squad' || card.type === 'solo';
 }

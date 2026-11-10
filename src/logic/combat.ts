@@ -1,213 +1,210 @@
-import {
-  ASSAUT_EVERY, ASSAUT_STEP, BLINDES_REDUCTION, MEDIC_EVERY, MEDIC_HEAL, Threat,
-} from '../data/threats';
-import { mulberry32 } from './rng';
-import type { PlayerLoadout } from './stats';
+// Duel 1v1 sac contre sac : simulation symétrique et déterministe (même graine = même duel).
+import { hashParts, mulberry32 } from './rng';
+import type { PlayerLoadout, WeaponRt } from './stats';
 
-export interface EnemyUnit {
-  name: string;
-  hp: number;
-  armor: number;
-  dmg: number;
-  interval: number;
-  acc: number;
-  grenade?: { dmg: number; every: number };
-  boss?: boolean;
-  /** Tire dès le début du combat (menace Tireurs). */
-  opener?: boolean;
-}
+/** 'a' = le joueur, 'b' = le bot. */
+export type Side = 'a' | 'b';
 
-type Target = 'p' | number;
+/**
+ * Événements du duel, dans l'ordre chronologique.
+ * - shot : un impact de `from` sur l'adversaire. Un tir à plombs (pellets 2) ou une balle doublée
+ *   (Rafale palier 4) produit plusieurs événements au même `t` ; les impacts en plus ont `double: true`.
+ *   hp/armor = ceux de la cible après l'impact.
+ * - frag : grenade lancée par `side`, hp/armor = ceux de l'adversaire après l'explosion.
+ * - smoke : `side` se couvre, la précision adverse est divisée par 2 jusqu'à `until`.
+ * - flash : `side` étourdit les armes adverses jusqu'à `until`.
+ * - adrenaline / heal : sur `side` lui-même.
+ * - reflect : `side` renvoie des dégâts bloqués au tireur ; hp/armor = ceux du tireur après.
+ * - death : `side` est mort.
+ */
+export type DuelEvent =
+  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; hp: number; armor: number }
+  | { t: number; kind: 'reload'; side: Side; uid: number }
+  | { t: number; kind: 'frag'; side: Side; uid: number; amount: number; hp: number; armor: number }
+  | { t: number; kind: 'smoke'; side: Side; uid: number; until: number }
+  | { t: number; kind: 'flash'; side: Side; uid: number; until: number }
+  | { t: number; kind: 'adrenaline'; side: Side; uid: number; until: number }
+  | { t: number; kind: 'heal'; side: Side; uid: number; amount: number; hp: number }
+  | { t: number; kind: 'reflect'; side: Side; amount: number; hp: number; armor: number }
+  | { t: number; kind: 'death'; side: Side };
 
-export type CombatEvent =
-  | { t: number; kind: 'shot'; from: Target; uid?: number; to: Target; amount: number; crit: boolean; miss: boolean; pierce: boolean; ricochet?: boolean; hp: number; armor: number }
-  | { t: number; kind: 'reload'; uid: number }
-  | { t: number; kind: 'frag'; uid: number; amount: number; hits: { to: number; hp: number; armor: number }[] }
-  | { t: number; kind: 'smoke'; uid: number; until: number }
-  | { t: number; kind: 'flash'; uid: number; until: number }
-  | { t: number; kind: 'adrenaline'; uid: number; until: number }
-  | { t: number; kind: 'heal'; uid: number; amount: number; hp: number }
-  | { t: number; kind: 'medic'; amount: number; hits: { to: number; hp: number }[] }
-  | { t: number; kind: 'enemyGrenade'; from: number; amount: number; hp: number; armor: number }
-  | { t: number; kind: 'reflect'; to: number; amount: number; hp: number; armor: number }
-  | { t: number; kind: 'death'; who: Target };
-
-export interface CombatResult {
-  events: CombatEvent[];
+export interface DuelResult {
+  events: DuelEvent[];
+  /** Vrai si `a` (le joueur) gagne. */
   win: boolean;
+  /** Vrai si le duel s'est fini au temps limite (vainqueur à la part de PV restante). */
   timeout: boolean;
   duration: number;
-  hpEnd: number;
+  hpEndA: number;
+  hpEndB: number;
 }
 
-export const MAX_TIME = 45;
+/** Temps limite : au-delà, le camp qui a la plus grande part de ses PV max gagne. */
+export const MAX_TIME = 40;
 const DT = 0.05;
-const PLAYER_ACC = 0.85;
+/** Précision de base de chaque camp (divisée par 2 sous le fumigène adverse). */
+export const ACCURACY = 0.85;
 
-interface Body {
+interface Fighter {
+  side: Side;
+  l: PlayerLoadout;
   hp: number;
   armor: number;
+  ws: { w: WeaponRt; ammo: number; next: number; shots: number }[];
+  as: { a: PlayerLoadout['actives'][number]; charges: number; next: number }[];
+  smokeUntil: number;
+  adrenalineUntil: number;
+  adrenalineBoost: number;
+  dealt: number;
 }
 
 /** Applique des dégâts : l'armure absorbe d'abord, sauf la part qui la perce. Renvoie l'absorbé. */
-function applyDamage(b: Body, amount: number, pierce = 0): number {
+function applyDamage(b: Fighter, amount: number, pierce = 0): number {
   const toArmor = Math.min(b.armor, amount * (1 - pierce));
   b.armor -= toArmor;
   b.hp = Math.max(0, b.hp - (amount - toArmor));
   return toArmor;
 }
 
-/** Simulation déterministe d'un combat : gilet, ennemis, menaces et graine. */
-export function simulate(l: PlayerLoadout, enemiesIn: EnemyUnit[], seed: number, threats: Threat[] = []): CombatResult {
-  const rng = mulberry32(seed);
-  const blindes = threats.includes('blindes');
-  const medics = threats.includes('medics');
-  const assaut = threats.includes('assaut');
-  const p: Body = { hp: l.maxHp, armor: l.armor };
-  const en = enemiesIn.map((e) => ({
-    e,
-    cur: { hp: e.hp, armor: e.armor } as Body,
-    next: e.opener ? 0.3 : e.interval * (0.6 + 0.4 * rng()),
-    nextNade: e.grenade ? e.grenade.every * 0.6 : Infinity,
-  }));
-  const ws = l.weapons.map((w) => ({ w, ammo: w.mag, next: w.interval * 0.5, shots: 0 }));
-  const as = l.actives.map((a) => ({ a, charges: a.charges, next: a.kind === 'heal' || a.kind === 'adrenaline' ? 0 : a.cooldown * 0.4 }));
-  const events: CombatEvent[] = [];
-  let smokeUntil = -1;
-  let adrenalineUntil = -1;
-  let adrenalineBoost = 0;
-  let nextMedic = MEDIC_EVERY;
-  const living = () => en.map((_, i) => i).filter((i) => en[i].cur.hp > 0);
-  const finish = (win: boolean, t: number, timeout = false): CombatResult => ({ events, win, timeout, duration: t, hpEnd: p.hp });
+const round1 = (v: number) => Math.round(v * 10) / 10;
 
-  for (let step = 1; step * DT <= MAX_TIME; step++) {
-    const t = Math.round(step * DT * 1000) / 1000;
-    if (l.armorRegen > 0 && p.armor < l.armor) p.armor = Math.min(l.armor, p.armor + l.armorRegen * DT);
-    const cadence = t < adrenalineUntil ? 1 / (1 + adrenalineBoost) : 1;
+/**
+ * Duel 1v1. `opts.hpA` : PV de départ du joueur (PV gardés entre les duels d'une escouade).
+ * Pas d'égalité : au temps limite, la plus grande part de PV gagne, puis les dégâts infligés, puis la graine.
+ */
+export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, opts: { hpA?: number } = {}): DuelResult {
+  const rng = mulberry32(hashParts('duel', seed));
+  const make = (side: Side, l: PlayerLoadout, hp: number): Fighter => ({
+    side,
+    l,
+    hp,
+    armor: l.armor,
+    // Léger décalage aléatoire du 1er tir pour que deux sacs identiques ne tirent pas en miroir parfait.
+    ws: l.weapons.map((w) => ({ w, ammo: w.mag, next: w.interval * (0.4 + 0.2 * rng()), shots: 0 })),
+    as: l.actives.map((ac) => ({ a: ac, charges: ac.charges, next: ac.kind === 'heal' || ac.kind === 'adrenaline' ? 0 : ac.cooldown * 0.4 })),
+    smokeUntil: -1,
+    adrenalineUntil: -1,
+    adrenalineBoost: 0,
+    dealt: 0,
+  });
+  const hpA = Math.max(1, Math.min(a.maxHp, Math.round(opts.hpA ?? a.maxHp)));
+  const A = make('a', a, hpA);
+  const B = make('b', b, b.maxHp);
+  const events: DuelEvent[] = [];
+  const finish = (win: boolean, t: number, timeout = false): DuelResult => ({
+    events, win, timeout, duration: t, hpEndA: Math.round(A.hp), hpEndB: Math.round(B.hp),
+  });
 
-    // Armes du joueur
-    for (const s of ws) {
+  /** Tour d'un camp à l'instant t. Renvoie le camp mort, s'il y en a un. */
+  const act = (me: Fighter, foe: Fighter, t: number): Side | null => {
+    if (me.l.armorRegen > 0 && me.armor < me.l.armor) me.armor = Math.min(me.l.armor, me.armor + me.l.armorRegen * DT);
+    const cadence = t < me.adrenalineUntil ? 1 / (1 + me.adrenalineBoost) : 1;
+
+    // Armes
+    for (const s of me.ws) {
       if (t < s.next) continue;
       if (s.ammo <= 0) {
         s.ammo = s.w.mag;
         s.next = t + s.w.reload;
-        events.push({ t, kind: 'reload', uid: s.w.uid });
+        events.push({ t, kind: 'reload', side: me.side, uid: s.w.uid });
         continue;
       }
-      const alive = living();
-      if (!alive.length) break;
-      const targets = alive.slice(0, s.w.targets);
       const shotNo = s.shots + 1;
-      const ricochet = s.w.ricochetEvery > 0 && shotNo % s.w.ricochetEvery === 0 && alive.length > targets.length;
-      if (ricochet) targets.push(alive[targets.length]);
       const legendary = s.w.pierceEvery > 0 && shotNo % s.w.pierceEvery === 0;
-      targets.forEach((ti, n) => {
-        const target = en[ti];
-        const miss = rng() > PLAYER_ACC;
-        const crit = !miss && ((s.w.firstCrit && s.shots === 0) || rng() < s.w.crit);
-        let amount = miss ? 0 : Math.round(s.w.dmg * (crit ? l.critMult : 1));
-        if (!miss && blindes && !s.w.ignoreBlindes && !legendary) amount = Math.max(1, amount - BLINDES_REDUCTION);
+      const doubled = s.w.doubleEvery > 0 && shotNo % s.w.doubleEvery === 0;
+      const hits = s.w.pellets * (doubled ? 2 : 1);
+      const acc = ACCURACY * (t < foe.smokeUntil ? 0.5 : 1);
+      for (let n = 0; n < hits; n++) {
+        const miss = rng() > acc;
+        const crit = !miss && ((s.w.firstCrit && s.shots === 0 && n === 0) || rng() < s.w.crit);
+        let amount = 0;
         if (!miss) {
-          applyDamage(target.cur, amount, legendary ? 1 : s.w.armorPierce);
+          amount = Math.max(1, Math.round(s.w.dmg * (crit ? me.l.critMult : 1)) - foe.l.flatReduce);
+          const absorbed = applyDamage(foe, amount, legendary ? 1 : s.w.armorPierce);
           if (s.w.trueDmg > 0) {
-            target.cur.hp = Math.max(0, target.cur.hp - Math.round(s.w.trueDmg));
+            foe.hp = Math.max(0, foe.hp - Math.round(s.w.trueDmg));
             amount += Math.round(s.w.trueDmg);
           }
-          if (crit && s.w.critStun > 0) target.next = Math.max(target.next, t) + s.w.critStun;
+          me.dealt += amount;
+          if (crit && s.w.critStun > 0) for (const fw of foe.ws) fw.next = Math.max(fw.next, t) + s.w.critStun;
+          events.push({
+            t, kind: 'shot', from: me.side, uid: s.w.uid, amount, crit, miss: false,
+            pierce: legendary || s.w.armorPierce > 0, ...(n > 0 ? { double: true } : {}),
+            hp: round1(foe.hp), armor: round1(foe.armor),
+          });
+          if (foe.hp <= 0) {
+            events.push({ t, kind: 'death', side: foe.side });
+            return foe.side;
+          }
+          if (absorbed > 0 && foe.l.reflect > 0) {
+            const ra = Math.max(1, Math.round(absorbed * foe.l.reflect));
+            applyDamage(me, ra);
+            foe.dealt += ra;
+            events.push({ t, kind: 'reflect', side: foe.side, amount: ra, hp: round1(me.hp), armor: round1(me.armor) });
+            if (me.hp <= 0) {
+              events.push({ t, kind: 'death', side: me.side });
+              return me.side;
+            }
+          }
+        } else {
+          events.push({
+            t, kind: 'shot', from: me.side, uid: s.w.uid, amount: 0, crit: false, miss: true, pierce: false,
+            ...(n > 0 ? { double: true } : {}), hp: round1(foe.hp), armor: round1(foe.armor),
+          });
         }
-        events.push({
-          t, kind: 'shot', from: 'p', uid: s.w.uid, to: ti, amount, crit, miss,
-          pierce: !miss && (legendary || s.w.armorPierce > 0), ricochet: ricochet && n === targets.length - 1,
-          hp: target.cur.hp, armor: target.cur.armor,
-        });
-        if (target.cur.hp <= 0) events.push({ t, kind: 'death', who: ti });
-      });
+      }
       s.shots++;
       s.ammo--;
       s.next = t + s.w.interval * cadence;
     }
-    if (!living().length) return finish(true, t);
 
     // Objets actifs
-    for (const s of as) {
+    for (const s of me.as) {
       if (s.charges <= 0 || t < s.next) continue;
-      const a = s.a;
-      if (a.kind === 'frag') {
-        const amount = Math.round(a.value);
-        const alive = living();
-        const hits = alive.map((i) => {
-          applyDamage(en[i].cur, amount, a.ignoreArmor ? 1 : 0);
-          return { to: i, hp: en[i].cur.hp, armor: en[i].cur.armor };
-        });
-        events.push({ t, kind: 'frag', uid: a.uid, amount, hits });
-        for (const i of alive) if (en[i].cur.hp <= 0) events.push({ t, kind: 'death', who: i });
-      } else if (a.kind === 'smoke') {
-        smokeUntil = t + a.duration;
-        events.push({ t, kind: 'smoke', uid: a.uid, until: smokeUntil });
-      } else if (a.kind === 'flash') {
-        for (const i of living()) en[i].next = Math.max(en[i].next, t) + a.value;
-        events.push({ t, kind: 'flash', uid: a.uid, until: t + a.value });
-      } else if (a.kind === 'adrenaline') {
-        if (p.hp / l.maxHp >= a.threshold) continue;
-        adrenalineUntil = t + a.duration;
-        adrenalineBoost = a.value;
-        events.push({ t, kind: 'adrenaline', uid: a.uid, until: adrenalineUntil });
+      const ac = s.a;
+      if (ac.kind === 'frag') {
+        const amount = Math.round(ac.value);
+        applyDamage(foe, amount, ac.ignoreArmor ? 1 : 0);
+        me.dealt += amount;
+        events.push({ t, kind: 'frag', side: me.side, uid: ac.uid, amount, hp: round1(foe.hp), armor: round1(foe.armor) });
+        if (foe.hp <= 0) {
+          events.push({ t, kind: 'death', side: foe.side });
+          return foe.side;
+        }
+      } else if (ac.kind === 'smoke') {
+        me.smokeUntil = t + ac.duration;
+        events.push({ t, kind: 'smoke', side: me.side, uid: ac.uid, until: me.smokeUntil });
+      } else if (ac.kind === 'flash') {
+        for (const fw of foe.ws) fw.next = Math.max(fw.next, t) + ac.value;
+        events.push({ t, kind: 'flash', side: me.side, uid: ac.uid, until: t + ac.value });
+      } else if (ac.kind === 'adrenaline') {
+        if (me.hp / me.l.maxHp >= ac.threshold) continue;
+        me.adrenalineUntil = t + ac.duration;
+        me.adrenalineBoost = ac.value;
+        events.push({ t, kind: 'adrenaline', side: me.side, uid: ac.uid, until: me.adrenalineUntil });
       } else {
-        if (p.hp / l.maxHp >= a.threshold) continue;
-        const amount = Math.min(Math.round(a.value), l.maxHp - p.hp);
-        p.hp += amount;
-        events.push({ t, kind: 'heal', uid: a.uid, amount, hp: p.hp });
+        if (me.hp / me.l.maxHp >= ac.threshold) continue;
+        const amount = Math.min(Math.round(ac.value), Math.round(me.l.maxHp - me.hp));
+        me.hp += amount;
+        events.push({ t, kind: 'heal', side: me.side, uid: ac.uid, amount, hp: round1(me.hp) });
       }
       s.charges--;
-      s.next = t + a.cooldown;
+      s.next = t + ac.cooldown;
     }
-    if (!living().length) return finish(true, t);
+    return null;
+  };
 
-    // Menace Médics : soins périodiques de l'escouade
-    if (medics && t >= nextMedic) {
-      nextMedic += MEDIC_EVERY;
-      const hits = living().map((i) => {
-        en[i].cur.hp = Math.min(en[i].e.hp, en[i].cur.hp + MEDIC_HEAL);
-        return { to: i, hp: en[i].cur.hp };
-      });
-      if (hits.length) events.push({ t, kind: 'medic', amount: MEDIC_HEAL, hits });
-    }
-
-    // Ennemis
-    const dmgMult = assaut ? 1 + ASSAUT_STEP * Math.floor(t / ASSAUT_EVERY) : 1;
-    for (let i = 0; i < en.length; i++) {
-      const u = en[i];
-      if (u.cur.hp <= 0) continue;
-      if (t >= u.next) {
-        const acc = u.e.acc * (t < smokeUntil ? 0.5 : 1);
-        const miss = rng() > acc;
-        const amount = miss ? 0 : Math.max(1, Math.round(u.e.dmg * dmgMult) - l.flatReduce);
-        const absorbed = miss ? 0 : applyDamage(p, amount);
-        events.push({ t, kind: 'shot', from: i, to: 'p', amount, crit: false, miss, pierce: false, hp: p.hp, armor: p.armor });
-        u.next = t + u.e.interval;
-        if (absorbed > 0 && l.reflect > 0) {
-          const ra = Math.max(1, Math.round(absorbed * l.reflect));
-          applyDamage(u.cur, ra);
-          events.push({ t, kind: 'reflect', to: i, amount: ra, hp: u.cur.hp, armor: u.cur.armor });
-          if (u.cur.hp <= 0) events.push({ t, kind: 'death', who: i });
-        }
-        if (p.hp <= 0) {
-          events.push({ t, kind: 'death', who: 'p' });
-          return finish(false, t);
-        }
-      }
-      if (u.e.grenade && u.cur.hp > 0 && t >= u.nextNade) {
-        const amount = Math.round(u.e.grenade.dmg * dmgMult);
-        applyDamage(p, amount);
-        events.push({ t, kind: 'enemyGrenade', from: i, amount, hp: p.hp, armor: p.armor });
-        u.nextNade = t + u.e.grenade.every;
-        if (p.hp <= 0) {
-          events.push({ t, kind: 'death', who: 'p' });
-          return finish(false, t);
-        }
-      }
-    }
-    if (!living().length) return finish(true, t);
+  for (let step = 1; step * DT <= MAX_TIME + 1e-9; step++) {
+    const t = Math.round(step * DT * 1000) / 1000;
+    // Ordre tiré au sort à chaque pas : aucun camp n'a l'avantage de tirer en premier.
+    const [first, second] = rng() < 0.5 ? [A, B] : [B, A];
+    const dead = act(first, second, t) ?? act(second, first, t);
+    if (dead) return finish(dead === 'b', t);
   }
-  return finish(false, MAX_TIME, true);
+
+  // Temps limite : part de PV restante, puis dégâts infligés, puis pile ou face.
+  const fa = A.hp / a.maxHp;
+  const fb = B.hp / b.maxHp;
+  const win = fa !== fb ? fa > fb : A.dealt !== B.dealt ? A.dealt > B.dealt : rng() < 0.5;
+  return finish(win, MAX_TIME, true);
 }

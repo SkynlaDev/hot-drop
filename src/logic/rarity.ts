@@ -17,15 +17,23 @@ export const EXTRA_CHARGES = [0, 0, 1, 1, 1];
 export const PRICE_MULT = [1, 1.5, 2.5, 4, 6];
 export const MAX_RARITY = 4;
 
-/** Chances d'apparition (%) par zone, de Commun à Légendaire. */
-export const ZONE_ODDS = [
-  [60, 30, 9, 1, 0],
-  [35, 35, 22, 7, 1],
-  [15, 30, 32, 18, 5],
+/**
+ * Chances d'apparition (%) par manche (0 à 4), de Commun à Légendaire.
+ * La 6e ligne (index 5) sert au duel final « Top 1 ».
+ */
+export const ROUND_ODDS = [
+  [65, 28, 6, 1, 0],
+  [45, 35, 15, 4, 1],
+  [30, 35, 24, 9, 2],
+  [18, 32, 30, 16, 4],
+  [10, 25, 35, 23, 7],
+  [5, 18, 35, 30, 12],
 ];
+/** Ancien nom, gardé pour les appelants : même tableau, indexé par manche. */
+export const ZONE_ODDS = ROUND_ODDS;
 
-export function rollRarity(rng: Rng, zone: number, minRarity = 0, guarantee = 0): number {
-  const odds = ZONE_ODDS[Math.min(zone, ZONE_ODDS.length - 1)];
+export function rollRarity(rng: Rng, round: number, minRarity = 0, guarantee = 0): number {
+  const odds = ROUND_ODDS[Math.max(0, Math.min(round, ROUND_ODDS.length - 1))];
   const r = weighted(rng, odds.map((w, i) => [i, w] as const));
-  return Math.max(r, minRarity, guarantee);
+  return Math.min(MAX_RARITY, Math.max(r, minRarity, guarantee));
 }

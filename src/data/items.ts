@@ -11,6 +11,7 @@ export interface WeaponStats {
   interval: number; // secondes entre deux tirs
   mag: number;
   reload: number; // secondes
+  /** Impacts par tir sur l'adversaire (plombs) : 2 = chaque tir touche deux fois. */
   targets?: number;
   /** Toujours alimentée : ses munitions font partie de l'arme (objets assemblés). */
   selfFed?: boolean;
@@ -18,9 +19,9 @@ export interface WeaponStats {
   feedsAny?: boolean;
   /** Le 1er tir du combat est toujours critique. */
   firstCrit?: boolean;
-  /** Part de l'armure ennemie ignorée (0..1). */
+  /** Part de l'armure adverse ignorée (0..1). */
   armorPierce?: number;
-  /** Un critique retarde le prochain tir de la cible de ce nombre de secondes. */
+  /** Un critique retarde les prochains tirs de l'adversaire de ce nombre de secondes. */
   critStun?: number;
   /** Dégâts en plus à chaque touche, qui ignorent l'armure (incendiaire). */
   trueDmg?: number;
@@ -60,7 +61,7 @@ export interface ItemDef {
   armor?: number;
   /** Chaque balle reçue perd ce nombre de dégâts (minimum 1). */
   flatReduce?: number;
-  /** Objet obtenu par une recette de l'Armurier : jamais dans le butin ni la boutique. */
+  /** Objet obtenu par une recette (assemblage automatique) : jamais dans le butin ni la boutique. */
   crafted?: boolean;
   active?: ActiveStats;
   synergy?: SynergyStats;
@@ -68,7 +69,7 @@ export interface ItemDef {
 
 const DEFS: ItemDef[] = [
   { id: 'pistolet', name: 'Pistolet Mamba', short: 'Mamba', wclass: 'Pistolet', shape: ['XX', 'X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 4,
-    weapon: { dmg: 7, interval: 1.0, mag: 6, reload: 2.0 } },
+    weapon: { dmg: 11, interval: 0.86, mag: 8, reload: 2.0 } },
   { id: 'smg', name: 'SMG Furet', short: 'Furet', wclass: 'SMG', shape: ['XXX', '.X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 6,
     weapon: { dmg: 4.5, interval: 0.4, mag: 15, reload: 2.5 } },
   { id: 'fusil_assaut', name: "Fusil d'assaut KR-4", short: 'KR-4', wclass: "Fusil d'assaut", shape: ['XXXX', '.X..'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 0, price: 8,
@@ -115,7 +116,7 @@ const DEFS: ItemDef[] = [
   { id: 'smg_ours', name: 'SMG lourd Ours', short: 'Ours', wclass: 'SMG', shape: ['XXX', 'XX.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 1, price: 8,
     weapon: { dmg: 6, interval: 0.45, mag: 18, reload: 2.6 } },
   { id: 'revolver', name: 'Revolver Taureau', short: 'Taureau', wclass: 'Pistolet', shape: ['XXX', 'X..'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRarity: 1, price: 7,
-    weapon: { dmg: 20.5, interval: 1.4, mag: 4, reload: 2.4 } },
+    weapon: { dmg: 17, interval: 1.4, mag: 4, reload: 2.4 } },
   { id: 'pompe_belier', name: 'Pompe auto Bélier', short: 'Bélier', wclass: 'Fusil à pompe', shape: ['XXXX', 'XX..'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRarity: 2, price: 12,
     weapon: { dmg: 13, interval: 0.95, mag: 4, reload: 3.2, targets: 2 } },
   { id: 'dmr_faucon', name: 'DMR Faucon', short: 'Faucon', wclass: 'Fusil de précision', shape: ['XXXX', '..X.'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRarity: 1, price: 10,
@@ -133,7 +134,7 @@ const DEFS: ItemDef[] = [
     synergy: { kind: 'holo', value: 0.25 } },
   { id: 'bipied', name: 'Bipied', short: 'Bipied', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRarity: 1, price: 5,
     synergy: { kind: 'bipod', value: 0.35 } },
-  // --- Objets assemblés à l'Établi (recettes de l'Armurier, voir data/recipes.ts)
+  // --- Objets assemblés (recettes, voir data/recipes.ts) : ingrédients adjacents, assemblage automatique
   { id: 'kr4_tactique', name: 'KR-4 Tactique', short: 'KR-4 T.', wclass: "Fusil d'assaut", shape: ['XXXX', '.XX.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRarity: 0, price: 18, crafted: true,
     weapon: { dmg: 11, interval: 0.55, mag: 22, reload: 2.2, feedsAny: true } },
   { id: 'furet_akimbo', name: 'Furet Akimbo', short: 'Akimbo', wclass: 'SMG', shape: ['XXX', 'XXX'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRarity: 0, price: 16, crafted: true,
@@ -158,9 +159,9 @@ export const ITEM_IDS: string[] = DEFS.map((d) => d.id);
 export const LOOT_IDS: string[] = DEFS.filter((d) => !d.crafted).map((d) => d.id);
 
 export const FAMILY_INFO: Record<Family, { name: string; color: number; hex: string; tier2: string; tier4: string }> = {
-  rafale: { name: 'Rafale', color: 0xe8a33d, hex: '#f0b252', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 8 ricoche sur un 2e ennemi' },
+  rafale: { name: 'Rafale', color: 0xe8a33d, hex: '#f0b252', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 8 touche deux fois' },
   precision: { name: 'Précision', color: 0x4fc3f7, hex: '#6fd0fa', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,5 au lieu de ×2' },
-  demolition: { name: 'Démolition', color: 0xe5484d, hex: '#ff6b6b', tier2: '+1 charge pour chaque explosif', tier4: 'Explosions et pompe ignorent armure et Blindés' },
+  demolition: { name: 'Démolition', color: 0xe5484d, hex: '#ff6b6b', tier2: '+1 charge pour chaque explosif', tier4: "Explosions et fusils à pompe ignorent l'armure" },
   rempart: { name: 'Rempart', color: 0x9fb3c0, hex: '#b4c6d2', tier2: "+20 % d'armure", tier4: "L'armure se régénère de 2 par seconde" },
   tactique: { name: 'Tactique', color: 0x9bbf3a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Prévu avec la radio et le drone' },
 };

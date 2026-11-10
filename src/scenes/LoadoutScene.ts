@@ -1,27 +1,36 @@
+// Sac à dos : rangement (objets et sacoches), boutique, caisse, et duels 1v1 sac contre sac.
 import Phaser from 'phaser';
-import { BUTTON, C, CELL, COMBAT, GRID_X, GRID_Y, MONO, RESERVE, SELL, STATUS, TRAY, W } from '../config';
-import { buildEncounter } from '../data/enemies';
-import { FAMILY_INFO, Family, ITEMS } from '../data/items';
-import { THREAT_INFO, Threat } from '../data/threats';
-import { CombatEvent, CombatResult, EnemyUnit, simulate } from '../logic/combat';
-import { COLS, ItemInst, ROWS, Rot, canPlace, cellKey, cellZones, cellsAt, dims, expandable, itemAt, maskOf, nextRot, overlapping, rotationIsNoop, sharedEdge } from '../logic/grid';
-import { RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
-import { hashParts, rngFor } from '../logic/rng';
-import { craft, findCraftable, recipeLabel } from '../logic/recipes';
-import { ART, bgKey, figureOf } from '../art';
-import { RECIPES } from '../data/recipes';
+import ART from '../artManifest.json';
+import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, GRID_X, GRID_Y, H, MONO, RESERVE, SELL, STATUS, TRAY, W } from '../config';
+import { BAGS, BagId } from '../data/bags';
+import { FAMILY_INFO, ITEMS } from '../data/items';
+import { OPERATORS } from '../data/operators';
+import { BotBuild, botLoadout, generateBot } from '../logic/bots';
+import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
 import {
-  EXTENSION_CELLS, FLOORS, NODE_INFO, NodeType, REROLL_COST, extensionPrice, RESERVE_MAX, RunState, START_SURSIS, addDrops, canFuse, fuse, isCombat,
-  reserve, rewardCredits, rollDrops, rollShop, saveRun, shopOffers, takeItem, completeZone, level, VEST_FAMILY_BOOST, MIN_WIN_DROPS,
+  BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
+  dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
+} from '../logic/grid';
+import { RARITY_COLORS, RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
+import { Craftable, autoCraft } from '../logic/recipes';
+import {
+  BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, canFuse, currentDuel, endAction,
+  finalDuelParams, fuse, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
+  sellItem, shopOffers, unplaceBag, usable,
 } from '../logic/run';
-import { computeLoadout, describe, estimateDps, OPERATOR, sellValue } from '../logic/stats';
-import { Button, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
+import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
+import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
+import { Button, bagView, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
 
-type Phase = 'prep' | 'combat' | 'post' | 'over';
+export type LoadoutMode = 'manage' | 'shop' | 'caisse' | 'duel';
+/** edit : rangement libre · prep : avant le duel · combat : lecture · result : après le duel · over : run finie. */
+type Phase = 'edit' | 'prep' | 'combat' | 'result' | 'over';
 type Container = Phaser.GameObjects.Container;
+type Fig = keyof typeof ART.figures;
 
 interface DragState {
-  inst: ItemInst;
+  item?: ItemInst;
+  bag?: BagInst;
   from: 'grid' | 'tray';
   downX: number;
   downY: number;
@@ -35,9 +44,9 @@ interface DragState {
 }
 
 interface Actor {
+  side: Side;
   x: number;
   feet: number;
-  /** Bouche du canon et poitrine, en coordonnées écran (départ et arrivée des tirs). */
   muzzle: { x: number; y: number };
   chest: { x: number; y: number };
   hp: number;
@@ -52,54 +61,76 @@ interface Actor {
   barY: number;
 }
 
-interface CombatPlay {
-  result: CombatResult;
+interface DuelPlay {
+  result: DuelResult;
   idx: number;
   t: number;
-  player: Actor;
-  enemies: Actor[];
 }
 
 const SPEEDS = [1, 2, 4];
 const LONG_PRESS_MS = 450;
 const DRAG_THRESHOLD = 12;
+const QUALITY: Record<BotBuild['quality'], { label: string; color: number; hex: string }> = {
+  faible: { label: 'FAIBLE', color: 0x5fbf6a, hex: '#7ddc86' },
+  normal: { label: 'NORMAL', color: 0xd9a441, hex: '#f2c94c' },
+  fort: { label: 'FORT', color: 0xe5484d, hex: '#ff6b6b' },
+};
+const GOLD = '#f2c94c';
+
+const inRect = (px: number, py: number, r: { x: number; y: number; w: number; h: number }) => px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 
 export default class LoadoutScene extends Phaser.Scene {
   private run!: RunState;
-  private node!: NodeType;
-  private place = '';
-  private threats: Threat[] = [];
-  /** Famille de butin annoncée par le lieu. */
-  private family?: Family;
-  private famTiers: Map<string, number> | null = null;
-  private recipeKeys: Set<string> | null = null;
-  private phase: Phase = 'prep';
-  private enemies: EnemyUnit[] = [];
+  private mode: LoadoutMode = 'manage';
+  private loot?: Loot;
+  private phase: Phase = 'edit';
+  private params: DuelParams | null = null;
+  private bot: BotBuild | null = null;
+  private botL: PlayerLoadout | null = null;
+  /** Ce que fait le bouton principal après un duel. */
+  private post: { label: string; go: () => void } | null = null;
+
   private views = new Map<number, Container>();
+  private bagViews = new Map<number, Container>();
   private trayViews = new Map<number, Container>();
+  private trayBagViews = new Map<number, Container>();
+  private enemyViews = new Map<number, Container>();
   private trayItems: ItemInst[] = [];
+  private trayBags: BagInst[] = [];
+  /** Uids d'objets / de sacoches cachés le temps d'une animation (butin en vol, recette). */
+  private hidden = new Set<number>();
+  private hiddenBags = new Set<number>();
   private drag: DragState | null = null;
   private modal: Container | null = null;
-  private play: CombatPlay | null = null;
-  private resultText = '';
+  private play: DuelPlay | null = null;
+  private me: Actor | null = null;
+  private foe: Actor | null = null;
   private popUid: number | null = null;
+  private popBag: number | null = null;
   private linkKeys: Set<string> | null = null;
+  private famTiers: Map<string, number> | null = null;
   private lastCredits = -1;
   private freeze = 0;
-  private hidden = new Set<number>();
+  /** Animation en cours (recette) : pas de rangement jusqu'à cet instant. */
+  private lockUntil = 0;
+  private shopAnimated = false;
 
-  private itemLayer!: Container;
-  private trayLayer!: Container;
-  private combatLayer!: Container;
-  private linkG!: Phaser.GameObjects.Graphics;
-  /** Pastilles des armes non alimentées. */
-  private unfedLayer!: Phaser.GameObjects.Container;
   private gridG!: Phaser.GameObjects.Graphics;
-  private extHint!: Phaser.GameObjects.Text;
+  private bagLayer!: Container;
+  private itemLayer!: Container;
+  private linkG!: Phaser.GameObjects.Graphics;
+  private unfedLayer!: Container;
   private previewG!: Phaser.GameObjects.Graphics;
+  private sellG!: Phaser.GameObjects.Graphics;
+  private trayLayer!: Container;
+  private stripLayer!: Container;
+  private arenaLayer!: Container;
+  private enemyLayer!: Container;
+  private myStats!: Phaser.GameObjects.Text;
   private statusText!: Phaser.GameObjects.Text;
   private statusRight!: Phaser.GameObjects.Text;
   private reserveLabel!: Phaser.GameObjects.Text;
+  private bagLabel!: Phaser.GameObjects.Text;
   private mainBtn!: Button;
   private altBtn!: Button;
   private speedBtn!: Button;
@@ -109,60 +140,62 @@ export default class LoadoutScene extends Phaser.Scene {
     super('loadout');
   }
 
-  /** Vrai dans la 3e et dernière zone : l'exfiltration est gardée par Cdt Kesh. */
-  private get finalZone(): boolean {
-    return this.run.stage >= 2;
-  }
-
-  init(data: { node: NodeType; place?: string; threats?: Threat[]; family?: Family }) {
+  init(data: { mode?: LoadoutMode; loot?: Loot }) {
     this.run = this.registry.get('run');
-    this.family = data.family;
-    this.node = data.node;
-    this.place = data.place ?? NODE_INFO[data.node].name;
-    this.threats = data.node === 'boss' ? this.run.zone?.exfilThreats ?? [] : data.threats ?? [];
-    this.famTiers = null;
-    this.recipeKeys = null;
-    this.phase = isCombat(this.node) ? 'prep' : 'post';
+    this.mode = data?.mode ?? 'manage';
+    this.loot = data?.loot;
+    this.phase = 'edit';
+    this.params = null;
+    this.bot = null;
+    this.botL = null;
+    this.post = null;
     this.views = new Map();
+    this.bagViews = new Map();
     this.trayViews = new Map();
+    this.trayBagViews = new Map();
+    this.enemyViews = new Map();
     this.trayItems = [];
+    this.trayBags = [];
+    this.hidden = new Set();
+    this.hiddenBags = new Set();
     this.drag = null;
     this.modal = null;
     this.play = null;
-    this.resultText = '';
+    this.me = null;
+    this.foe = null;
     this.popUid = null;
+    this.popBag = null;
     this.linkKeys = null;
+    this.famTiers = null;
     this.lastCredits = -1;
     this.freeze = 0;
-    this.hidden = new Set();
-    const node = this.node;
-    this.enemies = isCombat(node)
-      ? buildEncounter(node === 'boss' && !this.finalZone ? 'gardien' : node, level(this.run), rngFor(this.run.seed, this.run.stage, this.run.floor, 'enc'), this.threats)
-      : [];
+    this.lockUntil = 0;
   }
 
   create() {
     fadeIn(this);
     this.drawStatic();
     this.gridG = this.add.graphics().setDepth(1);
+    this.bagLayer = this.add.container(0, 0).setDepth(1.5);
     this.itemLayer = this.add.container(0, 0).setDepth(2);
     this.linkG = this.add.graphics().setDepth(5);
     this.unfedLayer = this.add.container(0, 0).setDepth(6);
     this.previewG = this.add.graphics().setDepth(40);
+    this.sellG = this.add.graphics().setDepth(1.2);
     this.trayLayer = this.add.container(0, 0).setDepth(2);
-    this.combatLayer = this.add.container(0, 0).setDepth(3);
+    this.stripLayer = this.add.container(0, 0).setDepth(3);
+    this.arenaLayer = this.add.container(0, 0).setDepth(3);
+    this.enemyLayer = this.add.container(0, 0).setDepth(3);
 
-    this.statusText = txt(this, 24, STATUS.h / 2, '', 26, C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5);
-    this.statusRight = txt(this, W - 24, STATUS.h / 2, '', 24, C.quiet).setOrigin(1, 0.5);
-    this.reserveLabel = txt(this, RESERVE.x + 6, RESERVE.y + 8, '', 18, C.quiet);
-    this.extHint = txt(this, W / 2, GRID_Y - 6, '', 18, '#7ddc86', { fontStyle: 'bold', backgroundColor: '#0d0f0acc', padding: { x: 10, y: 4 } }).setOrigin(0.5, 1).setDepth(30);
+    this.statusText = txt(this, 24, STATUS.h / 2, '', 26, C.accentStr, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    this.statusRight = txt(this, W - 24, STATUS.h / 2, '', 22, C.text, { fontStyle: 'bold' }).setOrigin(1, 0.5);
+    this.reserveLabel = txt(this, RESERVE.x + 6, RESERVE.y + 6, '', 15, C.quiet, { fontStyle: 'bold' });
+    this.bagLabel = txt(this, BAG_RESERVE.x + 6, BAG_RESERVE.y + 6, '', 15, C.quiet, { fontStyle: 'bold' });
 
     this.mainBtn = button(this, BUTTON.x + 240, BUTTON.y, BUTTON.w - 240, BUTTON.h, '', () => this.onMain(), { primary: true });
-    this.altBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, this.node === 'etabli' ? 'Établi' : 'Boutique',
-      () => (this.node === 'etabli' ? this.openWorkshop() : this.openShop()), { size: 24 });
-    // Pendant le combat, vitesse et « Passer » remplacent les boutons du bas (rien ne cache la scène).
+    this.altBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, '', () => this.onAlt(), { size: 24 });
     this.speedBtn = button(this, BUTTON.x, BUTTON.y, 224, BUTTON.h, '×1', () => this.cycleSpeed(), { size: 28 });
-    this.skipBtn = button(this, BUTTON.x + 240, BUTTON.y, BUTTON.w - 240, BUTTON.h, 'Passer le combat ▸▸', () => this.skipCombat(), { size: 26 });
+    this.skipBtn = button(this, BUTTON.x + 240, BUTTON.y, BUTTON.w - 240, BUTTON.h, 'Passer ▸▸', () => this.skipFight(), { size: 26 });
     for (const b of [this.mainBtn, this.altBtn, this.speedBtn, this.skipBtn]) b.root.setDepth(20);
 
     this.input.on('pointerdown', this.onDown, this);
@@ -171,11 +204,19 @@ export default class LoadoutScene extends Phaser.Scene {
     this.input.on('pointerupoutside', this.onUp, this);
     this.input.keyboard?.on('keydown-R', () => this.rotateDragged());
 
-    this.refresh();
-
-    if (this.node === 'marchand') this.openShop();
-    if (this.node === 'etabli') this.time.delayedCall(300, () => this.openWorkshop());
-    if (this.node === 'caisse' || this.node === 'planque') this.time.delayedCall(350, () => this.claimNodeReward());
+    if (this.mode === 'duel') this.enterDuel();
+    else {
+      this.refresh();
+      // Un rangement laissé prêt à assembler (ancienne sauvegarde) s'assemble tout de suite.
+      this.time.delayedCall(250, () => this.craftNow());
+      if (this.mode === 'shop') this.time.delayedCall(120, () => this.openShop());
+      if (this.mode === 'caisse' && this.loot && (this.loot.items.length || this.loot.bags.length || this.loot.credits)) {
+        this.loot.items.forEach((it) => this.hidden.add(it.uid));
+        this.loot.bags.forEach((b) => this.hiddenBags.add(b.uid));
+        this.refresh();
+        this.time.delayedCall(200, () => this.openCrate(this.loot!));
+      }
+    }
   }
 
   // ---------------------------------------------------------------- décor fixe
@@ -187,79 +228,101 @@ export default class LoadoutScene extends Phaser.Scene {
     g.lineStyle(2, C.panelLine, 1);
     g.lineBetween(0, STATUS.h, W, STATUS.h);
 
-    panel(this, COMBAT.x, COMBAT.y, COMBAT.w, COMBAT.h);
-
-    // Légende des zones (la grille elle-même est redessinée à chaque rafraîchissement)
-    const legend: [string, number][] = [['Poitrine : armure +25 %', C.zonePoitrine], ['Flancs : recharge −10 %', C.zoneFlancs], ['Ceinture : délai −15 %', C.zoneCeinture]];
-    let lx = GRID_X;
-    for (const [label, col] of legend) {
-      g.fillStyle(col, 1);
-      g.fillRoundedRect(lx, GRID_Y - 24, 14, 14, 3);
-      const t = txt(this, lx + 20, GRID_Y - 26, label, 14, C.quiet);
-      lx += 28 + t.width;
-    }
-
-    // Plateau du bas : vente + réserve (graphics dédié, dessiné au-dessus du panneau)
     panel(this, TRAY.x, TRAY.y, TRAY.w, TRAY.h);
     const tg = this.add.graphics();
-    tg.fillStyle(C.danger, 0.12);
-    tg.fillRoundedRect(SELL.x + 8, SELL.y + 8, SELL.w - 16, SELL.h - 16, 12);
-    tg.lineStyle(2, C.danger, 0.6);
-    tg.strokeRoundedRect(SELL.x + 8, SELL.y + 8, SELL.w - 16, SELL.h - 16, 12);
-    txt(this, SELL.x + SELL.w / 2, SELL.y + SELL.h / 2 - 12, 'VENDRE', 18, C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5);
-    txt(this, SELL.x + SELL.w / 2, SELL.y + SELL.h / 2 + 14, '50 %', 16, C.quiet).setOrigin(0.5);
+    tg.fillStyle(C.danger, 0.1);
+    tg.fillRoundedRect(SELL.x + 6, SELL.y + 8, SELL.w - 10, SELL.h - 16, 12);
+    tg.lineStyle(2, C.danger, 0.55);
+    tg.strokeRoundedRect(SELL.x + 6, SELL.y + 8, SELL.w - 10, SELL.h - 16, 12);
+    txt(this, SELL.x + SELL.w / 2 + 2, SELL.y + SELL.h / 2 - 12, 'VENDRE', 17, C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5);
+    txt(this, SELL.x + SELL.w / 2 + 2, SELL.y + SELL.h / 2 + 12, '50 %', 15, C.quiet).setOrigin(0.5);
     const slotW = RESERVE.w / RESERVE.slots;
     for (let i = 0; i < RESERVE.slots; i++) {
+      tg.fillStyle(0x000000, 0.18);
+      tg.fillRoundedRect(RESERVE.x + i * slotW + 3, RESERVE.y + 28, slotW - 6, RESERVE.h - 36, 10);
       tg.lineStyle(2, C.cellLine, 1);
-      tg.strokeRoundedRect(RESERVE.x + i * slotW + 3, RESERVE.y + 32, slotW - 6, RESERVE.h - 42, 10);
+      tg.strokeRoundedRect(RESERVE.x + i * slotW + 3, RESERVE.y + 28, slotW - 6, RESERVE.h - 36, 10);
+    }
+    const bw = BAG_RESERVE.w / BAG_RESERVE.slots;
+    for (let i = 0; i < BAG_RESERVE.slots; i++) {
+      tg.fillStyle(C.leather, 0.12);
+      tg.fillRoundedRect(BAG_RESERVE.x + i * bw + 3, BAG_RESERVE.y + 28, bw - 6, BAG_RESERVE.h - 36, 10);
+      tg.lineStyle(2, C.leatherLine, 0.45);
+      tg.strokeRoundedRect(BAG_RESERVE.x + i * bw + 3, BAG_RESERVE.y + 28, bw - 6, BAG_RESERVE.h - 36, 10);
     }
   }
 
-  // ---------------------------------------------------------------- rafraîchissement
-
-  private unlockedSet() {
-    return new Set(this.run.unlocked);
-  }
+  // ---------------------------------------------------------------- grille
 
   private drawGrid() {
     const g = this.gridG;
     g.clear();
-    const un = this.unlockedSet();
-    const exp = this.run.extensions > 0 && this.editable() ? expandable(un) : new Set<string>();
+    // Cadre de la zone de pose (9 × 8)
+    g.fillStyle(0x0d0f0a, 0.6);
+    g.fillRoundedRect(GRID_X - 6, GRID_Y - 6, COLS * CELL + 12, ROWS * CELL + 12, 14);
+    // Cases hors du sac : à peine visibles (les sacoches s'y posent)
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
-        const px = GRID_X + x * CELL;
-        const py = GRID_Y + y * CELL;
-        const z = cellZones(x, y);
-        const fill = z.includes('ceinture') ? C.zoneCeinture : z.includes('poitrine') ? C.zonePoitrine : z.includes('flancs') ? C.zoneFlancs : C.cell;
-        if (un.has(cellKey(x, y))) {
-          g.fillStyle(fill, 1);
-          g.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
-        } else if (exp.has(cellKey(x, y))) {
-          g.fillStyle(fill, 0.35);
-          g.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
-          g.lineStyle(3, C.good, 0.9);
-          g.strokeRoundedRect(px + 5, py + 5, CELL - 10, CELL - 10, 8);
-          g.fillStyle(C.good, 0.9);
-          g.fillRect(px + CELL / 2 - 10, py + CELL / 2 - 2, 20, 4);
-          g.fillRect(px + CELL / 2 - 2, py + CELL / 2 - 10, 4, 20);
-        } else {
-          g.fillStyle(fill, z.length ? 0.4 : 0.12);
-          g.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
-          g.lineStyle(1, C.cellLine, 0.5);
-          g.strokeRect(px + 6, py + 6, CELL - 12, CELL - 12);
-        }
+        g.lineStyle(1, C.cellLine, 0.35);
+        g.strokeRoundedRect(GRID_X + x * CELL + 8, GRID_Y + y * CELL + 8, CELL - 16, CELL - 16, 8);
       }
     }
-    g.lineStyle(3, C.panelLine, 1);
-    g.strokeRoundedRect(GRID_X - 6, GRID_Y - 6, COLS * CELL + 12, ROWS * CELL + 12, 12);
-    this.extHint.setText(exp.size ? `+${this.run.extensions} case${this.run.extensions > 1 ? 's' : ''} à débloquer : touche une case verte` : '');
-    this.extHint.setVisible(exp.size > 0);
+    // Sac de base : toile cousue, sangles en haut
+    const bx = GRID_X + BASE_X0 * CELL;
+    const by = GRID_Y + BASE_Y0 * CELL;
+    const bw = (BASE_X1 - BASE_X0 + 1) * CELL;
+    const bh = (BASE_Y1 - BASE_Y0 + 1) * CELL;
+    g.fillStyle(0x000000, 0.45);
+    g.fillRoundedRect(bx + 2, by + 6, bw, bh, 16);
+    g.fillStyle(C.canvasLine, 1);
+    g.fillRoundedRect(bx, by, bw, bh, 16);
+    g.fillStyle(C.canvas, 1);
+    g.fillRoundedRect(bx + 4, by + 4, bw - 8, bh - 8, 13);
+    g.fillStyle(C.canvasLine, 0.8);
+    for (let t = 16; t < bw - 16; t += 12) {
+      g.fillRect(bx + t, by + 9, 6, 2);
+      g.fillRect(bx + t, by + bh - 11, 6, 2);
+    }
+    for (let t = 16; t < bh - 16; t += 12) {
+      g.fillRect(bx + 9, by + t, 2, 6);
+      g.fillRect(bx + bw - 11, by + t, 2, 6);
+    }
+    for (const sx of [bx + bw * 0.28, bx + bw * 0.72]) {
+      g.fillStyle(0x2a3120, 1);
+      g.fillRoundedRect(sx - 9, by - 4, 18, 22, 4);
+      g.lineStyle(2, 0xa59c78, 1);
+      g.strokeRoundedRect(sx - 6, by + 4, 12, 10, 2);
+    }
+    for (let y = BASE_Y0; y <= BASE_Y1; y++) {
+      for (let x = BASE_X0; x <= BASE_X1; x++) {
+        g.fillStyle(0x000000, 0.2);
+        g.fillRoundedRect(GRID_X + x * CELL + 10, GRID_Y + y * CELL + 10, CELL - 20, CELL - 20, 7);
+      }
+    }
+  }
+
+  private loadout() {
+    return computeLoadout(this.run.items, this.run.operator, this.params?.maxHp ?? roundMaxHp(Math.min(this.run.round, FINAL_ROUND)));
   }
 
   private refresh() {
-    const { loadout, links } = computeLoadout(this.run.items);
+    const { loadout, links } = this.loadout();
     this.drawGrid();
+
+    // Sacoches posées (sous les objets)
+    this.bagLayer.removeAll(true);
+    this.bagViews.clear();
+    for (const b of this.run.bags.filter((v) => v.placed)) {
+      const v = bagView(this, b, CELL).setPosition(GRID_X + b.x * CELL, GRID_Y + b.y * CELL);
+      this.bagLayer.add(v);
+      this.bagViews.set(b.uid, v);
+      if (this.drag?.bag?.uid === b.uid && this.drag.moved) v.setVisible(false);
+    }
+    if (this.popBag !== null) {
+      const v = this.bagViews.get(this.popBag);
+      if (v) pop(this, v, 1.12);
+      this.popBag = null;
+    }
 
     // Objets posés
     this.itemLayer.removeAll(true);
@@ -268,8 +331,8 @@ export default class LoadoutScene extends Phaser.Scene {
       const v = itemView(this, it, CELL).setPosition(GRID_X + it.x * CELL, GRID_Y + it.y * CELL);
       this.itemLayer.add(v);
       this.views.set(it.uid, v);
+      if (this.hidden.has(it.uid)) v.setVisible(false);
     }
-
     if (this.popUid !== null) {
       const v = this.views.get(this.popUid);
       if (v) pop(this, v);
@@ -282,16 +345,15 @@ export default class LoadoutScene extends Phaser.Scene {
     this.linkKeys = keys;
     for (const l of fresh) this.synergyBurst(l);
     if (fresh.length) {
-      toast(this, `Synergie : ${fresh[0].label}`, C.accentStr, 360);
+      toast(this, `Synergie : ${fresh[0].label}`, C.accentStr, 600);
       vibrate([12, 40, 12]);
     }
-    // Paliers de famille nouvellement atteints
     const tiers = new Map(loadout.families.map((f) => [f.family, f.tier] as [string, number]));
     if (this.famTiers) {
       for (const f of loadout.families) {
         if (f.tier > (this.famTiers.get(f.family) ?? 0)) {
           const fi = FAMILY_INFO[f.family];
-          this.time.delayedCall(fresh.length ? 700 : 0, () => toast(this, `${fi.name} palier ${f.tier === 2 ? 4 : 2} : ${f.tier === 2 ? fi.tier4 : fi.tier2}`, fi.hex, 430));
+          this.time.delayedCall(fresh.length ? 700 : 0, () => toast(this, `${fi.name} palier ${f.tier === 2 ? 4 : 2} : ${f.tier === 2 ? fi.tier4 : fi.tier2}`, fi.hex, 660));
           this.cameras.main.flash(160, 255, 210, 140);
           vibrate([20, 50, 20]);
         }
@@ -303,83 +365,94 @@ export default class LoadoutScene extends Phaser.Scene {
       const { cx, cy, dx, dy } = l.edge;
       const ex = GRID_X + (cx + 0.5 + dx * 0.5) * CELL;
       const ey = GRID_Y + (cy + 0.5 + dy * 0.5) * CELL;
+      this.linkG.fillStyle(0x000000, 0.5);
+      if (dx !== 0) this.linkG.fillRoundedRect(ex - 6, ey - 21, 12, 42, 5);
+      else this.linkG.fillRoundedRect(ex - 21, ey - 6, 42, 12, 5);
       this.linkG.fillStyle(C.accent, 1);
-      if (dx !== 0) this.linkG.fillRoundedRect(ex - 5, ey - 22, 10, 44, 4);
-      else this.linkG.fillRoundedRect(ex - 22, ey - 5, 44, 10, 4);
+      if (dx !== 0) this.linkG.fillRoundedRect(ex - 4, ey - 19, 8, 38, 4);
+      else this.linkG.fillRoundedRect(ex - 19, ey - 4, 38, 8, 4);
     }
-    // Recettes prêtes : liens dorés en pointillés entre les ingrédients qui se touchent.
-    const craftable = findCraftable(this.run.items);
-    for (const c of craftable) {
-      for (let i = 0; i < c.parts.length; i++) {
-        for (let j = i + 1; j < c.parts.length; j++) {
-          const e = sharedEdge(c.parts[i], c.parts[j]);
-          if (!e) continue;
-          const ex = GRID_X + (e.cx + 0.5 + e.dx * 0.5) * CELL;
-          const ey = GRID_Y + (e.cy + 0.5 + e.dy * 0.5) * CELL;
-          this.linkG.fillStyle(0xf2c94c, 1);
-          for (let k = -1; k <= 1; k++) {
-            if (e.dx !== 0) this.linkG.fillRoundedRect(ex - 6, ey + k * 22 - 6, 12, 12, 3);
-            else this.linkG.fillRoundedRect(ex + k * 22 - 6, ey - 6, 12, 12, 3);
-          }
-        }
-      }
-    }
-    const recipeKeys = new Set(craftable.map((c) => c.recipe.id));
-    if (this.recipeKeys) {
-      const fresh = craftable.find((c) => !this.recipeKeys!.has(c.recipe.id));
-      if (fresh) {
-        toast(this, `Recette prête : ${ITEMS[fresh.recipe.output].name} · à l'Établi`, '#f2c94c', 300);
-        vibrate([10, 30, 10, 30, 10]);
-      }
-    }
-    this.recipeKeys = recipeKeys;
-    // Armes sans chargeur de leur calibre : pastille « recharge ×2 » sur leur première case.
+    // Armes sans chargeur de leur calibre : pastille « recharge ×2 ».
     this.unfedLayer.removeAll(true);
     for (const w of loadout.weapons) {
       if (w.fed) continue;
       const inst = this.run.items.find((i) => i.uid === w.uid);
-      if (!inst || this.drag?.inst?.uid === inst.uid) continue;
+      if (!inst || this.drag?.item?.uid === inst.uid || this.hidden.has(inst.uid)) continue;
       const [cx, cy] = cellsAt(inst, inst.x, inst.y)[0];
-      const bx = GRID_X + cx * CELL + 6;
-      const by = GRID_Y + cy * CELL + CELL - 28;
+      const bx = GRID_X + cx * CELL + 5;
+      const by = GRID_Y + cy * CELL + CELL - 26;
       const g = this.add.graphics();
       g.fillStyle(C.danger, 1);
-      g.fillRoundedRect(bx, by, 62, 22, 6);
-      this.unfedLayer.add([g, txt(this, bx + 31, by + 11, 'RECH ×2', 13, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
+      g.fillRoundedRect(bx, by, 58, 20, 6);
+      this.unfedLayer.add([g, txt(this, bx + 29, by + 10, 'RECH ×2', 12, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
     }
 
-    // Réserve
+    this.drawTray();
+    this.drawStatus();
+
+    if (this.phase === 'edit') this.drawStripInfo(loadout, links.length);
+    else this.updateMyStats(loadout);
+    this.updateButtons();
+    saveRun(this.run);
+  }
+
+  private drawTray() {
     this.trayLayer.removeAll(true);
     this.trayViews.clear();
+    this.trayBagViews.clear();
     this.trayItems = reserve(this.run);
+    this.trayBags = reserveBags(this.run);
     const slotW = RESERVE.w / RESERVE.slots;
+    const innerH = RESERVE.h - 58;
     this.trayItems.slice(0, RESERVE.slots).forEach((it, i) => {
       const { w, h } = dims(it);
-      const s = Math.min((slotW - 16) / (w * CELL), (RESERVE.h - 80) / (h * CELL));
+      const s = Math.min((slotW - 14) / (w * CELL), innerH / (h * CELL), 0.6);
       const v = itemView(this, it, CELL).setScale(s);
       const sx = RESERVE.x + i * slotW;
-      v.setPosition(sx + (slotW - w * CELL * s) / 2, RESERVE.y + 38 + (RESERVE.h - 80 - h * CELL * s) / 2);
+      v.setPosition(sx + (slotW - w * CELL * s) / 2, RESERVE.y + 32 + (innerH - h * CELL * s) / 2);
       this.trayLayer.add(v);
       this.trayViews.set(it.uid, v);
-      if (this.hidden.has(it.uid)) v.setVisible(false);
-      this.trayLayer.add(txt(this, sx + slotW / 2, RESERVE.y + RESERVE.h - 24, RARITY_NAMES[it.rarity], 14, RARITY_HEX[it.rarity]).setOrigin(0.5));
+      if (this.hidden.has(it.uid) || (this.drag?.item?.uid === it.uid && this.drag.moved)) v.setVisible(false);
+      this.trayLayer.add(txt(this, sx + slotW / 2, RESERVE.y + RESERVE.h - 16, RARITY_NAMES[it.rarity], 12, RARITY_HEX[it.rarity], { fontStyle: 'bold' }).setOrigin(0.5));
     });
-    this.reserveLabel.setText(`RÉSERVE ${this.trayItems.length}/${RESERVE_MAX} · n'agit pas en combat`);
+    const bw = BAG_RESERVE.w / BAG_RESERVE.slots;
+    this.trayBags.slice(0, BAG_RESERVE.slots).forEach((b, i) => {
+      const { w, h } = dims(b);
+      const s = Math.min((bw - 14) / (w * CELL), innerH / (h * CELL), 0.6);
+      const v = bagView(this, b, CELL).setScale(s);
+      const sx = BAG_RESERVE.x + i * bw;
+      v.setPosition(sx + (bw - w * CELL * s) / 2, BAG_RESERVE.y + 32 + (innerH - h * CELL * s) / 2);
+      this.trayLayer.add(v);
+      this.trayBagViews.set(b.uid, v);
+      if (this.hiddenBags.has(b.uid) || (this.drag?.bag?.uid === b.uid && this.drag.moved)) v.setVisible(false);
+      this.trayLayer.add(txt(this, sx + bw / 2, BAG_RESERVE.y + BAG_RESERVE.h - 16, BAGS[b.defId as BagId].short, 12, '#d8b98c', { fontStyle: 'bold' }).setOrigin(0.5));
+    });
+    this.reserveLabel.setText(`RÉSERVE ${this.trayItems.length}/${RESERVE_MAX}`);
+    this.bagLabel.setText(`SACOCHES ${this.trayBags.length}/${BAG_RESERVE_MAX}`);
+  }
 
-    // Barre d'état
+  private drawStatus() {
     const r = this.run;
     if (this.lastCredits >= 0 && r.credits !== this.lastCredits) {
       this.tweens.killTweensOf(this.statusText);
-      this.statusText.setScale(1.18);
-      this.tweens.add({ targets: this.statusText, scale: 1, duration: 300, ease: 'Back.Out' });
+      this.statusText.setScale(1.25);
+      this.tweens.add({ targets: this.statusText, scale: 1, duration: 320, ease: 'Back.Out' });
+      const diff = r.credits - this.lastCredits;
+      const f = txt(this, this.statusText.x + this.statusText.width + 14, STATUS.h / 2, `${diff > 0 ? '+' : ''}${diff}`, 22, diff > 0 ? C.goodStr : C.dangerStr, { fontStyle: 'bold' })
+        .setOrigin(0, 0.5).setDepth(60);
+      this.tweens.add({ targets: f, y: f.y + 22, alpha: 0, delay: 500, duration: 500, onComplete: () => f.destroy() });
     }
     this.lastCredits = r.credits;
-    this.statusText.setText(`Sursis ${'●'.repeat(r.sursis)}${'○'.repeat(Math.max(0, 3 - r.sursis))}   ${r.credits} cr`);
-    this.statusRight.setText(`Z${r.stage + 1} · Tour ${Math.min(r.floor + 1, FLOORS)}/${FLOORS} · ${this.place}`);
-
-    if (this.phase !== 'combat') this.drawPreview(loadout, links.length);
-    this.updateButtons();
-    saveRun(this.run);
+    this.statusText.setText(`◆ ${r.credits} cr`);
+    let right: string;
+    const p = this.params;
+    if (p?.type === 'final' || r.round >= FINAL_ROUND) right = 'DERNIER CERCLE · TOP 1';
+    else if (p?.type === 'goulag') right = `GOULAG · CERCLE ${r.round + 1}/${ROUNDS}`;
+    else if (r.zoneId !== null) {
+      const n = Math.min(ACTIONS_PER_ZONE, ACTIONS_PER_ZONE - r.actionsLeft + (this.mode === 'manage' ? 0 : 1));
+      right = `CERCLE ${r.round + 1}/${ROUNDS} · ACTION ${Math.max(1, n)}/${ACTIONS_PER_ZONE}`;
+    } else right = `CERCLE ${r.round + 1}/${ROUNDS}`;
+    this.statusRight.setText(right);
   }
 
   private synergyBurst(l: { edge: { cx: number; cy: number; dx: number; dy: number } }) {
@@ -394,86 +467,104 @@ export default class LoadoutScene extends Phaser.Scene {
     this.tweens.add({ targets: g, scale: 2.6, alpha: 0, duration: 520, ease: 'Quad.Out', onComplete: () => g.destroy() });
   }
 
-  private drawPreview(loadout: ReturnType<typeof computeLoadout>['loadout'], nLinks: number) {
-    const L = this.combatLayer;
+  /** Bandeau du haut hors duel : stats du sac et contexte. */
+  private drawStripInfo(loadout: PlayerLoadout, nLinks: number) {
+    const L = this.stripLayer;
     L.removeAll(true);
-    const x0 = COMBAT.x + 24;
-    let y = COMBAT.y + 20;
-    L.add(txt(this, x0, y, `${OPERATOR.name.toUpperCase()} · ASSAUT`, 20, C.accentStr, { fontStyle: 'bold' }));
-    y += 36;
+    L.add(panel(this, COMBAT.x, COMBAT.y, COMBAT.w, COMBAT.h));
+    const x0 = COMBAT.x + 22;
+    let y = COMBAT.y + 18;
+    const op = OPERATORS[this.run.operator];
+    L.add(txt(this, x0, y, op.name.toUpperCase(), 22, C.accentStr, { fontStyle: 'bold' }));
+    L.add(txt(this, x0, y + 28, op.passive, 14, C.quiet, { wordWrap: { width: 290 } }));
+    y += 62;
+    const fed = loadout.weapons.filter((w) => w.fed).length;
     const rows: [string, string, string?][] = [
-      ['PV / Armure', `${loadout.maxHp} / ${loadout.armor}`],
-      ['DPS estimé', `${Math.round(estimateDps(loadout))}`],
-      ['Armes alimentées', `${loadout.weapons.filter((w) => w.fed).length}/${loadout.weapons.length}`,
-        loadout.weapons.some((w) => !w.fed) ? C.dangerStr : C.goodStr],
+      ['PV', `${loadout.maxHp}`, C.goodStr],
+      ['Armure', `${loadout.armor}`],
+      ['DPS estimé', `${Math.round(estimateDps(loadout))}`, C.accentStr],
+      ['Armes alimentées', `${fed}/${loadout.weapons.length}`, loadout.weapons.some((w) => !w.fed) ? C.dangerStr : C.goodStr],
       ['Synergies', `${nLinks}`, nLinks ? C.accentStr : undefined],
     ];
     for (const [k, v, col] of rows) {
-      L.add(txt(this, x0, y, k, 19, C.quiet));
-      L.add(txt(this, x0 + 286, y, v, 19, col ?? C.text, { fontFamily: MONO, fontStyle: 'bold' }).setOrigin(1, 0));
-      y += 30;
+      L.add(txt(this, x0, y, k, 18, C.quiet));
+      L.add(txt(this, x0 + 290, y, v, 19, col ?? C.text, { fontFamily: MONO, fontStyle: 'bold' }).setOrigin(1, 0));
+      y += 27;
     }
-    // Familles : progression vers les paliers 2 et 4
     y += 6;
-    for (const f of loadout.families.slice(0, 4)) {
+    const fams = loadout.families.slice(0, 3);
+    fams.forEach((f, i) => {
       const fi = FAMILY_INFO[f.family];
-      const pips = Array.from({ length: 4 }, (_, i) => (i < f.count ? '●' : '○')).join('');
-      L.add(txt(this, x0, y, fi.name, 17, f.tier ? fi.hex : C.quiet, { fontStyle: f.tier ? 'bold' : 'normal' }));
-      L.add(txt(this, x0 + 120, y - 1, pips, 17, fi.hex));
-      if (f.count > 4) L.add(txt(this, x0 + 200, y, `+${f.count - 4}`, 15, fi.hex));
-      y += 22;
-    }
-    if (loadout.families.length) L.add(txt(this, x0, y + 2, `Butin ×${VEST_FAMILY_BOOST} pour ces familles`, 14, C.quiet));
+      const fx = x0 + i * 100;
+      const pips = Array.from({ length: 4 }, (_, j) => (j < f.count ? '●' : '○')).join('');
+      L.add(txt(this, fx, y, fi.name, 14, f.tier ? fi.hex : C.quiet, { fontStyle: 'bold' }));
+      L.add(txt(this, fx, y + 17, pips, 14, fi.hex));
+    });
 
-    const x1 = COMBAT.x + 340;
-    let y1 = COMBAT.y + 20;
-    const info = NODE_INFO[this.node];
-    L.add(txt(this, x1, y1, `${this.place.toUpperCase()} · ${info.name.toUpperCase()}`, 19, C.text, { fontStyle: 'bold', wordWrap: { width: 320 } }));
-    y1 += 34;
-    if (this.resultText) {
-      L.add(txt(this, x1, y1, this.resultText, 21, C.text, { wordWrap: { width: 320 }, lineSpacing: 8 }));
-    } else if (isCombat(this.node)) {
-      for (const th of this.threats) {
-        const ti = THREAT_INFO[th];
-        L.add(txt(this, x1, y1, ti.name.toUpperCase(), 17, ti.hex, { fontStyle: 'bold' }));
-        const eff = txt(this, x1, y1 + 22, ti.effect, 15, C.quiet, { wordWrap: { width: 320 } });
-        L.add(eff);
-        y1 += 28 + eff.height;
-      }
-      // Escouade regroupée par type
-      const groups = new Map<string, { n: number; e: EnemyUnit }>();
-      for (const e of this.enemies) {
-        const g = groups.get(e.name);
-        if (g) g.n++;
-        else groups.set(e.name, { n: 1, e });
-      }
-      y1 += 4;
-      for (const { n, e } of groups.values()) {
-        const arm = e.armor ? ` · arm. ${e.armor}` : '';
-        L.add(txt(this, x1, y1, `${n > 1 ? `${n}× ` : ''}${e.name}`, 18, e.boss ? C.accentStr : C.text, { fontStyle: 'bold' }));
-        L.add(txt(this, x1, y1 + 22, `PV ${e.hp}${arm} · ${e.dmg.toFixed(1).replace('.', ',')} dgt / ${e.interval.toString().replace('.', ',')} s`, 15, C.quiet));
-        y1 += 46;
-      }
-    } else {
-      L.add(txt(this, x1, y1, info.desc, 20, C.quiet, { wordWrap: { width: 320 } }));
+    // Colonne de droite : contexte
+    const x1 = COMBAT.x + 350;
+    L.add(this.add.rectangle(x1 - 16, COMBAT.y + 18, 2, COMBAT.h - 36, C.panelLine).setOrigin(0));
+    let y1 = COMBAT.y + 18;
+    const title = this.mode === 'shop' ? 'BOUTIQUE' : this.mode === 'caisse' ? 'CAISSE DE RAVITAILLEMENT' : 'SAC À DOS';
+    L.add(txt(this, x1, y1, title, 22, C.text, { fontStyle: 'bold', wordWrap: { width: 310 } }));
+    y1 += 40;
+    const lines: [string, string][] = [];
+    if (this.mode === 'shop') {
+      lines.push(['Achète, range, puis termine l\'action.', C.text]);
+      lines.push([`Relance : ${REROLL_COST} cr`, C.quiet]);
+    } else if (this.mode === 'caisse') {
+      const l = this.loot;
+      if (l && (l.items.length || l.bags.length)) {
+        for (const it of l.items) lines.push([`${ITEMS[it.defId].name} · ${RARITY_NAMES[it.rarity]}`, RARITY_HEX[it.rarity]]);
+        for (const b of l.bags) lines.push([`${BAGS[b.defId as BagId].name} : +${cellCount(b.defId)} cases`, '#d8b98c']);
+        if (l.credits) lines.push([`Réserve pleine : revendu +${l.credits} cr`, C.accentStr]);
+      } else lines.push(['Caisse ouverte.', C.quiet]);
+      lines.push(['Range le butin puis termine.', C.quiet]);
+    }
+    lines.push(['Glisse objets et sacoches.', C.quiet]);
+    lines.push(['Touche : tourner · appui long : infos.', C.quiet]);
+    lines.push(['Ingrédients côte à côte : la recette s\'assemble seule.', GOLD]);
+    for (const [s, col] of lines) {
+      const t = txt(this, x1, y1, s, 16, col, { wordWrap: { width: 310 } });
+      L.add(t);
+      y1 += t.height + 6;
+      if (y1 > COMBAT.y + COMBAT.h - 24) break;
     }
   }
 
   private updateButtons() {
     const p = this.phase;
-    this.mainBtn.setLabel(p === 'prep' ? 'PRÊT · lancer le combat' : p === 'combat' ? 'Combat en cours…' : p === 'over' ? 'Voir le bilan' : 'Continuer →');
-    this.mainBtn.setEnabled(p !== 'combat' && !this.modal);
-    this.mainBtn.root.setVisible(p !== 'combat');
-    this.altBtn.root.setVisible(this.node === 'marchand' || this.node === 'etabli');
-    this.speedBtn.root.setVisible(p === 'combat');
-    this.skipBtn.root.setVisible(p === 'combat');
+    const fighting = p === 'combat';
+    this.speedBtn.root.setVisible(fighting);
+    this.skipBtn.root.setVisible(fighting);
+    this.mainBtn.root.setVisible(!fighting);
     this.speedBtn.setLabel(`×${this.run.speed}`);
+    let alt = '';
+    if (p === 'prep' || p === 'result') alt = 'Son sac';
+    else if (p === 'edit' && this.mode === 'shop') alt = 'Boutique';
+    this.altBtn.root.setVisible(!fighting && alt !== '');
+    this.altBtn.setLabel(alt);
+    let label = '';
+    if (p === 'prep') label = this.params?.type === 'goulag' ? 'Au Goulag !' : this.params?.type === 'final' ? 'Top 1 : combat !' : 'Combat !';
+    else if (p === 'result' || p === 'over') label = this.post?.label ?? 'Continuer';
+    else if (this.mode === 'manage') label = this.run.zoneId !== null && this.run.actionsLeft > 0 ? 'Retour à la zone' : 'Retour à la carte';
+    else label = 'Terminer';
+    this.mainBtn.setLabel(label);
+    this.mainBtn.setEnabled(!this.modal);
+    // Sans bouton secondaire, le bouton principal prend toute la largeur.
+    const full = !this.altBtn.root.visible;
+    if (full !== this.mainBtn.root.getData('full')) {
+      this.mainBtn.root.destroy();
+      this.mainBtn = button(this, full ? BUTTON.x : BUTTON.x + 240, BUTTON.y, full ? BUTTON.w : BUTTON.w - 240, BUTTON.h, label, () => this.onMain(), { primary: true });
+      this.mainBtn.root.setDepth(20).setData('full', full).setVisible(!fighting);
+      this.mainBtn.setEnabled(!this.modal);
+    }
   }
 
   // ---------------------------------------------------------------- entrées
 
   private editable() {
-    return !this.modal && (this.phase === 'prep' || this.phase === 'post');
+    return !this.modal && this.time.now >= this.lockUntil && (this.phase === 'edit' || this.phase === 'prep' || this.phase === 'result');
   }
 
   private gridCell(px: number, py: number): [number, number] | null {
@@ -483,28 +574,39 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private traySlot(px: number, py: number): ItemInst | undefined {
-    if (px < RESERVE.x || px > RESERVE.x + RESERVE.w || py < RESERVE.y || py > RESERVE.y + RESERVE.h) return undefined;
+    if (!inRect(px, py, RESERVE)) return undefined;
     return this.trayItems[Math.floor((px - RESERVE.x) / (RESERVE.w / RESERVE.slots))];
+  }
+
+  private trayBagSlot(px: number, py: number): BagInst | undefined {
+    if (!inRect(px, py, BAG_RESERVE)) return undefined;
+    return this.trayBags[Math.floor((px - BAG_RESERVE.x) / (BAG_RESERVE.w / BAG_RESERVE.slots))];
   }
 
   private onDown(p: Phaser.Input.Pointer) {
     if (!this.editable()) return;
-    let inst: ItemInst | undefined;
-    let from: 'grid' | 'tray' = 'grid';
-    const cell = this.gridCell(p.x, p.y);
-    if (cell && this.run.extensions > 0 && expandable(this.unlockedSet()).has(cellKey(cell[0], cell[1]))) {
-      this.unlockCell(cell[0], cell[1]);
+    if ((this.phase === 'prep' || this.phase === 'result') && this.bot && inRect(p.x, p.y, ENEMY)) {
+      this.openEnemy();
       return;
     }
-    if (cell) inst = itemAt(this.run.items, cell[0], cell[1]);
-    if (!inst) {
-      inst = this.traySlot(p.x, p.y);
-      from = 'tray';
+    const cell = this.gridCell(p.x, p.y);
+    let item: ItemInst | undefined;
+    let bag: BagInst | undefined;
+    let from: 'grid' | 'tray' = 'grid';
+    if (cell) {
+      item = itemAt(this.run.items, cell[0], cell[1]);
+      if (!item) bag = bagAt(this.run.bags, cell[0], cell[1]);
     }
+    if (!item && !bag) {
+      from = 'tray';
+      item = this.traySlot(p.x, p.y);
+      if (!item) bag = this.trayBagSlot(p.x, p.y);
+    }
+    const inst = item ?? bag;
     if (!inst) return;
     const { w, h } = dims(inst);
     const d: DragState = {
-      inst, from, downX: p.x, downY: p.y, moved: false, rot: inst.rot,
+      item, bag, from, downX: p.x, downY: p.y, moved: false, rot: inst.rot,
       grabX: from === 'grid' ? p.x - (GRID_X + inst.x * CELL) : (w * CELL) / 2,
       grabY: from === 'grid' ? p.y - (GRID_Y + inst.y * CELL) : (h * CELL) / 2,
       lift: p.wasTouch ? 70 : 0,
@@ -513,45 +615,63 @@ export default class LoadoutScene extends Phaser.Scene {
       if (this.drag === d && !d.moved) {
         this.drag = null;
         vibrate(15);
-        this.showInfo(d.inst);
+        if (d.item) this.showInfo(d.item);
+        else if (d.bag) this.showBagInfo(d.bag);
       }
     });
     this.drag = d;
-  }
-
-  private unlockCell(x: number, y: number) {
-    this.run.unlocked.push(cellKey(x, y));
-    this.run.extensions--;
-    vibrate(15);
-    const fx = this.add.graphics().setDepth(45).setPosition(GRID_X + (x + 0.5) * CELL, GRID_Y + (y + 0.5) * CELL);
-    fx.fillStyle(C.good, 0.6);
-    fx.fillRoundedRect(-CELL / 2, -CELL / 2, CELL, CELL, 10);
-    this.tweens.add({ targets: fx, scale: 1.5, alpha: 0, duration: 380, ease: 'Quad.Out', onComplete: () => fx.destroy() });
-    const z = cellZones(x, y);
-    if (z.length) toast(this, `Case débloquée · ${z.includes('ceinture') ? 'Ceinture' : z.includes('flancs') ? 'Flanc' : 'Poitrine'}`, C.goodStr, 360);
-    this.refresh();
   }
 
   private onMove(p: Phaser.Input.Pointer) {
     const d = this.drag;
     if (!d || !p.isDown) return;
     if (!d.moved && Phaser.Math.Distance.Between(p.x, p.y, d.downX, d.downY) > DRAG_THRESHOLD) {
-      d.moved = true;
       d.longPress?.remove();
+      // Une sacoche posée qui porte des objets ne bouge pas.
+      if (d.bag && d.bag.placed && !canMoveBag(this.run.items, d.bag)) {
+        this.drag = null;
+        this.bagLocked(d.bag);
+        return;
+      }
+      d.moved = true;
       this.makeGhost(d);
-      (d.from === 'grid' ? this.views : this.trayViews).get(d.inst.uid)?.setVisible(false);
+      if (d.item) (d.from === 'grid' ? this.views : this.trayViews).get(d.item.uid)?.setVisible(false);
+      if (d.bag) (d.from === 'grid' ? this.bagViews : this.trayBagViews).get(d.bag.uid)?.setVisible(false);
+      vibrate(6);
     }
     if (d.moved) this.updateGhost(p.x, p.y);
+  }
+
+  private bagLocked(b: BagInst) {
+    const v = this.bagViews.get(b.uid);
+    if (v) {
+      const x0 = GRID_X + b.x * CELL;
+      this.tweens.killTweensOf(v);
+      this.tweens.add({ targets: v, x: { from: x0 - 8, to: x0 }, duration: 260, ease: 'Elastic.Out' });
+    }
+    // Les objets posés dessus tremblent aussi
+    for (const it of this.run.items) {
+      if (!it.placed || !cellsAt(it, it.x, it.y).some(([cx, cy]) => bagAt([b], cx, cy))) continue;
+      const iv = this.views.get(it.uid);
+      if (!iv) continue;
+      const x0 = GRID_X + it.x * CELL;
+      this.tweens.killTweensOf(iv);
+      this.tweens.add({ targets: iv, x: { from: x0 - 8, to: x0 }, duration: 260, ease: 'Elastic.Out' });
+    }
+    vibrate([10, 30, 10]);
+    toast(this, 'Vide la sacoche pour la déplacer', C.dangerStr, 880);
   }
 
   private makeGhost(d: DragState) {
     d.ghost?.destroy();
     const ghost = this.add.container(0, 0).setDepth(50);
+    const inst = (d.item ?? d.bag)!;
     const shadow = this.add.graphics();
     shadow.fillStyle(0x000000, 0.45);
-    fillMask(shadow, maskOf(d.inst.defId, d.rot), CELL, 4, 12, 10, 14);
-    ghost.add([shadow, itemView(this, { ...d.inst, rot: d.rot }, CELL)]);
-    ghost.setSize(dims(d.inst, d.rot).w * CELL, dims(d.inst, d.rot).h * CELL);
+    fillMask(shadow, maskOf(inst.defId, d.rot), CELL, 4, 12, 10, 14);
+    const view = d.item ? itemView(this, { ...d.item, rot: d.rot }, CELL) : bagView(this, { defId: d.bag!.defId, rot: d.rot }, CELL);
+    ghost.add([shadow, view]);
+    ghost.setSize(dims(inst, d.rot).w * CELL, dims(inst, d.rot).h * CELL);
     d.ghost = ghost;
   }
 
@@ -559,7 +679,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const d = this.drag;
     if (!d || !d.moved) return;
     d.rot = nextRot(d.rot);
-    const { w, h } = dims(d.inst, d.rot);
+    const { w, h } = dims((d.item ?? d.bag)!, d.rot);
     d.grabX = (w * CELL) / 2;
     d.grabY = (h * CELL) / 2;
     this.makeGhost(d);
@@ -567,22 +687,28 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateGhost(p.x, p.y);
   }
 
-  /** Ancre (case haut-gauche) visée par le fantôme, et si le centre est au-dessus de la grille. */
+  /** Ancre (case haut-gauche) visée par le fantôme, et si son centre est au-dessus de la grille. */
   private dropAnchor(d: DragState, px: number, py: number) {
     const gx = px - d.grabX;
     const gy = py - d.grabY - d.lift;
-    const { w, h } = dims(d.inst, d.rot);
+    const { w, h } = dims((d.item ?? d.bag)!, d.rot);
     const ax = Math.round((gx - GRID_X) / CELL);
     const ay = Math.round((gy - GRID_Y) / CELL);
     const cxp = gx + (w * CELL) / 2;
     const cyp = gy + (h * CELL) / 2;
     const overGrid = cxp > GRID_X - CELL / 2 && cxp < GRID_X + COLS * CELL + CELL / 2 && cyp > GRID_Y - CELL / 2 && cyp < GRID_Y + ROWS * CELL + CELL / 2;
-    return { gx, gy, ax, ay, w, h, overGrid };
+    return { gx, gy, ax, ay, overGrid };
   }
 
   private fuseTarget(d: DragState, ax: number, ay: number): ItemInst | undefined {
-    const ov = overlapping(this.run.items, d.inst, ax, ay, d.rot);
-    return ov.length === 1 && canFuse(ov[0], d.inst) ? ov[0] : undefined;
+    if (!d.item) return undefined;
+    const ov = overlapping(this.run.items, d.item, ax, ay, d.rot);
+    return ov.length === 1 && canFuse(ov[0], d.item) ? ov[0] : undefined;
+  }
+
+  private validDrop(d: DragState, ax: number, ay: number): boolean {
+    if (d.item) return canPlace(this.run.items, d.item, ax, ay, d.rot, usable(this.run));
+    return canPlaceBag(this.run.bags, this.run.items, d.bag!, ax, ay, d.rot);
   }
 
   private updateGhost(px: number, py: number) {
@@ -591,11 +717,17 @@ export default class LoadoutScene extends Phaser.Scene {
     const a = this.dropAnchor(d, px, py);
     d.ghost.setPosition(a.gx, a.gy);
     this.previewG.clear();
+    // Zone de vente en surbrillance
+    this.sellG.clear();
+    if (inRect(px, py, SELL)) {
+      this.sellG.fillStyle(C.danger, 0.35);
+      this.sellG.fillRoundedRect(SELL.x + 6, SELL.y + 8, SELL.w - 10, SELL.h - 16, 12);
+    }
     if (!a.overGrid) return;
-    const valid = canPlace(this.run.items, d.inst, a.ax, a.ay, d.rot, this.unlockedSet());
+    const valid = this.validDrop(d, a.ax, a.ay);
     const fusion = !valid && this.fuseTarget(d, a.ax, a.ay);
-    const col = valid ? C.good : fusion ? C.accent : C.danger;
-    for (const [cx, cy] of cellsAt(d.inst, a.ax, a.ay, d.rot)) {
+    const col = valid ? (d.bag ? 0xd8a25e : C.good) : fusion ? C.accent : C.danger;
+    for (const [cx, cy] of cellsAt((d.item ?? d.bag)!, a.ax, a.ay, d.rot)) {
       if (cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) continue;
       this.previewG.fillStyle(col, 0.3);
       this.previewG.fillRoundedRect(GRID_X + cx * CELL + 3, GRID_Y + cy * CELL + 3, CELL - 6, CELL - 6, 8);
@@ -610,57 +742,225 @@ export default class LoadoutScene extends Phaser.Scene {
     this.drag = null;
     d.longPress?.remove();
     this.previewG.clear();
+    this.sellG.clear();
     if (!d.moved) {
-      this.rotateInPlace(d.inst, d.from);
+      if (d.item) this.rotateItemInPlace(d.item, d.from);
+      else if (d.bag) this.rotateBagInPlace(d.bag, d.from);
       return;
     }
     d.ghost?.destroy();
-    const inst = d.inst;
-    const inSell = p.x >= SELL.x && p.x <= SELL.x + SELL.w && p.y >= SELL.y && p.y <= SELL.y + SELL.h;
-    const a = this.dropAnchor(d, p.x, p.y);
+    if (d.item) this.dropItem(d, p);
+    else this.dropBag(d, p);
+  }
 
-    if (inSell) {
-      const v = sellValue(inst);
-      this.run.credits += v;
-      this.run.items = this.run.items.filter((i) => i.uid !== inst.uid);
-      toast(this, `Vendu : +${v} cr`, C.accentStr);
+  private dropItem(d: DragState, p: Phaser.Input.Pointer) {
+    const inst = d.item!;
+    const a = this.dropAnchor(d, p.x, p.y);
+    if (inRect(p.x, p.y, SELL)) {
+      const v = sellItem(this.run, inst.uid);
+      toast(this, `Vendu : +${v} cr`, C.accentStr, 880);
+      this.coinBurst(p.x, p.y);
       vibrate(10);
     } else if (a.overGrid) {
       const target = this.fuseTarget(d, a.ax, a.ay);
-      if (canPlace(this.run.items, inst, a.ax, a.ay, d.rot, this.unlockedSet())) {
+      if (canPlace(this.run.items, inst, a.ax, a.ay, d.rot, usable(this.run))) {
         Object.assign(inst, { x: a.ax, y: a.ay, rot: d.rot, placed: true });
         this.popUid = inst.uid;
+        this.dust(inst);
         vibrate(8);
       } else if (target) {
-        fuse(this.run, target, inst);
-        this.popUid = target.uid;
-        this.cameras.main.flash(180, 255, 200, 120);
-        toast(this, `Fusion : ${ITEMS[target.defId].name} ${RARITY_NAMES[target.rarity]}`, RARITY_HEX[target.rarity]);
-        vibrate(30);
+        this.doFuse(target, inst);
       } else {
-        toast(this, 'Pas la place ici', C.dangerStr);
+        toast(this, this.outsideUsable(inst, a.ax, a.ay, d.rot) ? 'Hors du sac : pose une sacoche ici' : 'Pas la place ici', C.dangerStr, 880);
         this.cameras.main.shake(120, 0.004);
+        vibrate([10, 30, 10]);
       }
     } else if (this.traySlot(p.x, p.y) && canFuse(this.traySlot(p.x, p.y)!, inst)) {
       const target = this.traySlot(p.x, p.y)!;
       fuse(this.run, target, inst);
-      this.cameras.main.flash(180, 255, 200, 120);
-      toast(this, `Fusion : ${ITEMS[target.defId].name} ${RARITY_NAMES[target.rarity]}`, RARITY_HEX[target.rarity]);
-      vibrate(30);
+      this.fuseFx(target);
       this.refresh();
       const tv = this.trayViews.get(target.uid);
       if (tv) pop(this, tv, 1.4, 320);
       return;
     } else if (inst.placed) {
-      if (reserve(this.run).length >= RESERVE_MAX) toast(this, 'Réserve pleine', C.dangerStr);
+      if (reserve(this.run).length >= RESERVE_MAX) toast(this, 'Réserve pleine', C.dangerStr, 880);
       else Object.assign(inst, { placed: false, rot: d.rot });
     } else {
       inst.rot = d.rot;
     }
-    this.refresh();
+    this.afterDrop();
   }
 
-  private rotateInPlace(inst: ItemInst, from: 'grid' | 'tray') {
+  /** Vrai si l'empreinte tombe (en partie) hors des cases utilisables mais dans la grille. */
+  private outsideUsable(inst: ItemInst, x: number, y: number, rot: Rot) {
+    const u = usable(this.run);
+    const cells = cellsAt(inst, x, y, rot);
+    return cells.every(([cx, cy]) => cx >= 0 && cy >= 0 && cx < COLS && cy < ROWS) && cells.some(([cx, cy]) => !u.has(`${cx},${cy}`));
+  }
+
+  private doFuse(target: ItemInst, consumed: ItemInst) {
+    fuse(this.run, target, consumed);
+    this.popUid = target.uid;
+    this.fuseFx(target);
+  }
+
+  private fuseFx(target: ItemInst) {
+    this.cameras.main.flash(180, 255, 200, 120);
+    this.cameras.main.shake(140, 0.004);
+    toast(this, `Fusion : ${ITEMS[target.defId].name} ${RARITY_NAMES[target.rarity]}`, RARITY_HEX[target.rarity], 880);
+    vibrate(30);
+  }
+
+  private dropBag(d: DragState, p: Phaser.Input.Pointer) {
+    const b = d.bag!;
+    const a = this.dropAnchor(d, p.x, p.y);
+    if (inRect(p.x, p.y, SELL)) {
+      const v = sellBag(this.run, b.uid);
+      if (v) {
+        toast(this, `Sacoche vendue : +${v} cr`, C.accentStr, 880);
+        this.coinBurst(p.x, p.y);
+        vibrate(10);
+      } else toast(this, 'Les autres sacoches seraient détachées', C.dangerStr, 880);
+    } else if (a.overGrid) {
+      if (placeBag(this.run, b.uid, a.ax, a.ay, d.rot)) {
+        this.popBag = b.uid;
+        this.cameras.main.shake(90, 0.003);
+        vibrate(12);
+      } else {
+        toast(this, this.bagFailReason(b, a.ax, a.ay, d.rot), C.dangerStr, 880);
+        this.cameras.main.shake(120, 0.004);
+        vibrate([10, 30, 10]);
+      }
+    } else if (b.placed) {
+      if (!unplaceBag(this.run, b.uid)) {
+        toast(this, reserveBags(this.run).length >= BAG_RESERVE_MAX ? 'Réserve de sacoches pleine' : 'Les autres sacoches seraient détachées', C.dangerStr, 880);
+      } else b.rot = d.rot;
+    } else b.rot = d.rot;
+    this.afterDrop();
+  }
+
+  private bagFailReason(b: BagInst, x: number, y: number, rot: Rot): string {
+    const cells = cellsAt(b, x, y, rot);
+    if (!cells.every(([cx, cy]) => cx >= 0 && cy >= 0 && cx < COLS && cy < ROWS)) return 'Hors de la grille';
+    if (cells.some(([cx, cy]) => cx >= BASE_X0 && cx <= BASE_X1 && cy >= BASE_Y0 && cy <= BASE_Y1)) return 'Pose-la à côté du sac, pas dessus';
+    if (cells.some(([cx, cy]) => bagAt(this.run.bags.filter((o) => o.uid !== b.uid), cx, cy))) return 'Une sacoche est déjà là';
+    return 'La sacoche doit toucher le sac';
+  }
+
+  /** Après chaque dépôt : recettes assemblées automatiquement (hors combat), puis rafraîchissement. */
+  private afterDrop() {
+    this.craftNow();
+  }
+
+  private craftNow() {
+    if (this.phase === 'combat') return this.refresh();
+    // Positions des objets avant l'assemblage, pour l'animation.
+    const before = new Map(this.run.items.filter((i) => i.placed).map((i) => [i.uid, { x: i.x, y: i.y }]));
+    const firstUid = this.run.nextUid;
+    const done = autoCraft(this.run);
+    if (!done.length) return this.refresh();
+    const outputs = this.run.items.filter((i) => i.uid >= firstUid);
+    outputs.forEach((o) => this.hidden.add(o.uid));
+    this.linkKeys = null;
+    this.refresh();
+    this.lockUntil = this.time.now + 900 * done.length + 200;
+    done.forEach((c, i) => this.time.delayedCall(i * 900, () => this.animateCraft(c, outputs[i], before)));
+  }
+
+  private animateCraft(c: Craftable, out: ItemInst | undefined, before: Map<number, { x: number; y: number }>) {
+    const name = ITEMS[c.recipe.output].name;
+    // Cible : l'objet posé dans le sac, sinon sa case de réserve.
+    let tx: number;
+    let ty: number;
+    const ov = out && (out.placed ? this.views.get(out.uid) : this.trayViews.get(out.uid));
+    if (ov) {
+      tx = ov.x + (ov.width * ov.scaleX) / 2;
+      ty = ov.y + (ov.height * ov.scaleY) / 2;
+    } else {
+      tx = W / 2;
+      ty = GRID_Y + (ROWS * CELL) / 2;
+    }
+    const ghosts = c.parts.map((part) => {
+      const pos = before.get(part.uid) ?? { x: part.x, y: part.y };
+      const v = itemView(this, part, CELL).setPosition(GRID_X + pos.x * CELL, GRID_Y + pos.y * CELL).setDepth(55);
+      return v;
+    });
+    vibrate([10, 30, 10]);
+    ghosts.forEach((v) => {
+      const cw = v.width / 2;
+      const ch = v.height / 2;
+      // Petit soulèvement, puis tout se rejoint au centre
+      this.tweens.add({ targets: v, y: v.y - 10, duration: 160, ease: 'Quad.Out' });
+      this.tweens.add({
+        targets: v, x: tx - cw * 0.4, y: ty - ch * 0.4, scale: 0.4, alpha: 0.85, delay: 170, duration: 340, ease: 'Back.In',
+        onComplete: () => v.destroy(),
+      });
+    });
+    this.time.delayedCall(520, () => {
+      // Éclair et onde de choc
+      const g = this.add.graphics().setDepth(56).setPosition(tx, ty);
+      g.fillStyle(0xfff3c4, 0.95);
+      g.fillCircle(0, 0, 46);
+      g.lineStyle(6, 0xf2c94c, 1);
+      g.strokeCircle(0, 0, 60);
+      g.setScale(0.3);
+      this.tweens.add({ targets: g, scale: 1.9, alpha: 0, duration: 420, ease: 'Quad.Out', onComplete: () => g.destroy() });
+      for (let k = 0; k < 10; k++) {
+        const s = this.add.rectangle(tx, ty, 6, 6, 0xf2c94c).setDepth(56);
+        const ang = (k / 10) * Math.PI * 2;
+        this.tweens.add({ targets: s, x: tx + Math.cos(ang) * 90, y: ty + Math.sin(ang) * 90, alpha: 0, angle: 180, duration: 480, ease: 'Quad.Out', onComplete: () => s.destroy() });
+      }
+      this.cameras.main.shake(180, 0.006);
+      this.cameras.main.flash(140, 255, 230, 160);
+      this.freezeFor(70);
+      vibrate([20, 40, 30]);
+      if (out) {
+        this.hidden.delete(out.uid);
+        const v = out.placed ? this.views.get(out.uid) : this.trayViews.get(out.uid);
+        if (v) {
+          v.setVisible(true);
+          pop(this, v, 1.5, 420);
+        }
+        this.refresh();
+      }
+      banner(this, 'RECETTE !', GOLD, GRID_Y + (ROWS * CELL) / 2 - 60);
+      toast(this, `Recette : ${name}${out && !out.placed ? ' → réserve' : ''}`, GOLD, GRID_Y + (ROWS * CELL) / 2 + 20);
+    });
+  }
+
+  /** Arrêt sur image court en dehors du combat (la boucle du combat a son propre arrêt). */
+  private freezeFor(ms: number) {
+    if (this.play) {
+      this.freeze = Math.max(this.freeze, ms / 1000);
+      return;
+    }
+    this.tweens.timeScale = 0.05;
+    this.time.delayedCall(ms, () => (this.tweens.timeScale = 1));
+  }
+
+  private dust(inst: ItemInst) {
+    for (const [cx, cy] of cellsAt(inst, inst.x, inst.y)) {
+      const x = GRID_X + (cx + 0.5) * CELL;
+      const y = GRID_Y + (cy + 1) * CELL - 8;
+      for (const dir of [-1, 1]) {
+        const s = this.add.circle(x + dir * 10, y, 4, 0xd8d2b8, 0.6).setDepth(44);
+        this.tweens.add({ targets: s, x: x + dir * 34, y: y - 6, alpha: 0, scale: 0.3, duration: 280, ease: 'Quad.Out', onComplete: () => s.destroy() });
+      }
+    }
+  }
+
+  private coinBurst(x: number, y: number) {
+    for (let i = 0; i < 7; i++) {
+      const c = txt(this, x, y, '◆', 20, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5).setDepth(60);
+      this.tweens.add({
+        targets: c, x: 30 + i * 6, y: STATUS.h / 2, alpha: 0.4, scale: 0.6, delay: i * 40, duration: 520, ease: 'Cubic.In',
+        onComplete: () => c.destroy(),
+      });
+    }
+  }
+
+  private rotateItemInPlace(inst: ItemInst, from: 'grid' | 'tray') {
     const nr = nextRot(inst.rot);
     if (rotationIsNoop(inst.defId, inst.rot)) return;
     if (from === 'tray') {
@@ -668,20 +968,43 @@ export default class LoadoutScene extends Phaser.Scene {
       this.refresh();
       return;
     }
-    // Essaie de tourner sur place, sinon en décalant légèrement.
     const nd = dims(inst, nr);
+    const u = usable(this.run);
     for (let dy = 0; dy < nd.h; dy++) {
       for (let dx = 0; dx < nd.w; dx++) {
-        if (canPlace(this.run.items, inst, inst.x - dx, inst.y - dy, nr, this.unlockedSet())) {
+        if (canPlace(this.run.items, inst, inst.x - dx, inst.y - dy, nr, u)) {
           Object.assign(inst, { x: inst.x - dx, y: inst.y - dy, rot: nr });
           this.popUid = inst.uid;
+          vibrate(8);
+          this.afterDrop();
+          return;
+        }
+      }
+    }
+    toast(this, 'Pas la place de tourner', C.dangerStr, 880);
+  }
+
+  private rotateBagInPlace(b: BagInst, from: 'grid' | 'tray') {
+    if (rotationIsNoop(b.defId, b.rot)) return;
+    const nr = nextRot(b.rot);
+    if (from === 'tray') {
+      b.rot = nr;
+      this.refresh();
+      return;
+    }
+    if (!canMoveBag(this.run.items, b)) return this.bagLocked(b);
+    const nd = dims(b, nr);
+    for (let dy = 0; dy < nd.h; dy++) {
+      for (let dx = 0; dx < nd.w; dx++) {
+        if (placeBag(this.run, b.uid, b.x - dx, b.y - dy, nr)) {
+          this.popBag = b.uid;
           vibrate(8);
           this.refresh();
           return;
         }
       }
     }
-    toast(this, 'Pas la place de tourner', C.dangerStr);
+    toast(this, 'Pas la place de tourner', C.dangerStr, 880);
   }
 
   // ---------------------------------------------------------------- modales
@@ -692,9 +1015,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
   }
 
-  private showInfo(inst: ItemInst) {
-    const info = describe(inst);
-    // Ouverte pendant un appui long : le relâchement du doigt ne doit pas la refermer.
+  private infoModal(title: string, subtitle: string, subColor: string, lines: string[], stroke: number) {
     let armed = !this.input.activePointer.isDown;
     const m = modalBase(this, () => {
       if (!armed) {
@@ -703,12 +1024,12 @@ export default class LoadoutScene extends Phaser.Scene {
       }
       this.closeModal();
     });
-    const lineViews = info.lines.map((l) => txt(this, 76, 0, l, 22, C.text, { wordWrap: { width: W - 150 } }));
+    const lineViews = lines.map((l) => txt(this, 76, 0, l, 21, C.text, { wordWrap: { width: W - 150 } }));
     const h = 150 + lineViews.reduce((s, t) => s + t.height + 12, 0);
     const y = 640 - h / 2;
-    m.add(panel(this, 40, y, W - 80, h, Phaser.Display.Color.HexStringToColor(RARITY_HEX[inst.rarity]).color));
-    m.add(txt(this, 76, y + 30, info.title, 32, C.text, { fontStyle: 'bold' }));
-    m.add(txt(this, 76, y + 74, info.subtitle, 22, RARITY_HEX[inst.rarity]));
+    m.add(panel(this, 40, y, W - 80, h, stroke));
+    m.add(txt(this, 76, y + 30, title, 32, C.text, { fontStyle: 'bold' }));
+    m.add(txt(this, 76, y + 74, subtitle, 22, subColor));
     let ly = y + 124;
     for (const t of lineViews) {
       t.setY(ly);
@@ -720,209 +1041,122 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
   }
 
-  private card(m: Container, x0: number, y0: number, w: number, h: number, inst: ItemInst, footer: string, footerCol: string, onTap: () => void, dim = false, delay = 0) {
+  private showInfo(inst: ItemInst) {
+    const info = describe(inst);
+    this.infoModal(info.title, info.subtitle, RARITY_HEX[inst.rarity], info.lines, RARITY_COLORS[inst.rarity]);
+  }
+
+  private showBagInfo(b: BagInst) {
+    const def = BAGS[b.defId as BagId];
+    const n = cellCount(b.defId);
+    this.infoModal(def.name, `Sacoche · ${n} cases`, '#d8b98c', [
+      `Agrandit le sac de ${n} cases.`,
+      'Pose-la contre le sac ou contre une autre sacoche.',
+      'Elle ne se déplace que vide.',
+      `Revente ${bagSellValue(b.defId)} cr`,
+    ], C.leatherLine);
+  }
+
+  /** Carte d'offre (boutique) : objet ou sacoche. */
+  private offerCard(m: Container, x0: number, y0: number, w: number, h: number, o: { item?: ItemInst; bag?: BagId; price: number; sold: boolean }, onTap: () => void, delay: number) {
     const cc = this.add.container(x0, y0);
     m.add(cc);
-    const host = m;
-    m = cc;
-    const x = 0;
-    const y = 0;
     if (delay >= 0) {
       cc.setAlpha(0).setY(y0 + 70);
       this.tweens.add({ targets: cc, y: y0, alpha: 1, delay, duration: 320, ease: 'Back.Out' });
     }
-    void host;
+    const afford = this.run.credits >= o.price;
+    const stroke = o.item ? RARITY_COLORS[o.item.rarity] : C.leatherLine;
     const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(0, 4, w, h, 14);
     g.fillStyle(C.panel, 1);
-    g.fillRoundedRect(x, y, w, h, 14);
-    g.lineStyle(3, Phaser.Display.Color.HexStringToColor(RARITY_HEX[inst.rarity]).color, dim ? 0.3 : 1);
-    g.strokeRoundedRect(x, y, w, h, 14);
-    m.add(g);
+    g.fillRoundedRect(0, 0, w, h, 14);
+    g.lineStyle(3, stroke, o.sold ? 0.3 : 1);
+    g.strokeRoundedRect(0, 0, w, h, 14);
+    cc.add(g);
+    const area = 104;
+    const inst = o.item ?? { defId: o.bag!, rot: 0 as Rot };
     const d = dims(inst);
-    const s = Math.min((w - 30) / (d.w * CELL), 110 / (d.h * CELL));
-    const v = itemView(this, inst, CELL).setScale(s);
-    v.setPosition(x + (w - d.w * CELL * s) / 2, y + 16 + (110 - d.h * CELL * s) / 2);
-    m.add(v);
-    const info = describe(inst);
-    m.add(txt(this, x + w / 2, y + 140, info.title, 20, C.text, { fontStyle: 'bold', align: 'center', wordWrap: { width: w - 16 } }).setOrigin(0.5, 0));
-    m.add(txt(this, x + w / 2, y + 196, RARITY_NAMES[inst.rarity], 18, RARITY_HEX[inst.rarity]).setOrigin(0.5, 0));
-    m.add(txt(this, x + w / 2, y + 224, info.lines[0], 15, C.quiet, { align: 'center', wordWrap: { width: w - 16 } }).setOrigin(0.5, 0));
-    m.add(txt(this, x + w / 2, y + h - 30, footer, 20, footerCol, { fontStyle: 'bold' }).setOrigin(0.5));
-    if (dim) v.setAlpha(0.35);
-    const z = this.add.zone(x + w / 2, y + h / 2, w, h).setInteractive({ useHandCursor: true });
-    z.on('pointerdown', () => cc.setScale(0.97).setPosition(x0 + w * 0.015, cc.y + h * 0.015));
+    const s = Math.min((w - 30) / (d.w * CELL), area / (d.h * CELL), 0.9);
+    const v = o.item ? itemView(this, o.item, CELL) : bagView(this, { defId: o.bag!, rot: 0 }, CELL);
+    v.setScale(s).setPosition((w - d.w * CELL * s) / 2, 14 + (area - d.h * CELL * s) / 2);
+    cc.add(v);
+    if (o.item) {
+      const info = describe(o.item);
+      cc.add(txt(this, w / 2, 118, info.title, 20, C.text, { fontStyle: 'bold', align: 'center' }).setOrigin(0.5, 0));
+      cc.add(txt(this, w / 2, 144, RARITY_NAMES[o.item.rarity], 16, RARITY_HEX[o.item.rarity]).setOrigin(0.5, 0));
+      const desc = txt(this, w / 2, 166, info.lines[0], 14, C.quiet).setOrigin(0.5, 0);
+      if (desc.width > w - 20) desc.setScale((w - 20) / desc.width);
+      cc.add(desc);
+    } else {
+      const def = BAGS[o.bag!];
+      cc.add(txt(this, w / 2, 118, def.name, 20, '#d8b98c', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      cc.add(txt(this, w / 2, 144, `Sacoche · +${cellCount(o.bag!)} cases`, 16, C.text).setOrigin(0.5, 0));
+      cc.add(txt(this, w / 2, 166, 'Agrandit ton sac', 14, C.quiet).setOrigin(0.5, 0));
+    }
+    const pill = this.add.graphics();
+    const col = o.sold ? 0x3a3f33 : afford ? C.accent : 0x5a2a2a;
+    pill.fillStyle(col, 1);
+    pill.fillRoundedRect(w / 2 - 56, h - 42, 112, 32, 16);
+    cc.add(pill);
+    cc.add(txt(this, w / 2, h - 26, o.sold ? 'VENDU' : `◆ ${o.price} cr`, 18, o.sold ? C.quiet : afford ? '#1a1206' : C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5));
+    if (o.sold) v.setAlpha(0.3);
+    const z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
+    z.on('pointerdown', () => cc.setScale(0.96).setPosition(x0 + w * 0.02, y0 + h * 0.02));
     z.on('pointerout', () => cc.setScale(1).setPosition(x0, y0));
     z.on('pointerup', () => {
       cc.setScale(1).setPosition(x0, y0);
       onTap();
     });
-    m.add(z);
-  }
-
-  /** Butin qui jaillit d'un point (ennemi, caisse) puis vole vers sa case de réserve. */
-  private flyToReserve(items: ItemInst[], from: { x: number; y: number }[], delay = 0) {
-    items.forEach((it) => this.hidden.add(it.uid));
-    this.refresh();
-    items.forEach((it, i) => {
-      const v = this.trayViews.get(it.uid);
-      const src = from[i % from.length];
-      const d = dims(it);
-      const s0 = Math.min(0.6, 110 / (Math.max(d.w, d.h) * CELL));
-      const f = itemView(this, it, CELL).setScale(s0).setDepth(60).setAlpha(0);
-      f.setPosition(src.x - (d.w * CELL * s0) / 2, src.y - (d.h * CELL * s0) / 2);
-      const t0 = delay + i * 280;
-      this.tweens.add({ targets: f, alpha: 1, y: f.y - 50, delay: t0, duration: 260, ease: 'Back.Out' });
-      this.tweens.add({
-        targets: f,
-        x: v ? v.x : RESERVE.x + RESERVE.w / 2,
-        y: v ? v.y : RESERVE.y + 40,
-        scale: v ? v.scaleX : 0.3,
-        delay: t0 + 380,
-        duration: 480,
-        ease: 'Cubic.InOut',
-        onComplete: () => {
-          f.destroy();
-          this.hidden.delete(it.uid);
-          if (v) {
-            v.setVisible(true);
-            pop(this, v, 1.45, 320);
-          }
-          vibrate(10);
-        },
-      });
-    });
-  }
-
-  private announceLoot(n: number, credits: number) {
-    if (n) toast(this, `Butin : ${n} objet${n > 1 ? 's' : ''} → réserve`, C.accentStr, 930);
-    if (credits) this.time.delayedCall(900, () => toast(this, `Réserve pleine : butin revendu +${credits} cr`, C.accentStr, 930));
-  }
-
-  /** Récompense des nœuds sans combat, donnée une seule fois par étage. */
-  private claimNodeReward() {
-    const r = this.run;
-    if (r.claimedFloor === level(r)) return;
-    r.claimedFloor = level(r);
-    const center = { x: COMBAT.x + COMBAT.w / 2 + 120, y: COMBAT.y + 200 };
-    if (this.node === 'caisse') {
-      const { taken, credits } = addDrops(r, rollDrops(r, 2, 0, 'caisse', this.family));
-      this.resultText = 'Caisse de ravitaillement ouverte.';
-      this.flyToReserve(taken, [center]);
-      this.announceLoot(taken.length, credits);
-    } else if (this.node === 'planque') {
-      r.extensions += EXTENSION_CELLS;
-      if (r.sursis < START_SURSIS) {
-        r.sursis++;
-        this.resultText = `Repos à la planque :\n+1 sursis et ${EXTENSION_CELLS} cases\nde gilet à débloquer.`;
-        banner(this, '+1 SURSIS', C.goodStr, 236);
-      } else {
-        r.credits += 8;
-        this.resultText = `Sursis déjà au maximum :\n+8 crédits et ${EXTENSION_CELLS} cases\nde gilet à débloquer.`;
-        banner(this, '+8 CR', C.accentStr, 236);
-      }
-      vibrate(30);
-      this.refresh();
-    }
+    cc.add(z);
   }
 
   private openShop() {
     if (this.modal) return;
     const offers = shopOffers(this.run);
     const m = modalBase(this);
-    m.add(txt(this, W / 2, 190, 'MARCHAND', 36, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
-    m.add(txt(this, W / 2, 236, `Tu as ${this.run.credits} cr`, 24, C.accentStr).setOrigin(0.5));
+    m.add(txt(this, W / 2, 130, 'BOUTIQUE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
+    m.add(txt(this, W / 2, 180, `◆ ${this.run.credits} cr`, 28, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5));
     const cw = 320;
-    const ch = 300;
+    const ch = 236;
     offers.forEach((o, i) => {
       const x = 30 + (i % 2) * (cw + 20);
-      const y = 280 + Math.floor(i / 2) * (ch + 20);
-      const afford = this.run.credits >= o.price;
-      this.card(m, x, y, cw, ch, o.inst, o.sold ? 'Vendu' : `${o.price} cr`, o.sold ? C.quiet : afford ? C.accentStr : C.dangerStr, () => {
+      const y = 220 + Math.floor(i / 2) * (ch + 16);
+      this.offerCard(m, x, y, cw, ch, o, () => {
         if (o.sold) return;
-        if (this.run.credits < o.price) return toast(this, 'Pas assez de crédits', C.dangerStr, 1040);
-        if (reserve(this.run).length >= RESERVE_MAX) return toast(this, 'Réserve pleine', C.dangerStr, 1040);
-        this.run.credits -= o.price;
-        o.sold = true;
-        takeItem(this.run, o.inst);
-        vibrate(10);
+        if (this.run.credits < o.price) return this.shopError('Pas assez de crédits');
+        if (o.item && reserve(this.run).length >= RESERVE_MAX) return this.shopError('Réserve pleine : vends ou pose un objet');
+        if (o.bag && reserveBags(this.run).length >= BAG_RESERVE_MAX) return this.shopError('Réserve de sacoches pleine');
+        const got = buyOffer(this.run, i);
+        if (!got) return this.shopError('Achat impossible');
+        vibrate([10, 30, 10]);
+        this.coinBurst(x + cw / 2, y + ch - 30);
         this.reopenShop(true);
-      }, o.sold, this.shopAnimated ? -1 : i * 70);
+        toast(this, `Acheté : ${o.item ? ITEMS[o.item.defId].name : BAGS[o.bag!].name} → réserve`, C.goodStr, 1000);
+      }, this.shopAnimated ? -1 : i * 70);
     });
-    const ext = extensionPrice(this.run);
-    m.add(button(this, 30, 920, 660, 84, `Extension de gilet +${EXTENSION_CELLS} cases · ${ext} cr`, () => {
-      if (this.run.credits < ext) return toast(this, 'Pas assez de crédits', C.dangerStr, 1140);
-      this.run.credits -= ext;
-      this.run.extBought++;
-      this.run.extensions += EXTENSION_CELLS;
-      vibrate([12, 40, 12]);
-      this.closeModal();
-      this.refresh();
-      toast(this, `+${EXTENSION_CELLS} cases : touche les cases vertes du gilet`, C.goodStr, 900);
-    }, { size: 22 }).root);
-    m.add(button(this, 30, 1020, 320, 84, `Relancer (${REROLL_COST} cr)`, () => {
-      if (this.run.credits < REROLL_COST) return toast(this, 'Pas assez de crédits', C.dangerStr, 1140);
-      this.run.credits -= REROLL_COST;
-      this.run.shop!.rerolls++;
-      rollShop(this.run);
+    const by = 220 + 3 * (ch + 16) + 8;
+    m.add(button(this, 30, by, 320, 88, `Relancer · ${REROLL_COST} cr`, () => {
+      if (!rerollShop(this.run)) return this.shopError('Pas assez de crédits');
+      vibrate(12);
       this.reopenShop(false);
-    }, { size: 22 }).root);
-    m.add(button(this, 370, 1020, 320, 84, 'Fermer', () => {
+    }, { size: 24 }).root);
+    m.add(button(this, 370, by, 320, 88, 'Ranger le sac', () => {
       this.closeModal();
       this.refresh();
-    }, { size: 22 }).root);
+    }, { size: 24, primary: true }).root);
+    m.add(txt(this, W / 2, by + 112, 'Les achats vont en réserve. « Terminer » clôt l\'action.', 17, C.quiet).setOrigin(0.5));
     this.modal = m;
     this.updateButtons();
+    saveRun(this.run);
   }
 
-  /** Établi : recettes prêtes à assembler, et carnet des recettes. */
-  private openWorkshop() {
-    if (this.modal) return;
-    const ready = findCraftable(this.run.items);
-    const m = modalBase(this);
-    m.add(panel(this, 16, 104, W - 32, 1028, 0xd9b86c));
-    m.add(txt(this, W / 2, 150, 'ÉTABLI · ARMURIER', 36, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
-    m.add(txt(this, W / 2, 196, ready.length
-      ? 'Les ingrédients se touchent : assemble-les'
-      : 'Aucune recette prête : place les ingrédients côte à côte', 22, ready.length ? C.goodStr : C.quiet).setOrigin(0.5));
-    const cw = 320;
-    const ch = 300;
-    ready.slice(0, 4).forEach((c, i) => {
-      const x = 30 + (i % 2) * (cw + 20);
-      const y = 236 + Math.floor(i / 2) * (ch + 20);
-      const preview: ItemInst = { uid: -1, defId: c.recipe.output, rarity: Math.max(...c.parts.map((p) => p.rarity)), rot: 0, x: 0, y: 0, placed: false };
-      this.card(m, x, y, cw, ch, preview, 'Assembler', C.accentStr, () => {
-        const made = craft(this.run, c);
-        this.closeModal();
-        this.linkKeys = null;
-        this.refresh();
-        vibrate([20, 60, 30]);
-        this.cameras.main.flash(180, 255, 200, 120);
-        banner(this, 'ASSEMBLÉ', C.accentStr, 236);
-        toast(this, made.placed ? `${ITEMS[made.defId].name} posé dans le gilet` : `${ITEMS[made.defId].name} → réserve`, C.accentStr, 900);
-        saveRun(this.run);
-      }, false, i * 70);
-    });
-    // Carnet des recettes
-    let y = ready.length > 2 ? 876 : ready.length ? 556 : 250;
-    m.add(txt(this, 40, y, 'CARNET DE RECETTES', 20, C.quiet, { fontStyle: 'bold' }));
-    y += 34;
-    const owned = new Set(this.run.items.map((i) => i.defId));
-    for (const r of RECIPES) {
-      if (y > 1000) break;
-      const have = r.inputs.filter((id) => owned.has(id)).length;
-      const col = have === r.inputs.length ? C.goodStr : have ? C.text : C.quiet;
-      m.add(txt(this, 40, y, `${recipeLabel(r)}  (${have}/${r.inputs.length})`, 18, col, { wordWrap: { width: W - 80 } }));
-      y += 30;
-    }
-    m.add(button(this, 200, 1030, 320, 84, 'Fermer', () => {
-      this.closeModal();
-      this.refresh();
-    }, { size: 22 }).root);
-    this.modal = m;
-    this.updateButtons();
+  private shopError(s: string) {
+    toast(this, s, C.dangerStr, 1000);
+    this.cameras.main.shake(100, 0.003);
+    vibrate([10, 30, 10]);
   }
-
-  private shopAnimated = false;
 
   private reopenShop(still: boolean) {
     this.closeModal();
@@ -932,99 +1166,510 @@ export default class LoadoutScene extends Phaser.Scene {
     this.shopAnimated = false;
   }
 
-  // ---------------------------------------------------------------- flux du nœud
+  /** Caisse de ravitaillement : la caisse tremble, s'ouvre, le butin jaillit puis file en réserve. */
+  private openCrate(loot: Loot) {
+    if (this.modal) return;
+    const m = modalBase(this);
+    this.modal = m;
+    this.updateButtons();
+    const cx = W / 2;
+    const cy = 760;
+    m.add(txt(this, W / 2, 200, 'CAISSE DE RAVITAILLEMENT', 36, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
+    const rays = this.add.graphics().setPosition(cx, cy - 40).setAlpha(0);
+    rays.fillStyle(0xf2c94c, 0.18);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      rays.fillTriangle(0, 0, Math.cos(a - 0.12) * 420, Math.sin(a - 0.12) * 420, Math.cos(a + 0.12) * 420, Math.sin(a + 0.12) * 420);
+    }
+    m.add(rays);
+    // Caisse : corps et couvercle
+    const crate = this.add.container(cx, cy);
+    const body = this.add.graphics();
+    body.fillStyle(0x000000, 0.4);
+    body.fillRoundedRect(-130, -64, 260, 150, 10);
+    body.fillStyle(0x4a5530, 1);
+    body.fillRoundedRect(-130, -70, 260, 150, 10);
+    body.lineStyle(4, 0x2e3620, 1);
+    body.strokeRoundedRect(-130, -70, 260, 150, 10);
+    body.fillStyle(0x3a4426, 1);
+    body.fillRect(-130, -20, 260, 14);
+    body.fillRect(-130, 40, 260, 14);
+    body.fillStyle(0xf2c94c, 1);
+    body.fillRect(-40, -2, 80, 30);
+    crate.add(body);
+    crate.add(txt(this, 0, 13, 'SUPPLY', 18, '#1a1206', { fontStyle: 'bold' }).setOrigin(0.5));
+    const lid = this.add.container(0, -70);
+    const lg = this.add.graphics();
+    lg.fillStyle(0x56633a, 1);
+    lg.fillRoundedRect(-140, -30, 280, 34, 8);
+    lg.lineStyle(4, 0x2e3620, 1);
+    lg.strokeRoundedRect(-140, -30, 280, 34, 8);
+    lg.fillStyle(0x8a8f6a, 1);
+    lg.fillRect(-14, -26, 28, 10);
+    lid.add(lg);
+    crate.add(lid);
+    m.add(crate);
+    crate.setScale(0.2).setAlpha(0);
+    this.tweens.add({ targets: crate, scale: 1, alpha: 1, duration: 320, ease: 'Back.Out' });
+    // Tremblements croissants
+    this.tweens.add({ targets: crate, angle: { from: -4, to: 4 }, duration: 70, yoyo: true, repeat: 5, delay: 380, onComplete: () => crate.setAngle(0) });
+    const t0 = 380 + 70 * 12 + 40;
+    this.time.delayedCall(t0, () => {
+      // Le couvercle saute
+      this.tweens.add({ targets: lid, y: -300, angle: -35, alpha: 0, duration: 520, ease: 'Quad.Out' });
+      this.tweens.add({ targets: rays, alpha: 1, duration: 260 });
+      this.tweens.add({ targets: rays, angle: 360, duration: 12000, repeat: -1 });
+      this.cameras.main.shake(220, 0.008);
+      this.cameras.main.flash(160, 255, 236, 180);
+      vibrate([30, 40, 30]);
+      const entries: { v: Container; label: string; col: string; w: number; h: number }[] = [];
+      for (const it of loot.items) {
+        const d = dims(it);
+        const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
+        entries.push({ v: itemView(this, it, CELL).setScale(s), label: `${ITEMS[it.defId].name}\n${RARITY_NAMES[it.rarity]}`, col: RARITY_HEX[it.rarity], w: d.w * CELL * s, h: d.h * CELL * s });
+      }
+      for (const b of loot.bags) {
+        const d = dims(b);
+        const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
+        entries.push({ v: bagView(this, b, CELL).setScale(s), label: `${BAGS[b.defId as BagId].name}\n+${cellCount(b.defId)} cases`, col: '#d8b98c', w: d.w * CELL * s, h: d.h * CELL * s });
+      }
+      const n = entries.length;
+      const sources: { x: number; y: number }[] = [];
+      entries.forEach((e, i) => {
+        const fx = W / 2 + (i - (n - 1) / 2) * 260;
+        const fy = 380;
+        sources.push({ x: fx, y: fy });
+        e.v.setPosition(cx - e.w / 2, cy - 60 - e.h / 2).setAlpha(0);
+        m.add(e.v);
+        this.tweens.add({ targets: e.v, x: fx - e.w / 2, y: fy - e.h / 2, alpha: 1, delay: 120 + i * 160, duration: 520, ease: 'Back.Out' });
+        const t = txt(this, fx, fy + 92, e.label, 22, e.col, { fontStyle: 'bold', align: 'center', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5, 0).setAlpha(0);
+        m.add(t);
+        this.tweens.add({ targets: t, alpha: 1, delay: 400 + i * 160, duration: 250 });
+      });
+      if (loot.credits) {
+        const ct = txt(this, W / 2, 940, `Réserve pleine : revendu +${loot.credits} cr`, 22, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5);
+        m.add(ct);
+      }
+      if (!n) m.add(txt(this, W / 2, 400, 'Vide… pas de chance.', 26, C.quiet).setOrigin(0.5));
+      const hint = txt(this, W / 2, 1040, 'Touche pour ranger', 24, C.text, { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0);
+      m.add(hint);
+      this.tweens.add({ targets: hint, alpha: 1, delay: 700, duration: 300 });
+      this.tweens.add({ targets: hint, scale: 1.08, yoyo: true, repeat: -1, delay: 1000, duration: 500 });
+      const catcher = this.add.rectangle(0, 0, W, H, 0x000000, 0.001).setOrigin(0).setInteractive();
+      m.add(catcher);
+      let done = false;
+      const armedAt = this.time.now + 600;
+      catcher.on('pointerup', () => {
+        if (done || this.time.now < armedAt) return;
+        done = true;
+        this.closeModal();
+        this.flyToReserve(loot.items, sources, 0, loot.bags);
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- butin en vol
+
+  /** Butin qui jaillit d'un point (sac adverse, caisse) puis vole vers sa case de réserve. */
+  private flyToReserve(items: ItemInst[], from: { x: number; y: number }[], delay = 0, bags: BagInst[] = []) {
+    items.forEach((it) => this.hidden.add(it.uid));
+    bags.forEach((b) => this.hiddenBags.add(b.uid));
+    this.refresh();
+    const all: { it?: ItemInst; b?: BagInst }[] = [...items.map((it) => ({ it })), ...bags.map((b) => ({ b }))];
+    all.forEach((e, i) => {
+      const inst = (e.it ?? e.b)!;
+      const v = e.it ? this.trayViews.get(e.it.uid) : this.trayBagViews.get(e.b!.uid);
+      const src = from[i % Math.max(1, from.length)] ?? { x: W / 2, y: 400 };
+      const d = dims(inst);
+      const s0 = Math.min(0.7, 120 / (Math.max(d.w, d.h) * CELL));
+      const f = (e.it ? itemView(this, e.it, CELL) : bagView(this, e.b!, CELL)).setScale(s0).setDepth(60).setAlpha(0);
+      f.setPosition(src.x - (d.w * CELL * s0) / 2, src.y - (d.h * CELL * s0) / 2);
+      const t0 = delay + i * 260;
+      this.tweens.add({ targets: f, alpha: 1, y: f.y - 40, delay: t0, duration: 240, ease: 'Back.Out' });
+      const fallback = e.it ? { x: RESERVE.x + RESERVE.w / 2, y: RESERVE.y + 40 } : { x: BAG_RESERVE.x + BAG_RESERVE.w / 2, y: BAG_RESERVE.y + 40 };
+      this.tweens.add({
+        targets: f,
+        x: v ? v.x : fallback.x,
+        y: v ? v.y : fallback.y,
+        scale: v ? v.scaleX : 0.3,
+        delay: t0 + 340,
+        duration: 460,
+        ease: 'Cubic.InOut',
+        onComplete: () => {
+          f.destroy();
+          if (e.it) this.hidden.delete(e.it.uid);
+          else this.hiddenBags.delete(e.b!.uid);
+          if (v) {
+            v.setVisible(true);
+            pop(this, v, 1.5, 340);
+          }
+          vibrate(10);
+        },
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- flux
 
   private onMain() {
     if (this.modal) return;
-    if (this.phase === 'prep') this.startCombat();
-    else if (this.phase === 'post') this.continueRun();
-    else if (this.phase === 'over') this.scene.start('end');
-  }
-
-  private continueRun() {
-    if (!this.run.zone) {
-      saveRun(this.run);
-      this.scene.start('briefing');
+    if (this.phase === 'prep') return this.startFight();
+    if (this.phase === 'result' || this.phase === 'over') {
+      const go = this.post?.go;
+      if (go) go();
+      else this.route();
       return;
     }
-    this.run.floor++;
-    this.run.shop = undefined;
+    if (this.phase !== 'edit') return;
+    if (this.mode === 'manage') return this.route();
+    // Boutique ou caisse : fin de l'action
+    const e = endAction(this.run);
     saveRun(this.run);
-    this.scene.start('map');
+    if (e?.final) return this.announceFinal();
+    this.route();
+  }
+
+  private onAlt() {
+    if (this.modal) return;
+    if (this.phase === 'prep' || this.phase === 'result') return this.openEnemy();
+    if (this.phase === 'edit' && this.mode === 'shop') this.openShop();
+  }
+
+  /** Après une action : fin de run, retour à la zone, ou carte. */
+  private route() {
+    saveRun(this.run);
+    const r = this.run;
+    const target = r.over ? 'end' : r.zoneId !== null && r.actionsLeft > 0 ? 'zone' : 'map';
+    this.input.enabled = false;
+    this.cameras.main.fadeOut(200, 20, 22, 15);
+    this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(target));
   }
 
   private cycleSpeed() {
-    this.run.speed = SPEEDS[(SPEEDS.indexOf(this.run.speed) + 1) % SPEEDS.length];
+    this.run.speed = SPEEDS[(SPEEDS.indexOf(this.run.speed) + 1) % SPEEDS.length] ?? 1;
+    saveRun(this.run);
     this.updateButtons();
   }
 
-  // ---------------------------------------------------------------- combat
+  // ---------------------------------------------------------------- duel : mise en place
 
-  private startCombat() {
-    const { loadout } = computeLoadout(this.run.items);
-    this.run.attempts++;
-    const result = simulate(loadout, this.enemies, hashParts(this.run.seed, this.run.stage, this.run.floor, 'combat', this.run.attempts), this.threats);
-    this.phase = 'combat';
-    this.resultText = '';
-    const L = this.combatLayer;
+  /** Entrée en mode duel : duel en cours, Goulag en attente, ou Top 1 (y compris après un rechargement). */
+  private enterDuel() {
+    const r = this.run;
+    if (r.over) {
+      this.phase = 'over';
+      this.post = { label: 'Voir le bilan', go: () => this.route() };
+      this.refresh();
+      return;
+    }
+    if (r.pendingGoulag) {
+      this.refresh();
+      this.showGoulag();
+      return;
+    }
+    if (!r.fight && r.round >= FINAL_ROUND) {
+      this.refresh();
+      this.announceFinal();
+      return;
+    }
+    const p = currentDuel(r);
+    if (p?.type === 'final') {
+      // La carte a déjà lancé le Top 1 (finalDuelParams) : on garde l'annonce.
+      this.refresh();
+      this.announceFinal();
+      return;
+    }
+    if (!p) {
+      // Rien à combattre : simple rangement.
+      this.mode = 'manage';
+      this.refresh();
+      return;
+    }
+    this.setupDuel(p);
+  }
+
+  private setupDuel(p: DuelParams) {
+    this.params = p;
+    this.bot = generateBot(p.seed, p.round, { danger: p.danger, final: p.type === 'final', goulag: p.type === 'goulag' });
+    this.botL = botLoadout(this.bot);
+    this.phase = 'prep';
+    this.post = null;
+    this.play = null;
+    this.stripLayer.removeAll(true);
+    this.buildArena();
+    this.buildEnemyPanel();
+    this.refresh();
+    saveRun(this.run);
+    // Annonce du duel
+    const title = p.type === 'goulag' ? 'GOULAG' : p.type === 'final' ? 'TOP 1' : p.type === 'squad' ? `SQUAD ${p.squad.duel + 1}/${p.squad.total}` : 'DUEL SOLO';
+    const col = p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text;
+    this.slam(title, col, GRID_Y + 140);
+    this.time.delayedCall(1300, () => toast(this, 'Range ton sac, puis « Combat ! »', C.text, GRID_Y + 300));
+  }
+
+  /** Gros titre qui s'écrase avec secousse. */
+  private slam(s: string, color: string, y: number, size = 64) {
+    const t = txt(this, W / 2, y, s, size, color, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 10, padding: { x: 16, y: 6 } })
+      .setOrigin(0.5).setDepth(210).setScale(3).setAlpha(0);
+    this.tweens.add({
+      targets: t, scale: 1, alpha: 1, duration: 220, ease: 'Quad.In',
+      onComplete: () => {
+        this.cameras.main.shake(160, 0.008);
+        vibrate(25);
+      },
+    });
+    this.tweens.add({ targets: t, alpha: 0, y: y - 30, delay: 1000, duration: 320, onComplete: () => t.destroy() });
+  }
+
+  private arenaTheme() {
+    const t = this.params?.type;
+    if (t === 'goulag') return { sky: [0x2a0f0f, 0x5a1d18], ground: 0x2a1c18, tint: 0xffb0a0, bg: 'bg-base' };
+    if (t === 'final') return { sky: [0x1c1430, 0x6a3a2a], ground: 0x2b2420, tint: 0xffe0b0, bg: 'bg-base' };
+    return { sky: [0x1d2a33, 0x4a5a52], ground: 0x2c3024, tint: 0xffffff, bg: 'bg-industrie' };
+  }
+
+  private buildArena() {
+    const L = this.arenaLayer;
     L.removeAll(true);
-    // Décor du biome, sous les personnages ; le cadre du panneau est redessiné par-dessus.
-    const biome = this.run.zone?.biome ?? 'banlieue';
-    L.add(this.add.image(COMBAT.x, COMBAT.y, bgKey(biome)).setOrigin(0).setDisplaySize(COMBAT.w, COMBAT.h));
-    const feet = COMBAT.y + COMBAT.h - 26;
-    const player = this.makeActor(COMBAT.x + 110, feet, loadout.maxHp, loadout.armor, 'VIPER', 'op-kneel', 1.9, 1);
-    L.add(this.add.image(COMBAT.x + 196, feet + 6, 'cover-sandbags').setOrigin(0.5, 1).setDisplaySize(60 * 1.9, 40 * 1.9));
-    const n = this.enemies.length;
-    const span = n <= 1 ? [0] : Array.from({ length: n }, (_, i) => i / (n - 1));
-    const x0 = n >= 4 ? 380 : n === 3 ? 420 : 470;
-    const x1 = 620;
-    const k = n >= 5 ? 1.35 : n === 4 ? 1.5 : 1.7;
-    let proneUsed = false;
-    const figs = this.enemies.map((e) => {
-      // Un seul tireur couché sur un conteneur : les autres restent debout (ils se chevaucheraient).
-      const f = figureOf(e.name, e.opener && !proneUsed);
-      if (f === 'tir-prone') proneUsed = true;
-      return f;
-    });
-    const enemies = this.enemies.map((e, i) => {
-      const fig = figs[i];
-      const x = COMBAT.x + (n === 1 ? 560 : x0 + span[i] * (x1 - x0));
-      // Les ennemis sont un peu plus loin : pieds plus hauts, en quinconce.
-      let y = feet - 22 - (i % 2) * 14;
-      if (fig === 'tir-prone') {
-        L.add(this.add.image(x, y, 'cover-container').setOrigin(0.5, 1).setDisplaySize(100 * k * 0.9, 44 * k * 0.9));
-        y -= 38 * k * 0.9;
+    const A = ARENA;
+    const th = this.arenaTheme();
+    // Fond : décor recadré, sinon ciel en dégradé
+    if (this.textures.exists(th.bg)) {
+      const img = this.add.image(0, 0, th.bg).setOrigin(0);
+      const k = A.h / img.height;
+      const cropW = A.w / k;
+      const sx = Math.max(0, (img.width - cropW) / 2);
+      img.setScale(k).setCrop(sx, 0, cropW, img.height).setPosition(A.x - sx * k, A.y).setTint(th.tint);
+      L.add(img);
+    } else {
+      const g = this.add.graphics();
+      for (let i = 0; i < 20; i++) {
+        const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+          Phaser.Display.Color.ValueToColor(th.sky[0]), Phaser.Display.Color.ValueToColor(th.sky[1]), 19, i);
+        g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
+        g.fillRect(A.x, A.y + (i * A.h) / 20, A.w, A.h / 20 + 1);
       }
-      return this.makeActor(x, y, e.hp, e.armor, e.name, fig, e.boss ? k * 1.1 : k, -1);
-    });
-    // Un muret devant le premier ennemi debout, pour la profondeur
-    const front = enemies.find((_, i) => figs[i] !== 'tir-prone');
-    if (front) L.add(this.add.image(front.x - 34, front.feet + 6, 'cover-jersey').setOrigin(0.5, 1).setDisplaySize(60 * 1.4, 32 * 1.4));
+      g.fillStyle(th.ground, 1);
+      g.fillRect(A.x, A.y + A.h - 60, A.w, 60);
+      L.add(g);
+    }
+    if (this.params?.type === 'goulag') {
+      // Voile rouge et barbelés
+      const v = this.add.graphics();
+      v.fillStyle(0x6a0f0f, 0.35);
+      v.fillRect(A.x, A.y, A.w, A.h);
+      v.lineStyle(2, 0x1a1a1a, 0.9);
+      for (let x = A.x; x < A.x + A.w; x += 18) {
+        v.lineBetween(x, A.y + 52, x + 9, A.y + 58);
+        v.lineBetween(x + 9, A.y + 58, x + 18, A.y + 52);
+      }
+      L.add(v);
+    }
+    // Bandeau sombre en bas pour les stats
+    const shade = this.add.graphics();
+    shade.fillStyle(0x000000, 0.55);
+    shade.fillRect(A.x, A.y + A.h - 40, A.w, 40);
+    shade.fillStyle(0x000000, 0.45);
+    shade.fillRect(A.x, A.y, A.w, 36);
+    L.add(shade);
+    const p = this.params!;
+    const head = p.type === 'goulag' ? 'GOULAG · DERNIÈRE CHANCE' : p.type === 'final' ? 'DERNIER CERCLE · TOP 1'
+      : p.type === 'squad' ? `SQUAD · COMBAT ${p.squad.duel + 1}/${p.squad.total}` : 'DUEL SOLO';
+    L.add(txt(this, A.x + 14, A.y + 18, head, 18, p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5));
+    if (p.type === 'squad') {
+      // Pastilles de progression de la squad
+      for (let i = 0; i < p.squad.total; i++) {
+        const done = i < p.squad.duel;
+        const cur = i === p.squad.duel;
+        L.add(this.add.circle(A.x + A.w - 20 - (p.squad.total - 1 - i) * 22, A.y + 18, 7, done ? C.good : cur ? C.accent : 0x555a4a).setStrokeStyle(2, 0x000000));
+      }
+    }
+    const feet = A.y + A.h - 50;
+    const { loadout } = this.loadout();
+    const meFig: Fig = 'op-stand';
+    const foeFig: Fig = p.type === 'final' ? 'kesh-stand' : this.bot!.quality === 'fort' ? 'lt-stand' : (p.seed % 2 ? 'mil-stand' : 'tir-stand');
+    this.me = this.makeActor('a', A.x + 92, feet, p.hp, p.maxHp, loadout.armor, OPERATORS[this.run.operator].name, meFig, 1.42);
+    this.foe = this.makeActor('b', A.x + A.w - 92, feet, this.botL!.maxHp, this.botL!.maxHp, this.botL!.armor, this.bot!.name, foeFig, 1.42);
+    // VS au centre
+    const vs = txt(this, A.x + A.w / 2, A.y + 150, 'VS', 40, C.accentStr, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5);
+    vs.setName('vs');
+    L.add(vs);
+    this.tweens.add({ targets: vs, scale: { from: 2.4, to: 1 }, alpha: { from: 0, to: 1 }, duration: 300, ease: 'Back.Out' });
+    // Entrée des personnages
+    this.me.fig.x -= 140;
+    this.foe.fig.x += 140;
+    this.tweens.add({ targets: this.me.fig, x: this.me.x, duration: 380, ease: 'Cubic.Out' });
+    this.tweens.add({ targets: this.foe.fig, x: this.foe.x, duration: 380, ease: 'Cubic.Out' });
+    this.myStats = txt(this, A.x + 14, A.y + A.h - 20, '', 16, C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    L.add(this.myStats);
+    // Le bandeau des stats passe devant les personnages (un corps à terre ne le cache pas).
+    L.bringToTop(shade);
+    L.bringToTop(this.myStats);
     const frame = this.add.graphics();
-    frame.lineStyle(4, C.panelLine, 1);
-    frame.strokeRoundedRect(COMBAT.x, COMBAT.y, COMBAT.w, COMBAT.h, 18);
+    frame.lineStyle(4, p.type === 'goulag' ? 0x8a2a24 : p.type === 'final' ? 0xb08a3a : C.panelLine, 1);
+    frame.strokeRoundedRect(A.x, A.y, A.w, A.h, 16);
     L.add(frame);
-    this.play = { result, idx: 0, t: 0, player, enemies };
+  }
+
+  private updateMyStats(loadout: PlayerLoadout) {
+    if (!this.myStats || !this.myStats.active || !this.params) return;
+    const hp = this.phase === 'prep' ? this.params.hp : Math.round(this.me?.hp ?? this.params.hp);
+    this.myStats.setText(`TOI  ♥ ${hp}/${this.params.maxHp}  ARM ${loadout.armor}  ✦ DPS ${Math.round(estimateDps(loadout))}`);
+    if (this.myStats.width > ARENA.w - 28) this.myStats.setScale((ARENA.w - 28) / this.myStats.width);
+    else this.myStats.setScale(1);
+    if (this.phase === 'prep' && this.me) {
+      this.me.maxArmor = loadout.armor;
+      this.me.armor = loadout.armor;
+      this.drawBars(this.me);
+    }
+  }
+
+  /** Panneau de droite : indicatif, qualité, sac adverse en miniature, stats. */
+  private buildEnemyPanel() {
+    const L = this.enemyLayer;
+    L.removeAll(true);
+    this.enemyViews.clear();
+    const E = ENEMY;
+    const bot = this.bot!;
+    const bl = this.botL!;
+    const q = QUALITY[bot.quality];
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35);
+    g.fillRoundedRect(E.x, E.y + 4, E.w, E.h, 16);
+    g.fillStyle(0x261c1a, 1);
+    g.fillRoundedRect(E.x, E.y, E.w, E.h, 16);
+    g.lineStyle(3, 0x7a3a32, 1);
+    g.strokeRoundedRect(E.x, E.y, E.w, E.h, 16);
+    L.add(g);
+    const name = txt(this, E.x + 14, E.y + 12, bot.name.toUpperCase(), 24, '#ffb4a8', { fontStyle: 'bold' });
+    L.add(name);
+    // Badge de qualité
+    const bw = 78;
+    const badge = this.add.graphics();
+    badge.fillStyle(q.color, 1);
+    badge.fillRoundedRect(E.x + E.w - bw - 12, E.y + 14, bw, 28, 14);
+    L.add(badge);
+    L.add(txt(this, E.x + E.w - bw / 2 - 12, E.y + 28, q.label, 16, '#14110c', { fontStyle: 'bold' }).setOrigin(0.5));
+    if (name.width > E.w - bw - 40) name.setScale((E.w - bw - 40) / name.width);
+    L.add(txt(this, E.x + 14, E.y + 46, `${OPERATORS[bot.operator].name} · ${bot.items.length} objets`, 15, C.quiet));
+    // Sac adverse en miniature (sa boîte englobante seulement)
+    const cells = bot.usable.map((k) => k.split(',').map(Number));
+    const x0 = Math.min(...cells.map((c) => c[0]));
+    const y0 = Math.min(...cells.map((c) => c[1]));
+    const bwc = Math.max(...cells.map((c) => c[0])) - x0 + 1;
+    const bhc = Math.max(...cells.map((c) => c[1])) - y0 + 1;
+    const areaW = E.w - 24;
+    const areaH = 178;
+    const cell = Math.floor(Math.min(areaW / bwc, areaH / bhc, 46));
+    const gx = E.x + (E.w - bwc * cell) / 2;
+    const gy = E.y + 72 + (areaH - bhc * cell) / 2;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x5a4a3a, 1);
+    bg.fillRoundedRect(gx - 5, gy - 5, bwc * cell + 10, bhc * cell + 10, 10);
+    bg.fillStyle(0x3a3024, 1);
+    bg.fillRoundedRect(gx - 2, gy - 2, bwc * cell + 4, bhc * cell + 4, 8);
+    bg.fillStyle(0x000000, 0.2);
+    for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 3, gy + (cy - y0) * cell + 3, cell - 6, cell - 6, 4);
+    L.add(bg);
+    for (const it of bot.items) {
+      const v = itemView(this, it, cell).setPosition(gx + (it.x - x0) * cell, gy + (it.y - y0) * cell);
+      L.add(v);
+      this.enemyViews.set(it.uid, v);
+    }
+    const st = txt(this, E.x + E.w / 2, E.y + E.h - 20, `♥ ${bl.maxHp}  ARM ${bl.armor}  ✦ DPS ${Math.round(estimateDps(bl))}`, 17, C.text, { fontStyle: 'bold' }).setOrigin(0.5);
+    L.add(st);
+    // Indice : on peut toucher le panneau pour le détail
+    const hint = txt(this, E.x + E.w - 10, E.y + 50, 'détail ▸', 14, C.accentStr, { fontStyle: 'bold' }).setOrigin(1, 0);
+    hint.setName('hint');
+    L.add(hint);
+    // Entrée du panneau
+    L.setX(60).setAlpha(0);
+    this.tweens.add({ targets: L, x: 0, alpha: 1, duration: 360, ease: 'Cubic.Out' });
+  }
+
+  /** Sac adverse en grand : touche un objet pour sa fiche. */
+  private openEnemy() {
+    if (this.modal || !this.bot) return;
+    const bot = this.bot;
+    const bl = this.botL!;
+    const m = modalBase(this, () => this.closeModal());
+    const q = QUALITY[bot.quality];
+    const pnl = panel(this, 24, 110, W - 48, 1000, 0x7a3a32);
+    m.add(pnl);
+    m.add(txt(this, 54, 140, bot.name.toUpperCase(), 40, '#ffb4a8', { fontStyle: 'bold' }));
+    const badge = this.add.graphics();
+    badge.fillStyle(q.color, 1);
+    badge.fillRoundedRect(W - 54 - 110, 148, 110, 36, 18);
+    m.add(badge);
+    m.add(txt(this, W - 54 - 55, 166, q.label, 20, '#14110c', { fontStyle: 'bold' }).setOrigin(0.5));
+    m.add(txt(this, 54, 196, `${OPERATORS[bot.operator].name} · ♥ ${bl.maxHp} · ARM ${bl.armor} · DPS ${Math.round(estimateDps(bl))}`, 22, C.text));
+    const cells = bot.usable.map((k) => k.split(',').map(Number));
+    const x0 = Math.min(...cells.map((c) => c[0]));
+    const y0 = Math.min(...cells.map((c) => c[1]));
+    const bwc = Math.max(...cells.map((c) => c[0])) - x0 + 1;
+    const bhc = Math.max(...cells.map((c) => c[1])) - y0 + 1;
+    const cell = Math.floor(Math.min(600 / bwc, 470 / bhc, 90));
+    const gx = (W - bwc * cell) / 2;
+    const gy = 250;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x5a4a3a, 1);
+    bg.fillRoundedRect(gx - 8, gy - 8, bwc * cell + 16, bhc * cell + 16, 14);
+    bg.fillStyle(0x3a3024, 1);
+    bg.fillRoundedRect(gx - 3, gy - 3, bwc * cell + 6, bhc * cell + 6, 10);
+    bg.fillStyle(0x000000, 0.2);
+    for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 5, gy + (cy - y0) * cell + 5, cell - 10, cell - 10, 6);
+    m.add(bg);
+    const infoY = gy + bhc * cell + 30;
+    const info = txt(this, 54, infoY, 'Touche un objet pour sa fiche.', 20, C.quiet, { wordWrap: { width: W - 108 }, lineSpacing: 4 });
+    for (const it of bot.items) {
+      const v = itemView(this, it, cell).setPosition(gx + (it.x - x0) * cell, gy + (it.y - y0) * cell);
+      m.add(v);
+      for (const [cx, cy] of cellsAt(it, it.x, it.y)) {
+        const z = this.add.zone(gx + (cx - x0 + 0.5) * cell, gy + (cy - y0 + 0.5) * cell, cell, cell).setInteractive();
+        z.on('pointerup', (_p: unknown, _x: unknown, _y: unknown, ev: Phaser.Types.Input.EventData) => {
+          ev?.stopPropagation?.();
+          const d = describe(it);
+          info.setText(`${d.title} · ${d.subtitle}\n${d.lines.slice(0, 4).join('\n')}`).setColor(C.text);
+          flashItem(this, v, RARITY_COLORS[it.rarity]);
+        });
+        m.add(z);
+      }
+    }
+    m.add(info);
+    const ph = infoY + 170 - 110;
+    pnl.clear();
+    pnl.destroy();
+    m.addAt(panel(this, 24, 110, W - 48, ph, 0x7a3a32), 1);
+    m.add(txt(this, W / 2, 110 + ph + 34, 'Touche en dehors pour fermer', 20, C.quiet).setOrigin(0.5));
+    this.modal = m;
     this.updateButtons();
   }
 
-  /** Personnage dessiné : `k` = pixels par unité du dessin, `dir` = 1 regarde à droite, −1 à gauche. */
-  private makeActor(x: number, feet: number, hp: number, armor: number, name: string, figKey: string, k: number, dir: 1 | -1): Actor {
-    const meta = ART.figures[figKey as keyof typeof ART.figures];
+  // ---------------------------------------------------------------- duel : acteurs
+
+  private makeActor(side: Side, x: number, feet: number, hp: number, maxHp: number, armor: number, name: string, figKey: Fig, k: number): Actor {
+    const dir = side === 'a' ? 1 : -1;
+    const meta = ART.figures[figKey];
     const fig = this.add.container(x, feet);
-    const img = this.add.image(0, 0, `fig-${figKey}`).setOrigin(meta.ax, meta.ay).setScale(k / 3).setFlipX(dir < 0);
-    fig.add(img);
-    const pt = (p: number[] | null, dx = 0, dy = -50) => (p ? { x: x + p[0] * k * dir, y: feet + p[1] * k } : { x: x + dx * dir, y: feet + dy * k });
+    // Ombre au sol
+    const sh = this.add.ellipse(0, 2, 70 * k * 0.6, 12, 0x000000, 0.45);
+    fig.add(sh);
+    if (this.textures.exists(`fig-${figKey}`)) {
+      fig.add(this.add.image(0, 0, `fig-${figKey}`).setOrigin(meta.ax, meta.ay).setScale(k / 3).setFlipX(dir < 0));
+    } else {
+      fig.add(this.add.rectangle(0, -60 * k, 30 * k, 110 * k, side === 'a' ? 0x6a7a4a : 0x7a4a3a).setOrigin(0.5));
+    }
+    const pt = (p: number[] | null | undefined, dx = 0, dy = -50) => (p ? { x: x + p[0] * k * dir, y: feet + p[1] * k } : { x: x + dx * dir, y: feet + dy * k });
     const head = pt(meta.head);
-    const barW = Math.min(110, 70 + k * 16);
-    const barY = Math.max(COMBAT.y + 34, head.y - 26);
-    const barX = Phaser.Math.Clamp(x, COMBAT.x + barW / 2 + 10, COMBAT.x + COMBAT.w - barW / 2 - 10);
+    const barW = 120;
+    const barY = Math.max(ARENA.y + 70, head.y - 18);
+    const barX = Phaser.Math.Clamp(x, ARENA.x + barW / 2 + 10, ARENA.x + ARENA.w - barW / 2 - 10);
     const bars = this.add.graphics();
-    const hpText = txt(this, barX, barY - 1, '', 13, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
-    const label = txt(this, barX, barY - 26, name.toUpperCase(), 15, dir > 0 ? C.text : '#ffb4a8', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
-    this.combatLayer.add([fig, bars, hpText, label]);
+    const hpText = txt(this, barX, barY, '', 13, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    const label = txt(this, barX, barY - 30, name.toUpperCase(), 16, side === 'a' ? C.text : '#ffb4a8', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    this.arenaLayer.add([fig, bars, hpText, label]);
     const a: Actor = {
-      x, feet, hp, maxHp: hp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
+      side, x, feet, hp, maxHp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
       muzzle: pt(meta.muzzle, 40), chest: pt(meta.chest, 0, -45),
     };
     this.drawBars(a);
@@ -1036,21 +1681,88 @@ export default class LoadoutScene extends Phaser.Scene {
     const g = a.bars;
     const x0 = a.barX - a.barW / 2;
     g.clear();
-    g.fillStyle(0x000000, 0.6);
-    g.fillRoundedRect(x0, y - 8, a.barW, 16, 4);
-    g.fillStyle(a === this.play?.player || !this.play ? (a.hp / a.maxHp > 0.3 ? C.good : C.danger) : C.danger, 1);
-    g.fillRoundedRect(x0, y - 8, Math.max(0, (a.barW * a.hp) / a.maxHp), 16, 4);
+    g.fillStyle(0x000000, 0.7);
+    g.fillRoundedRect(x0 - 2, y - 10, a.barW + 4, 20, 5);
+    const frac = Math.max(0, a.hp / a.maxHp);
+    g.fillStyle(a.side === 'a' ? (frac > 0.3 ? C.good : C.danger) : C.danger, 1);
+    g.fillRoundedRect(x0, y - 8, Math.max(0, a.barW * frac), 16, 4);
+    g.fillStyle(0xffffff, 0.18);
+    g.fillRect(x0 + 2, y - 7, Math.max(0, a.barW * frac - 4), 5);
     if (a.maxArmor > 0) {
-      g.fillStyle(0x000000, 0.6);
-      g.fillRect(x0, y - 20, a.barW, 7);
+      g.fillStyle(0x000000, 0.7);
+      g.fillRect(x0, y - 18, a.barW, 7);
       g.fillStyle(C.armor, 1);
-      g.fillRect(x0, y - 20, (a.barW * a.armor) / a.maxArmor, 7);
+      g.fillRect(x0, y - 18, (a.barW * Math.max(0, a.armor)) / a.maxArmor, 7);
     }
     a.hpText.setText(`${Math.ceil(a.hp)}`);
   }
 
-  private actorOf(t: 'p' | number): Actor {
-    return t === 'p' ? this.play!.player : this.play!.enemies[t];
+  // ---------------------------------------------------------------- duel : lecture
+
+  private startFight() {
+    const p = this.params;
+    if (!p || !this.bot || !this.botL || !this.me || !this.foe) return;
+    const { loadout } = this.loadout();
+    const result = simulateDuel(loadout, this.botL, p.seed, { hpA: p.hp });
+    this.phase = 'combat';
+    this.me.hp = Math.max(1, Math.min(p.maxHp, p.hp));
+    this.me.maxHp = p.maxHp;
+    this.me.armor = loadout.armor;
+    this.me.maxArmor = loadout.armor;
+    this.foe.hp = this.botL.maxHp;
+    this.foe.armor = this.botL.armor;
+    this.drawBars(this.me);
+    this.drawBars(this.foe);
+    const vs = this.arenaLayer.getByName('vs');
+    if (vs) this.tweens.add({ targets: vs, alpha: 0, scale: 2, duration: 220, onComplete: () => vs.destroy() });
+    this.enemyLayer.getByName('hint')?.destroy();
+    this.refresh();
+    this.slam('COMBAT !', C.accentStr, GRID_Y + 160);
+    vibrate([20, 40, 20]);
+    this.play = { result, idx: 0, t: -0.5 };
+    this.updateButtons();
+  }
+
+  private actor(side: Side): Actor {
+    return side === 'a' ? this.me! : this.foe!;
+  }
+
+  private viewOf(side: Side, uid: number): Container | undefined {
+    return side === 'a' ? this.views.get(uid) : this.enemyViews.get(uid);
+  }
+
+  /** Objet qui se déclenche : éclair et petite pulsation, dans le sac du joueur ou le sac adverse. */
+  private trigger(side: Side, uid: number, color = 0xffffff) {
+    const v = this.viewOf(side, uid);
+    if (!v) return;
+    flashItem(this, v, color);
+    this.pulse(v, side === 'a' ? 1.08 : 1.18);
+  }
+
+  private pulse(v: Container, k: number) {
+    if (v.getData('bs') === undefined) v.setData('bs', v.scaleX).setData('bx', v.x).setData('by', v.y);
+    const bs = v.getData('bs') as number;
+    const bx = v.getData('bx') as number;
+    const by = v.getData('by') as number;
+    const w = v.width * bs;
+    const h = v.height * bs;
+    (v.getData('pt') as Phaser.Tweens.Tween | undefined)?.stop();
+    const st = { k };
+    const apply = () => {
+      v.setScale(bs * st.k);
+      v.setPosition(bx - ((st.k - 1) * w) / 2, by - ((st.k - 1) * h) / 2);
+    };
+    apply();
+    v.setData('pt', this.tweens.add({ targets: st, k: 1, duration: 200 / this.run.speed, ease: 'Quad.Out', onUpdate: apply, onComplete: apply }));
+  }
+
+  /** Remet à leur taille les objets encore en pulsation (fin de combat, combat passé). */
+  private resetPulses() {
+    for (const v of [...this.views.values(), ...this.enemyViews.values()]) {
+      if (v.getData('bs') === undefined) continue;
+      (v.getData('pt') as Phaser.Tweens.Tween | undefined)?.stop();
+      v.setScale(v.getData('bs')).setPosition(v.getData('bx'), v.getData('by'));
+    }
   }
 
   private floatText(a: Actor, s: string, color: string, size = 26) {
@@ -1065,45 +1777,43 @@ export default class LoadoutScene extends Phaser.Scene {
 
   /** Secousse d'écran + arrêt sur image, proportionnels à l'importance du coup. */
   private impact(tier: 'small' | 'medium' | 'large') {
-    if (this.play === null) return;
-    const cfg = { small: [60, 0.002, 0], medium: [110, 0.005, 0.05], large: [260, 0.011, 0.12] }[tier];
+    const cfg = { small: [60, 0.002, 0], medium: [110, 0.005, 0.05], large: [300, 0.012, 0.18] }[tier];
     this.cameras.main.shake(cfg[0], cfg[1]);
     this.freeze = Math.max(this.freeze, cfg[2]);
   }
 
-  /** Recul et clignotement d'un personnage touché. */
   private hitReact(a: Actor) {
-    const dir = a === this.play?.player ? -1 : 1;
-    const x0 = a.x;
+    const dir = a.side === 'a' ? -1 : 1;
     this.tweens.killTweensOf(a.fig);
-    a.fig.x = x0 + 9 * dir;
+    a.fig.x = a.x + 9 * dir;
     a.fig.alpha = a.fig.alpha < 0.5 ? a.fig.alpha : 0.55;
-    this.tweens.add({ targets: a.fig, x: x0, duration: 120 / this.run.speed, ease: 'Quad.Out' });
+    this.tweens.add({ targets: a.fig, x: a.x, duration: 120 / this.run.speed, ease: 'Quad.Out' });
     if (a.hp > 0) this.tweens.add({ targets: a.fig, alpha: 1, duration: 120 / this.run.speed });
   }
 
-  /** Traçante du canon à la poitrine de la cible, avec éclair de bouche. */
-  private tracer(from: Actor, to: Actor, color: number) {
+  /** Traçante du canon à la poitrine de la cible ; l'éclair de bouche seulement pour la 1re balle d'un tir. */
+  private tracer(from: Actor, to: Actor, muzzleFlash: boolean, miss: boolean) {
     const g = this.add.graphics().setDepth(25);
     const m = from.muzzle;
     const tx = to.chest.x + Phaser.Math.Between(-6, 6);
-    const ty = to.chest.y + Phaser.Math.Between(-8, 8);
-    // Traçante effilée : trait épais sur la fin du trajet, fin au départ
+    const ty = to.chest.y + (miss ? Phaser.Math.Between(-40, -24) : Phaser.Math.Between(-8, 8));
     const fx = m.x + (tx - m.x) * 0.45;
     const fy = m.y + (ty - m.y) * 0.45;
     g.lineStyle(1.5, 0xfff4d0, 0.6);
     g.lineBetween(m.x, m.y, fx, fy);
-    g.lineStyle(3, color === C.danger ? 0xff8a5c : 0xffe7a8, 1);
+    g.lineStyle(3, from.side === 'b' ? 0xff8a5c : 0xffe7a8, 1);
     g.lineBetween(fx, fy, tx, ty);
-    // Éclair de bouche
-    const dir = tx > m.x ? 1 : -1;
-    g.fillStyle(0xfff0c0, 1);
-    g.fillTriangle(m.x, m.y - 5, m.x, m.y + 5, m.x + 18 * dir, m.y);
-    g.fillStyle(0xffb050, 0.8);
-    g.fillCircle(m.x + 3 * dir, m.y, 5);
-    // Étincelles d'impact
-    g.fillStyle(0xffe7a8, 1);
-    for (let i = 0; i < 4; i++) g.fillRect(tx + Phaser.Math.Between(-7, 7), ty + Phaser.Math.Between(-7, 7), 2, 2);
+    if (muzzleFlash) {
+      const dir = tx > m.x ? 1 : -1;
+      g.fillStyle(0xfff0c0, 1);
+      g.fillTriangle(m.x, m.y - 5, m.x, m.y + 5, m.x + 18 * dir, m.y);
+      g.fillStyle(0xffb050, 0.8);
+      g.fillCircle(m.x + 3 * dir, m.y, 5);
+    }
+    if (!miss) {
+      g.fillStyle(0xffe7a8, 1);
+      for (let i = 0; i < 4; i++) g.fillRect(tx + Phaser.Math.Between(-7, 7), ty + Phaser.Math.Between(-7, 7), 2, 2);
+    }
     this.tweens.add({ targets: g, alpha: 0, duration: 160 / this.run.speed, onComplete: () => g.destroy() });
   }
 
@@ -1117,115 +1827,112 @@ export default class LoadoutScene extends Phaser.Scene {
     this.tweens.add({ targets: g, scale: 1.2, alpha: 0, duration: 380 / this.run.speed, ease: 'Quad.Out', onComplete: () => g.destroy() });
   }
 
-  private applyEvent(e: CombatEvent, animate: boolean) {
-    const P = this.play!;
+  private applyEvent(e: DuelEvent, animate: boolean) {
     switch (e.kind) {
       case 'shot': {
-        const to = this.actorOf(e.to);
-        const from = this.actorOf(e.from);
+        const from = this.actor(e.from);
+        const to = this.actor(e.from === 'a' ? 'b' : 'a');
         to.hp = e.hp;
         to.armor = e.armor;
         this.drawBars(to);
         if (!animate) break;
-        this.tracer(from, to, e.from === 'p' ? C.accent : C.danger);
+        this.tracer(from, to, !e.double, e.miss);
+        if (!e.double) this.trigger(e.from, e.uid, e.crit ? C.accent : 0xffffff);
         if (e.miss) this.floatText(to, 'raté', C.quiet, 20);
-        else this.floatText(to, `${e.amount}${e.crit ? '!' : ''}`, e.crit ? C.accentStr : e.to === 'p' ? C.dangerStr : C.text, e.crit ? 34 : 26);
-        if (e.uid !== undefined) flashItem(this, this.views.get(e.uid), e.crit ? C.accent : 0xffffff);
-        if (!e.miss) {
+        else {
+          const col = e.crit ? C.accentStr : to.side === 'a' ? C.dangerStr : C.text;
+          this.floatText(to, `${e.amount}${e.crit ? ' CRIT' : ''}${e.pierce ? ' ⇢' : ''}`, col, e.crit ? 32 : 24);
           this.hitReact(to);
           if (e.crit) this.impact('medium');
-          else if (e.to === 'p' && e.amount >= 10) this.impact('small');
+          else if (to.side === 'a' && e.amount >= 10) this.impact('small');
+          if (to.side === 'a') vibrate(5);
         }
-        if (e.to === 'p' && !e.miss) vibrate(5);
         break;
       }
       case 'reload':
-        if (animate) flashItem(this, this.views.get(e.uid), 0x4f9bff);
-        break;
-      case 'frag':
-        for (const h of e.hits) {
-          const a = P.enemies[h.to];
-          a.hp = h.hp;
-          a.armor = h.armor;
-          this.drawBars(a);
-          if (animate) {
-            this.boom(a);
-            this.hitReact(a);
-            this.floatText(a, `${e.amount}`, C.accentStr, 30);
-          }
-        }
         if (animate) {
-          flashItem(this, this.views.get(e.uid), C.accent);
-          this.impact('medium');
+          const v = this.viewOf(e.side, e.uid);
+          if (v) flashItem(this, v, 0x4f9bff);
         }
         break;
-      case 'smoke':
+      case 'frag': {
+        const to = this.actor(e.side === 'a' ? 'b' : 'a');
+        to.hp = e.hp;
+        to.armor = e.armor;
+        this.drawBars(to);
         if (animate) {
-          flashItem(this, this.views.get(e.uid), 0xaaaaaa);
-          const g = this.add.graphics().setDepth(24);
-          g.fillStyle(0xbfbfbf, 0.35);
-          g.fillEllipse(COMBAT.x + 520, COMBAT.y + 200, 340, 200);
-          this.tweens.add({ targets: g, alpha: 0, duration: ((e.until - e.t) * 1000) / this.run.speed, onComplete: () => g.destroy() });
-        }
-        break;
-      case 'flash':
-        if (animate) {
-          flashItem(this, this.views.get(e.uid), 0xffffff);
-          for (const a of P.enemies) if (a.hp > 0) this.floatText(a, 'ÉTOURDI', '#ffffff', 18);
-          this.cameras.main.flash(120, 255, 255, 255);
-        }
-        break;
-      case 'adrenaline':
-        if (animate) {
-          flashItem(this, this.views.get(e.uid), C.good);
-          this.floatText(P.player, 'ADRÉNALINE', C.goodStr, 20);
-        }
-        break;
-      case 'medic':
-        for (const h of e.hits) {
-          const a = P.enemies[h.to];
-          a.hp = h.hp;
-          this.drawBars(a);
-          if (animate) this.floatText(a, `+${e.amount}`, C.goodStr, 20);
-        }
-        break;
-      case 'heal':
-        P.player.hp = e.hp;
-        this.drawBars(P.player);
-        if (animate) {
-          this.floatText(P.player, `+${e.amount}`, C.goodStr, 30);
-          flashItem(this, this.views.get(e.uid), C.good);
-        }
-        break;
-      case 'enemyGrenade':
-        P.player.hp = e.hp;
-        P.player.armor = e.armor;
-        this.drawBars(P.player);
-        if (animate) {
-          this.boom(P.player, C.danger);
-          this.hitReact(P.player);
-          this.floatText(P.player, `${e.amount}`, C.dangerStr, 30);
+          this.trigger(e.side, e.uid, C.accent);
+          this.boom(to, e.side === 'a' ? C.accent : C.danger);
+          this.hitReact(to);
+          this.floatText(to, `${e.amount}`, C.accentStr, 32);
+          this.floatText(this.actor(e.side), 'FRAG !', '#ffd27a', 18);
           this.impact('medium');
           vibrate(20);
         }
         break;
-      case 'reflect': {
-        const a = P.enemies[e.to];
+      }
+      case 'smoke':
+        if (animate) {
+          this.trigger(e.side, e.uid, 0xaaaaaa);
+          const a = this.actor(e.side);
+          const g = this.add.graphics().setDepth(24);
+          g.fillStyle(0xcfcfcf, 0.4);
+          const sx = a.x + (e.side === 'a' ? 50 : -50);
+          for (let i = 0; i < 5; i++) g.fillCircle(sx + Phaser.Math.Between(-30, 30), a.feet - 40 - Phaser.Math.Between(0, 70), Phaser.Math.Between(26, 40));
+          g.setScale(0.4);
+          this.tweens.add({ targets: g, scale: 1, duration: 300 / this.run.speed, ease: 'Quad.Out' });
+          this.tweens.add({ targets: g, alpha: 0, delay: 200, duration: Math.max(200, ((e.until - e.t) * 1000) / this.run.speed), onComplete: () => g.destroy() });
+          this.floatText(a, 'FUMIGÈNE', '#dddddd', 18);
+        }
+        break;
+      case 'flash':
+        if (animate) {
+          this.trigger(e.side, e.uid, 0xffffff);
+          const foe = this.actor(e.side === 'a' ? 'b' : 'a');
+          if (foe.hp > 0) this.floatText(foe, 'ÉTOURDI', '#ffffff', 20);
+          this.cameras.main.flash(120, 255, 255, 255);
+          vibrate(15);
+        }
+        break;
+      case 'adrenaline':
+        if (animate) {
+          this.trigger(e.side, e.uid, C.good);
+          this.floatText(this.actor(e.side), 'ADRÉNALINE', C.goodStr, 20);
+        }
+        break;
+      case 'heal': {
+        const a = this.actor(e.side);
         a.hp = e.hp;
-        a.armor = e.armor;
         this.drawBars(a);
-        if (animate) this.floatText(a, `${e.amount}`, '#f2c94c', 20);
+        if (animate) {
+          this.trigger(e.side, e.uid, C.good);
+          this.floatText(a, `+${e.amount}`, C.goodStr, 30);
+        }
+        break;
+      }
+      case 'reflect': {
+        // hp/armor = ceux du tireur, qui encaisse le renvoi
+        const shooter = this.actor(e.side === 'a' ? 'b' : 'a');
+        shooter.hp = e.hp;
+        shooter.armor = e.armor;
+        this.drawBars(shooter);
+        if (animate) this.floatText(shooter, `${e.amount} ↩`, GOLD, 20);
         break;
       }
       case 'death': {
-        const a = this.actorOf(e.who);
+        const a = this.actor(e.side);
+        a.hp = 0;
+        this.drawBars(a);
+        // Chute vers l'avant : le corps reste dans l'arène.
+        const ang = e.side === 'a' ? 82 : -82;
         if (animate) {
           this.tweens.killTweensOf(a.fig);
-          this.tweens.add({ targets: a.fig, alpha: 0.25, angle: e.who === 'p' ? -80 : 80, duration: 300 / this.run.speed, ease: 'Quad.In' });
-          this.impact(e.who === 'p' || this.play?.enemies.every((x) => x.hp <= 0) ? 'large' : 'medium');
-          this.boom(a, e.who === 'p' ? C.danger : 0xffffff);
-        }
-        else a.fig.setAlpha(0.25).setAngle(e.who === 'p' ? -80 : 80);
+          this.tweens.add({ targets: a.fig, alpha: 0.3, angle: ang, y: a.feet - 16, duration: 340 / this.run.speed, ease: 'Quad.In' });
+          this.impact('large');
+          this.boom(a, e.side === 'a' ? C.danger : 0xffffff);
+          this.cameras.main.flash(200, e.side === 'a' ? 160 : 255, e.side === 'a' ? 20 : 240, e.side === 'a' ? 20 : 200);
+          vibrate(e.side === 'a' ? [60, 40, 120] : [30, 30, 60]);
+        } else a.fig.setAlpha(0.3).setAngle(ang).setY(a.feet - 16);
         break;
       }
     }
@@ -1241,75 +1948,235 @@ export default class LoadoutScene extends Phaser.Scene {
     P.t += (delta / 1000) * this.run.speed;
     const ev = P.result.events;
     while (P.idx < ev.length && ev[P.idx].t <= P.t) this.applyEvent(ev[P.idx++], true);
-    if (P.idx >= ev.length && P.t >= P.result.duration + 0.8) this.finishCombat();
+    if (P.idx >= ev.length && P.t >= P.result.duration + 0.8) this.finishFight();
   }
 
-  private skipCombat() {
+  private skipFight() {
     const P = this.play;
     if (!P) return;
     while (P.idx < P.result.events.length) this.applyEvent(P.result.events[P.idx++], false);
-    this.finishCombat();
+    this.finishFight();
   }
 
-  private finishCombat() {
-    const P = this.play;
-    if (!P) return;
-    this.play = null;
-    const r = this.run;
-    // Chaque ennemi abattu lâche un objet, même en cas de défaite.
-    const killedAt = P.enemies.filter((a) => a.hp <= 0).map((a) => ({ x: a.x, y: a.feet - 90 }));
-    const loot = killedAt.length && !(P.result.win && this.node === 'boss' && this.finalZone)
-      ? addDrops(r, rollDrops(r, P.result.win ? Math.max(MIN_WIN_DROPS, killedAt.length) : killedAt.length, this.node === 'elite' || this.node === 'boss' ? 2 : 0, `combat-${r.attempts}`, this.family))
-      : { taken: [] as ItemInst[], credits: 0 };
-    loot.taken.forEach((it) => this.hidden.add(it.uid));
-    if (P.result.win) {
-      const gain = rewardCredits(this.node === 'boss' ? 'elite' : this.node, level(r));
-      r.credits += gain;
-      vibrate(40);
-      if (this.node === 'boss' && completeZone(r)) {
-        r.over = 'win';
-        this.phase = 'over';
-        this.resultText = 'Cdt Kesh neutralisé.\nL\'hélico est en approche : extraction !';
-        banner(this, 'EXTRACTION', C.goodStr, 236);
-      } else if (this.node === 'boss') {
-        this.phase = 'post';
-        this.resultText = `Lieutenant neutralisé, +${gain} crédits.\nExfiltration réussie : direction\nla zone suivante.`;
-        banner(this, 'ZONE TERMINÉE', C.goodStr, 236);
-        toast(this, `+${gain} crédits`, C.accentStr, 330);
-      } else {
-        this.phase = 'post';
-        this.resultText = `Victoire en ${Math.round(P.result.duration)} s.\n+${gain} crédits.\nRange ton butin puis continue.`;
-        banner(this, 'VICTOIRE', C.goodStr, 236);
-        toast(this, `+${gain} crédits`, C.accentStr, 330);
+  // ---------------------------------------------------------------- duel : résultat
 
-      }
-    } else {
-      r.sursis--;
-      r.credits += 3;
-      vibrate(120);
-      if (r.sursis <= 0) {
-        r.over = 'lose';
-        this.phase = 'over';
-        this.resultText = 'Plus aucun sursis.\nLa run est terminée.';
-        banner(this, 'DÉFAITE', C.dangerStr, 236);
-      } else if (this.node === 'boss') {
-        this.phase = 'prep';
-        this.resultText = `${P.result.timeout ? 'Temps écoulé' : 'Défaite'} : −1 sursis.\n${this.finalZone ? 'Le Cdt Kesh' : 'Le lieutenant'} t'attend toujours.\nRéorganise ton gilet et retente.`;
-        banner(this, 'DÉFAITE', C.dangerStr, 236);
-        toast(this, '−1 sursis', C.dangerStr, 330);
-      } else {
-        this.phase = 'post';
-        this.resultText = `${P.result.timeout ? 'Temps écoulé' : 'Défaite'} : −1 sursis, +3 cr.\nTu continues malgré tout.`;
-        banner(this, 'DÉFAITE', C.dangerStr, 236);
-        toast(this, '−1 sursis', C.dangerStr, 330);
-      }
+  private finishFight() {
+    const P = this.play;
+    const p = this.params;
+    if (!P || !p || !this.bot) return;
+    this.play = null;
+    this.freeze = 0;
+    this.resetPulses();
+    const res = P.result;
+    const r = this.run;
+    if (res.timeout) toast(this, 'Temps écoulé : décision aux PV restants', C.text, ARENA.y + ARENA.h + 30);
+    this.phase = 'result';
+
+    if (p.type === 'goulag') {
+      resolveGoulag(r, res.win);
+      if (res.win) {
+        banner(this, 'DE RETOUR !', C.goodStr, GRID_Y + 160);
+        vibrate([40, 40, 80]);
+        const e = endAction(r);
+        this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
+      } else this.gameOver(false);
+      this.refresh();
+      return;
     }
+
+    const out = resolveDuel(r, { win: res.win, hpEnd: res.hpEndA, botItems: this.bot.items });
+    if (out.over) {
+      this.gameOver(out.over === 'win');
+      this.refresh();
+      return;
+    }
+    if (out.goulag) {
+      banner(this, 'ÉLIMINÉ', C.dangerStr, GRID_Y + 160);
+      vibrate([80, 60, 160]);
+      this.post = { label: 'Goulag →', go: () => this.showGoulag() };
+      this.refresh();
+      return;
+    }
+    // Victoire : butin tiré du sac adverse
+    banner(this, 'VICTOIRE', C.goodStr, GRID_Y + 160);
+    vibrate([30, 30, 60]);
+    if (out.next) {
+      const next = out.next;
+      this.post = { label: `Combat ${next.squad.duel + 1}/${next.squad.total} →`, go: () => this.setupDuel(next) };
+    } else if (out.actionDone) {
+      const e = endAction(r);
+      this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
+    } else this.post = { label: 'Continuer', go: () => this.route() };
     this.refresh();
-    if (loot.taken.length || loot.credits) {
-      this.time.delayedCall(900, () => {
-        this.flyToReserve(loot.taken, killedAt);
-        this.announceLoot(loot.taken.length, loot.credits);
+    const loot = out.loot;
+    // Les objets s'envolent du sac adverse vers la réserve
+    const used = new Set<number>();
+    const sources = loot.items.map((it) => {
+      const src = this.bot!.items.find((b) => !used.has(b.uid) && b.defId === it.defId && b.rarity === it.rarity)
+        ?? this.bot!.items.find((b) => !used.has(b.uid) && b.defId === it.defId);
+      if (src) used.add(src.uid);
+      const v = src && this.enemyViews.get(src.uid);
+      if (v) {
+        flashItem(this, v, 0xf2c94c);
+        this.time.delayedCall(700, () => v.setAlpha(0.25));
+        return { x: v.x + (v.width * v.scaleX) / 2, y: v.y + (v.height * v.scaleY) / 2 };
+      }
+      return { x: ENEMY.x + ENEMY.w / 2, y: ENEMY.y + ENEMY.h / 2 };
+    });
+    // Les sacoches partent du centre du panneau adverse
+    for (const _b of loot.bags) sources.push({ x: ENEMY.x + ENEMY.w / 2, y: ENEMY.y + ENEMY.h / 2 });
+    loot.items.forEach((it) => this.hidden.add(it.uid));
+    loot.bags.forEach((b) => this.hiddenBags.add(b.uid));
+    this.refresh();
+    this.time.delayedCall(800, () => {
+      this.flyToReserve(loot.items, sources, 0, loot.bags);
+      const parts: string[] = [];
+      if (loot.items.length) parts.push(`${loot.items.length} objet${loot.items.length > 1 ? 's' : ''}`);
+      if (loot.bags.length) parts.push(`${loot.bags.length} sacoche${loot.bags.length > 1 ? 's' : ''}`);
+      if (parts.length) toast(this, `Butin : ${parts.join(' + ')} → réserve`, C.accentStr, GRID_Y + 250);
+      if (loot.credits) this.time.delayedCall(500, () => {
+        toast(this, `+${loot.credits} cr`, C.accentStr, GRID_Y + 320);
+        this.coinBurst(ENEMY.x + ENEMY.w / 2, ENEMY.y + ENEMY.h - 30);
+      });
+      if (out.next) this.time.delayedCall(1300, () => toast(this, `Prochain combat avec ${out.next!.hp}/${out.next!.maxHp} PV`, C.text, GRID_Y + 390));
+    });
+  }
+
+  private gameOver(win: boolean) {
+    this.phase = 'over';
+    this.post = { label: 'Voir le bilan', go: () => this.route() };
+    if (win) {
+      this.slam('TOP 1 !', GOLD, GRID_Y + 160, 88);
+      this.confetti();
+      vibrate([40, 40, 40, 40, 120]);
+    } else {
+      banner(this, 'ÉLIMINÉ', C.dangerStr, GRID_Y + 160);
+      this.cameras.main.shake(400, 0.01);
+      vibrate([120, 60, 200]);
+      this.time.delayedCall(1300, () => toast(this, 'Fin de la run', C.dangerStr, GRID_Y + 260));
+    }
+  }
+
+  private confetti() {
+    const cols = [0xf2c94c, 0xff8c1a, 0x5fbf6a, 0x4f9bff, 0xffffff];
+    for (let i = 0; i < 70; i++) {
+      const r = this.add.rectangle(Phaser.Math.Between(0, W), -20, 8, 14, cols[i % cols.length]).setDepth(220);
+      this.tweens.add({
+        targets: r, y: H + 40, x: r.x + Phaser.Math.Between(-120, 120), angle: Phaser.Math.Between(-720, 720),
+        delay: Phaser.Math.Between(0, 900), duration: Phaser.Math.Between(1800, 3000), ease: 'Quad.In', onComplete: () => r.destroy(),
       });
     }
+  }
+
+  // ---------------------------------------------------------------- écrans dramatiques
+
+  /** Écran plein du Goulag : « Dernière chance ». */
+  private showGoulag() {
+    const p = goulagParams(this.run);
+    if (!p) return this.route();
+    this.closeModal();
+    const m = this.add.container(0, 0).setDepth(150);
+    this.modal = m;
+    this.updateButtons();
+    const bg = this.add.rectangle(0, 0, W, H, 0x0a0303, 1).setOrigin(0).setInteractive().setAlpha(0);
+    m.add(bg);
+    this.tweens.add({ targets: bg, alpha: 0.96, duration: 250 });
+    const g = this.add.graphics();
+    g.fillStyle(0x5a0d0d, 0.5);
+    g.fillCircle(W / 2, 560, 420);
+    // Barbelés
+    g.lineStyle(3, 0x6a6a6a, 1);
+    for (const y of [300, 860]) {
+      for (let x = 0; x < W; x += 24) {
+        g.lineBetween(x, y, x + 12, y + 8);
+        g.lineBetween(x + 12, y + 8, x + 24, y);
+        g.lineBetween(x + 10, y - 6, x + 14, y + 14);
+      }
+    }
+    m.add(g);
+    const title = txt(this, W / 2, 470, 'GOULAG', 120, '#ff4b3e', { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 14, padding: { x: 20, y: 10 } })
+      .setOrigin(0.5).setScale(4).setAlpha(0);
+    m.add(title);
+    this.tweens.add({
+      targets: title, scale: 1, alpha: 1, delay: 250, duration: 260, ease: 'Quad.In',
+      onComplete: () => {
+        this.cameras.main.shake(380, 0.014);
+        this.cameras.main.flash(200, 255, 40, 30);
+        vibrate([100, 50, 100]);
+      },
+    });
+    const sub = txt(this, W / 2, 590, 'DERNIÈRE CHANCE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
+    m.add(sub);
+    this.tweens.add({ targets: sub, alpha: 1, delay: 700, duration: 300 });
+    const body = txt(this, W / 2, 680, 'Un duel 1v1 à PV pleins.\nGagne : tu reviens dans la partie.\nPerds : la run est finie.', 26, '#d9c9c0', { align: 'center', lineSpacing: 8 })
+      .setOrigin(0.5, 0).setAlpha(0);
+    m.add(body);
+    this.tweens.add({ targets: body, alpha: 1, delay: 950, duration: 300 });
+    const b = button(this, 120, 940, 480, 100, 'Entrer au Goulag', () => {
+      this.tweens.add({
+        targets: m, alpha: 0, duration: 260, onComplete: () => {
+          m.destroy();
+          this.modal = null;
+          this.setupDuel(p);
+        },
+      });
+    }, { primary: true, size: 30 });
+    b.root.setAlpha(0);
+    m.add(b.root);
+    this.tweens.add({ targets: b.root, alpha: 1, delay: 1200, duration: 300 });
+  }
+
+  /** Annonce du duel final : le dernier cercle se referme. */
+  private announceFinal() {
+    const p = finalDuelParams(this.run);
+    saveRun(this.run);
+    if (!p) return this.route();
+    this.closeModal();
+    const m = this.add.container(0, 0).setDepth(150);
+    this.modal = m;
+    this.updateButtons();
+    const bg = this.add.rectangle(0, 0, W, H, 0x07060a, 1).setOrigin(0).setInteractive().setAlpha(0);
+    m.add(bg);
+    this.tweens.add({ targets: bg, alpha: 0.97, duration: 250 });
+    // Cercle de gaz qui se referme
+    const ring = this.add.graphics().setPosition(W / 2, 560);
+    ring.lineStyle(10, 0xc04bd8, 0.9);
+    ring.strokeCircle(0, 0, 200);
+    ring.fillStyle(0xc04bd8, 0.08);
+    ring.fillCircle(0, 0, 200);
+    ring.setScale(3);
+    m.add(ring);
+    this.tweens.add({ targets: ring, scale: 1, duration: 1100, ease: 'Cubic.Out' });
+    this.tweens.add({ targets: ring, alpha: 0.5, yoyo: true, repeat: -1, duration: 700, delay: 1100 });
+    const pre = txt(this, W / 2, 440, 'DERNIER CERCLE', 48, '#e6b8ff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
+    m.add(pre);
+    this.tweens.add({ targets: pre, alpha: 1, delay: 500, duration: 300 });
+    const title = txt(this, W / 2, 560, 'TOP 1', 150, GOLD, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 16, padding: { x: 24, y: 10 } })
+      .setOrigin(0.5).setScale(4).setAlpha(0);
+    m.add(title);
+    this.tweens.add({
+      targets: title, scale: 1, alpha: 1, delay: 900, duration: 260, ease: 'Quad.In',
+      onComplete: () => {
+        this.cameras.main.shake(400, 0.014);
+        this.cameras.main.flash(220, 255, 220, 120);
+        vibrate([80, 50, 140]);
+      },
+    });
+    const body = txt(this, W / 2, 700, 'Un seul survivant.\nLe meilleur sac du serveur t\'attend.', 28, C.text, { align: 'center', lineSpacing: 8 }).setOrigin(0.5, 0).setAlpha(0);
+    m.add(body);
+    this.tweens.add({ targets: body, alpha: 1, delay: 1400, duration: 300 });
+    const b = button(this, 120, 940, 480, 100, 'Affronter', () => {
+      this.tweens.add({
+        targets: m, alpha: 0, duration: 260, onComplete: () => {
+          m.destroy();
+          this.modal = null;
+          this.mode = 'duel';
+          this.setupDuel(p);
+        },
+      });
+    }, { primary: true, size: 32 });
+    b.root.setAlpha(0);
+    m.add(b.root);
+    this.tweens.add({ targets: b.root, alpha: 1, delay: 1700, duration: 300 });
   }
 }
