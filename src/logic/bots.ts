@@ -40,26 +40,44 @@ const BACKPACKS: [number, number, number, number][] = [
 /** Chances (%) de rareté, de Commun à Légendaire, selon le niveau du bot. */
 const RARITY_ODDS = [
   [95, 5, 0, 0, 0],
-  [60, 32, 8, 0, 0],
-  [40, 38, 18, 4, 0],
+  [50, 38, 12, 0, 0],
+  [35, 38, 22, 5, 0],
   [22, 36, 30, 11, 1],
   [12, 28, 36, 20, 4],
   [5, 18, 37, 30, 10],
   [0, 10, 32, 40, 18],
 ];
 
+/** Niveau de rareté (ligne de RARITY_ODDS) et nombre d'objets du bot du Top 1 (avant le bonus de bot fort). */
+export const FINAL_LEVEL = 5;
+export const FINAL_ITEMS = 9;
+/** Objets dans le sac d'un bot normal, par manche (4 au 1er cercle, comme un sac de départ). */
+export const BOT_ITEMS = [4, 6, 7, 8, 9];
+
+/**
+ * Part du bonus de danger de la zone appliquée selon la manche : rien au 1er cercle (tout le monde vient
+ * d'atterrir), puis il monte. Le danger des grandes zones pèse surtout en fin de partie.
+ */
+export const DANGER_RAMP = [0, 0.25, 0.5, 0.5, 0.75];
+
 /** Plus haute rareté minimale autorisée dans le sac selon le niveau (pas de Fusil Aigle au 1er tour). */
 const minRarityCap = (lvl: number) => Math.min(MAX_RARITY, 1 + Math.floor(lvl / 2));
 
-/** Probabilités de qualité (fort, faible) selon le tour et le danger de la zone. */
+/** Chances de bot fort et faible par manche (danger 0). Jamais de bot fort au 1er cercle. */
+export const FORT_ODDS = [0, 0.35, 0.45, 0.5, 0.55];
+export const FAIBLE_ODDS = [0.3, 0.15, 0.1, 0.05, 0.05];
+
+/** Probabilités de qualité (fort, faible) selon le tour et le danger de la zone (déjà ramené à la manche). */
 export function qualityOdds(round: number, danger = 0): { fort: number; faible: number } {
-  const fort = Math.min(0.6, 0.05 + 0.1 * round + 0.1 * danger);
-  const faible = Math.max(0.05, 0.3 - 0.05 * round - 0.1 * danger);
+  const r = Math.max(0, Math.min(round, FORT_ODDS.length - 1));
+  if (round === 0) return { fort: 0, faible: FAIBLE_ODDS[0] };
+  const fort = Math.min(0.6, FORT_ODDS[r] + 0.1 * danger);
+  const faible = Math.max(0.05, FAIBLE_ODDS[r] - 0.1 * danger);
   return { fort, faible };
 }
 
 /** Accessoire compatible avec cette arme (son bonus s'applique). */
-function accessoryFits(acc: ItemDef, w: ItemDef): boolean {
+export function accessoryFits(acc: ItemDef, w: ItemDef): boolean {
   const k = acc.synergy?.kind;
   const long = w.tags.includes('arme_longue');
   if (k === 'mag') return acc.caliber === w.caliber || !!w.weapon?.feedsAny;
@@ -74,8 +92,11 @@ const isAccessory = (id: string) => !!ITEMS[id].synergy && !isMag(id);
 
 /** Génère le sac d'un bot, déterministe pour (graine, tour, options). */
 export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean } = {}): BotBuild {
-  const danger = opts.danger ?? 0;
-  const rng = mulberry32(hashParts('bot', seed, round, danger, opts.final ? 1 : 0, opts.goulag ? 1 : 0));
+  // 1er cercle : tout le monde vient d'atterrir. Quelle que soit la zone, un bot a un sac de départ
+  // (jamais fort, objets de départ, tous Communs, sac de base) : la taille de la zone ne change que les cartes.
+  const landing = round === 0 && !opts.final;
+  const danger = (opts.danger ?? 0) * (opts.final ? 1 : DANGER_RAMP[Math.min(round, DANGER_RAMP.length - 1)]);
+  const rng = mulberry32(hashParts('bot', seed, round, opts.danger ?? 0, opts.final ? 1 : 0, opts.goulag ? 1 : 0));
   const operator = pick(rng, OPERATOR_IDS);
   const name = rng() < 0.4 ? `${pick(rng, CALLSIGNS)}-${1 + Math.floor(rng() * 9)}` : pick(rng, CALLSIGNS);
 
@@ -87,21 +108,22 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
     quality = r < q.fort ? 'fort' : r < q.fort + q.faible ? 'faible' : 'normal';
   }
 
-  // Niveau : tour + danger, ajusté par la qualité. Le Top 1 a les raretés d'un 6e cercle.
+  // Niveau : tour + danger, ajusté par la qualité. Le Top 1 a les raretés de la ligne FINAL_LEVEL.
   const qBonus = quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0;
-  const lvl = Math.max(0, Math.min(RARITY_ODDS.length - 1, Math.round(opts.final ? 5 + qBonus : round + danger + qBonus)));
+  const lvl = Math.max(0, Math.min(RARITY_ODDS.length - 1, Math.round(opts.final ? FINAL_LEVEL : round + danger + qBonus)));
   const bp = BACKPACKS[Math.min(BACKPACKS.length - 1, opts.final ? 5 : round + (danger >= 1 ? 1 : 0))];
   const usable: string[] = [];
   for (let y = bp[1]; y <= bp[3]; y++) for (let x = bp[0]; x <= bp[2]; x++) usable.push(cellKey(x, y));
 
-  // Nombre d'objets : 4 au 1er tour (comme un sac de départ), puis plus.
-  const nItems = Math.max(3, 4 + Math.round(opts.final ? 6 : round * 1.25 + danger) + (quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0));
+  // Nombre d'objets : 4 au 1er tour (comme un sac de départ), puis plus ; ±1 selon la qualité.
+  const baseItems = opts.final ? FINAL_ITEMS : BOT_ITEMS[Math.min(round, BOT_ITEMS.length - 1)] + Math.round(danger);
+  const nItems = Math.max(3, baseItems + (quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0));
   const cap = minRarityCap(lvl);
   // Aux premiers niveaux, pas d'objets chers (plaque céramique…) hors armes.
   const itemCap = [5, 7][lvl] ?? Infinity;
   const pool = lootPool(operator).filter((id) => ITEMS[id].minRarity <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap));
   const crafted = RECIPES.filter((r) => r.inputs.every((id) => lootPool(operator).includes(id))).map((r) => r.output);
-  const rollRarity = (id: string) => Math.max(ITEMS[id].minRarity, weighted(rng, RARITY_ODDS[lvl].map((w, i) => [i, w] as const)));
+  const rollRarity = (id: string) => landing ? 0 : Math.max(ITEMS[id].minRarity, weighted(rng, RARITY_ODDS[lvl].map((w, i) => [i, w] as const)));
 
   // Composition : armes, chargeurs et accessoires assortis, protection, puis le reste.
   const ids: string[] = [];

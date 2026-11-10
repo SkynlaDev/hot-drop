@@ -4,7 +4,9 @@ import { ART, zoneBg } from '../art';
 import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS } from '../logic/zone';
-import { CARD_INFO, SIZE_INFO, statusPills } from '../ui/hud';
+import { DANGER_RAMP } from '../logic/bots';
+import { EPIC_EXTRA_ITEMS, EPIC_LEGENDARY_CHANCE } from '../logic/run';
+import { CARD_INFO, EPIC_GOLD, SIZE_INFO, statusPills } from '../ui/hud';
 import { Button, button, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
 
 const GRID = { x: 20, y: 344, w: 680, h: 690, gap: 14 };
@@ -27,14 +29,21 @@ function cardDesc(card: Card): string {
       return 'Un duel, sac contre sac. Tu récupères un objet du sac adverse et des crédits.';
     case 'caisse':
       return 'Pas de combat : un objet, et parfois une sacoche.';
+    case 'caisse_epique':
+      return `Caisse épique, sans combat : au moins un objet Épique (${Math.round(EPIC_LEGENDARY_CHANCE * 100)} % de chances qu'il soit Légendaire), plus ${EPIC_EXTRA_ITEMS} objet ordinaire.`;
     case 'shop':
       return 'Boutique : 5 offres de ton opérateur, relance possible contre des crédits.';
   }
 }
 
+/** Bonus de niveau des bots de la zone : aucun au 1er cercle (tout le monde vient d'atterrir), puis il monte. */
+function botBonus(zone: MapZone, round: number): number {
+  return DANGER_BY_SIZE[zone.size] * DANGER_RAMP[Math.min(round, DANGER_RAMP.length - 1)];
+}
+
 /** Risque d'une carte de combat, sur RISK_PIPS : nombre de duels + chaleur de la zone. */
-function riskOf(card: Card, zone: MapZone): number {
-  return Math.min(RISK_PIPS, card.duels + Math.round(DANGER_BY_SIZE[zone.size] * 2));
+function riskOf(card: Card, zone: MapZone, round: number): number {
+  return Math.min(RISK_PIPS, card.duels + Math.round(botBonus(zone, round) * 2));
 }
 
 export default class ZoneScene extends Phaser.Scene {
@@ -68,7 +77,7 @@ export default class ZoneScene extends Phaser.Scene {
       this.scene.start('end');
       return;
     }
-    if (run.fight || run.pendingGoulag) {
+    if (run.fight || run.pendingGoulag || run.pendingLoot) {
       this.scene.start('loadout', { mode: 'duel' });
       return;
     }
@@ -129,8 +138,9 @@ export default class ZoneScene extends Phaser.Scene {
     chip.fillStyle(si.color, 1);
     chip.fillRoundedRect(26, 220, cw, 32, 16);
     chipT.setPosition(39, 236).setDepth(1);
-    const lvl = DANGER_BY_SIZE[zone.size];
-    txt(this, 26 + cw + 14, 236, lvl > 0 ? `Bots +${String(lvl).replace('.', ',')} niveau` : 'Bots normaux', 18, C.quiet, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0, 0.5);
+    const lvl = botBonus(zone, run.round);
+    const botLabel = run.round === 0 ? 'Bots fraîchement largués' : lvl > 0 ? `Bots +${String(Math.round(lvl * 100) / 100).replace('.', ',')} niveau` : 'Bots normaux';
+    txt(this, 26 + cw + 14, 236, botLabel, 18, C.quiet, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0, 0.5);
 
     // Compteur d'actions restantes
     txt(this, 24, 296, `ACTIONS : ${run.actionsLeft}/${ACTIONS_PER_ZONE}`, 28, C.accentStr, { fontStyle: 'bold' }).setOrigin(0, 0.5);
@@ -185,6 +195,17 @@ export default class ZoneScene extends Phaser.Scene {
     const l = -w / 2;
     const t = -h / 2;
     const small = w < 200;
+    const epic = card.type === 'caisse_epique';
+    if (epic && !played) {
+      // Halo violet et or qui pulse derrière la carte.
+      const glow = this.add.graphics();
+      for (let k = 4; k >= 1; k--) {
+        glow.fillStyle(k % 2 ? info.color : EPIC_GOLD, 0.1);
+        glow.fillRoundedRect(l - k * 5, t - k * 5, w + k * 10, h + k * 10, 18 + k * 5);
+      }
+      root.add(glow);
+      this.tweens.add({ targets: glow, alpha: { from: 0.35, to: 1 }, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    }
     // Corps
     g.fillStyle(0x000000, 0.45);
     g.fillRoundedRect(l, t + 6, w, h, 18);
@@ -196,10 +217,19 @@ export default class ZoneScene extends Phaser.Scene {
     g.fillRoundedRect(l, t, w, 10, { tl: 18, tr: 18, bl: 0, br: 0 });
     g.lineStyle(3, info.color, 0.9);
     g.strokeRoundedRect(l, t, w, h, 18);
+    if (epic) {
+      // Liseré or, bandeau or en haut.
+      g.fillStyle(EPIC_GOLD, 1);
+      g.fillRoundedRect(l, t, w, 10, { tl: 18, tr: 18, bl: 0, br: 0 });
+      g.lineStyle(3, EPIC_GOLD, 1);
+      g.strokeRoundedRect(l + 5, t + 5, w - 10, h - 10, 14);
+    }
     root.add(g);
 
     // Titre
-    root.add(txt(this, 0, t + 38, info.name.toUpperCase(), small ? 26 : 32, info.hex, { fontStyle: 'bold italic', padding: { left: 6, right: 6 } }).setOrigin(0.5));
+    const title = txt(this, 0, t + 38, epic ? 'ÉPIQUE' : info.name.toUpperCase(), small ? 26 : 32, info.hex, { fontStyle: 'bold italic', padding: { left: 6, right: 6 } }).setOrigin(0.5);
+    if (epic) title.setStroke('#3a1a5a', 4).setShadow(0, 0, '#f2c94c', 10, true, true);
+    root.add(title);
 
     // Illustration
     const iy = t + h * 0.38;
@@ -220,6 +250,17 @@ export default class ZoneScene extends Phaser.Scene {
         f.setTint(k === Math.floor(n / 2) ? 0xffffff : 0xb0a8a0);
         root.add(f);
       }
+    } else if (epic) {
+      // Caisse dorée et étoiles qui scintillent.
+      const ic = this.add.image(0, iy, info.icon).setDisplaySize(dr * 1.25, dr * 1.25).setTint(EPIC_GOLD);
+      root.add(ic);
+      if (!played) this.tweens.add({ targets: ic, angle: { from: -6, to: 6 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      for (let k = 0; k < 3; k++) {
+        const a = -Math.PI / 2 + (k - 1) * 1.1;
+        const star = txt(this, Math.cos(a) * dr * 1.05, iy + Math.sin(a) * dr * 1.05, '★', small ? 20 : 26, k === 1 ? '#f2c94c' : '#c08cff').setOrigin(0.5);
+        root.add(star);
+        if (!played) this.tweens.add({ targets: star, scale: { from: 0.6, to: 1.25 }, alpha: { from: 0.5, to: 1 }, duration: 520, delay: k * 240, yoyo: true, repeat: -1 });
+      }
     } else {
       root.add(this.add.image(0, iy, info.icon).setDisplaySize(dr * 1.15, dr * 1.15).setTint(info.color));
     }
@@ -232,7 +273,7 @@ export default class ZoneScene extends Phaser.Scene {
       dy += fs + 14;
       root.add(txt(this, 0, dy, card.type === 'squad' ? 'Gros butin' : 'Butin normal', fs - 2, C.quiet).setOrigin(0.5));
       dy += fs + 10;
-      const risk = riskOf(card, zone);
+      const risk = riskOf(card, zone, this.run.round);
       const pw = small ? 18 : 24;
       const gap = 5;
       const total = RISK_PIPS * pw + (RISK_PIPS - 1) * gap;
@@ -247,6 +288,12 @@ export default class ZoneScene extends Phaser.Scene {
       root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
       root.add(txt(this, 0, dy, small ? '1 objet\n(+ sacoche ?)' : '1 objet, parfois\nune sacoche', fs - 2, C.quiet, { align: 'center' }).setOrigin(0.5, 0));
+    } else if (epic) {
+      root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
+      dy += fs + 14;
+      root.add(txt(this, 0, dy - 4, '≥ 1 objet\nÉpique', fs, '#f2c94c', { fontStyle: 'bold', align: 'center', lineSpacing: -2 }).setOrigin(0.5, 0));
+      dy += 2 * fs + 6;
+      root.add(txt(this, 0, dy, `+ ${EPIC_EXTRA_ITEMS} objet`, fs - 5, C.quiet).setOrigin(0.5, 0));
     } else {
       root.add(txt(this, 0, dy, '5 OFFRES', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
@@ -340,7 +387,7 @@ export default class ZoneScene extends Phaser.Scene {
     v.root.setDepth(10);
     this.tweens.add({ targets: v.root, x: W / 2, y: H / 2, scale: 1.5, duration: 320, ease: 'Cubic.Out' });
     this.views.forEach((w) => w !== v && this.tweens.add({ targets: w.root, alpha: 0.2, duration: 200 }));
-    const data = res.kind === 'shop' ? { mode: 'shop' } : res.kind === 'caisse' ? { mode: 'caisse', loot: res.loot } : { mode: 'duel' };
+    const data = res.kind === 'shop' ? { mode: 'shop' } : res.kind === 'caisse' ? { mode: 'caisse', loot: res.loot, epic: !!res.epic } : { mode: 'duel' };
     this.time.delayedCall(380, () => this.cameras.main.fadeOut(200, 20, 22, 15));
     this.time.delayedCall(600, () => this.scene.start('loadout', data));
   }

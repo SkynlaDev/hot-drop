@@ -4,8 +4,8 @@ import Phaser from 'phaser';
 import { C, H, W } from '../config';
 import { rngFor } from '../logic/rng';
 import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
-import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
-import { CARD_INFO, SIZE_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
+import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, EPIC_CRATE_CHANCE, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
+import { CARD_INFO, EPIC_GOLD, SIZE_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
 import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate } from '../ui/widgets';
 
 const MAP = { x: 20, y: 150, w: 680, h: 680 };
@@ -14,9 +14,9 @@ const PANEL = { x: 20, y: 846, w: 680, h: 414 };
 const GAS = 0x9bbf3a;
 
 const HEAT_DESC: Record<MapZone['size'], string> = {
-  petite: 'Zone calme : peu de squads, des bots plus faibles. Plus de caisses et de boutiques.',
-  moyenne: 'Zone disputée : un peu de tout, des bots un peu plus forts.',
-  grande: 'Zone chaude : beaucoup de squads et des bots plus forts. Plus de cartes, plus de butin.',
+  petite: 'Zone calme : peu de squads, des bots sans bonus. Plus de caisses et de boutiques.',
+  moyenne: 'Zone disputée : un peu de tout. Bots un peu plus forts à partir du 2e cercle.',
+  grande: 'Zone chaude : beaucoup de squads, bots plus forts à partir du 2e cercle. Parfois une caisse épique !',
 };
 
 interface ZoneView {
@@ -63,7 +63,7 @@ export default class MapScene extends Phaser.Scene {
       this.scene.start('end');
       return;
     }
-    if (run.fight || run.pendingGoulag) {
+    if (run.fight || run.pendingGoulag || run.pendingLoot) {
       this.scene.start('loadout', { mode: 'duel' });
       return;
     }
@@ -413,18 +413,32 @@ export default class MapScene extends Phaser.Scene {
     const bw = PANEL.w - 56;
     const w = CARD_WEIGHTS[z.size];
     const total = Object.values(w).reduce((a, b) => a + b, 0);
+    // Part de chaque type parmi les cartes tirées ; la caisse épique (au plus une par largage) prend sa part.
+    const epic = EPIC_CRATE_CHANCE[z.size] / CARDS_BY_SIZE[z.size];
+    const share = (t: CardType) => (t === 'caisse_epique' ? epic : (w[t] / total) * (1 - epic));
+    const types = [...(Object.keys(w) as CardType[]), ...(epic > 0 ? ['caisse_epique' as const] : [])];
     const g = this.add.graphics();
     let x = x0;
-    const types = Object.keys(w) as CardType[];
     let lx = x0;
+    let ly = by + 36;
     for (const t of types) {
-      const seg = (w[t] / total) * bw;
+      const seg = share(t) * bw;
       g.fillStyle(CARD_INFO[t].color, 1);
-      g.fillRect(x, by, seg - 2, 14);
+      g.fillRect(x, by, Math.max(2, seg - 2), 14);
       x += seg;
-      const lt = txt(this, lx + 18, by + 36, `${CARD_INFO[t].name} ${Math.round((w[t] / total) * 100)} %`, 17, CARD_INFO[t].hex, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      const label = t === 'caisse_epique' ? `★ ${CARD_INFO[t].name} : ${Math.round(EPIC_CRATE_CHANCE[z.size] * 100)} % des largages` : `${CARD_INFO[t].name} ${Math.round(share(t) * 100)} %`;
+      const lt = txt(this, 0, 0, label, 17, CARD_INFO[t].hex, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+      if (lx + 18 + lt.width > x0 + bw) {
+        lx = x0;
+        ly += 30;
+      }
+      lt.setPosition(lx + 18, ly);
       g.fillStyle(CARD_INFO[t].color, 1);
-      g.fillCircle(lx + 7, by + 36, 6);
+      g.fillCircle(lx + 7, ly, 6);
+      if (t === 'caisse_epique') {
+        g.lineStyle(2, EPIC_GOLD, 1);
+        g.strokeCircle(lx + 7, ly, 7);
+      }
       I.add(lt);
       lx += 18 + lt.width + 22;
     }

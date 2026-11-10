@@ -17,8 +17,14 @@ All player-facing strings stay in French. Code comments are in French, like the 
    - **Solo**: one duel. Normal loot.
    - **Caisse** (supply crate): modest loot, no fight (1 item, sometimes a bag).
    - **Shop**: opens the shop (5 offers from the operator pool, bags sometimes, reroll for credits).
+   - **Caisse épique** (grande zones only, 50 % of drops, at most 1 per zone; it replaces one drawn card):
+     no fight, at least 1 item Épique (15 % Légendaire) + 1 ordinary item of the round.
    Grande zones draw more squads and stronger bots ("hot" zones); petite zones are calmer.
-   Danger bonus: petite +0, moyenne +0.5, grande +1 level.
+   Danger bonus: petite +0, moyenne +0.5, grande +1 level, ramped by circle (`DANGER_RAMP` in bots.ts:
+   ×0 at circle 1, then ×0.25, ×0.5, ×0.5, ×0.75).
+   **Circle 1: everyone just dropped.** Whatever the zone size, circle-1 bots have a starting bag
+   (never 'fort', starter items, all Common, base 5×4 backpack). Zone size at circle 1 only changes the card mix,
+   so starting in a hot zone is a valid choice.
 5. After the 3 actions the circle shrinks, zones outside it are gassed, next round.
 6. After round 5: **final duel "Top 1"** against a very strong build. Win = victory.
 
@@ -32,7 +38,11 @@ All player-facing strings stay in French. Code comments are in French, like the 
 - HP fully resets between actions (but not between the duels of a squad).
 - The further you go, the more likely (not certain) a bot has a good build: better rarity, recipe items,
   smart placement (feeding chargeurs, accessories adjacent). Some bots are weak, some are strong.
-- Loot from a won duel comes **from the bot's own backpack** (random items, no choice) + credits.
+- Loot from a won duel comes **from the bot's own backpack**: after each duel won (solo or each bot of a squad),
+  the player sees the defeated bot's backpack as it was packed and **chooses exactly 1 item** in it
+  ("comme quand on loot vraiment un gars"), + credits. The end of a squad adds a credit bonus and a bag chance.
+  The choice is pending in the run (`pendingLoot`, survives a reload); no card, end of action or next squad duel
+  until it is taken (`takeLoot`). Reserve full: the chosen item is sold automatically.
 
 ## Defeat: the Goulag
 - First lost duel of the run (any card) → **Goulag**: one 1v1 against a fair bot (level of the round).

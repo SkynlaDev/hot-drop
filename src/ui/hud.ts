@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { C, W } from '../config';
 import { RunState } from '../logic/run';
-import { ROUNDS, ZoneSize } from '../logic/zone';
+import { CardType, ROUNDS, ZoneSize } from '../logic/zone';
 import { txt } from './widgets';
 
 type Scene = Phaser.Scene;
@@ -83,12 +83,16 @@ export function roundTrack(scene: Scene, x: number, y: number, round: number): P
 }
 
 /** Présentation de chaque type de carte de zone. */
-export const CARD_INFO: Record<'squad' | 'solo' | 'caisse' | 'shop', { name: string; color: number; hex: string; icon: string }> = {
+export const CARD_INFO: Record<CardType, { name: string; color: number; hex: string; icon: string }> = {
   squad: { name: 'Squad', color: 0xe5484d, hex: '#ff6b6b', icon: 'ic-t-essaim' },
   solo: { name: 'Solo', color: 0xff8c1a, hex: '#ffa64d', icon: 'ic-p-contrat' },
   caisse: { name: 'Caisse', color: 0x5fbf6a, hex: '#7ddc86', icon: 'ic-p-caisse' },
   shop: { name: 'Boutique', color: 0x4fa3ff, hex: '#7dbcff', icon: 'ic-p-marchand' },
+  // Violet Épique, liseré or Légendaire (voir EPIC_GOLD).
+  caisse_epique: { name: 'Caisse épique', color: 0x9b51e0, hex: '#c08cff', icon: 'ic-p-caisse' },
 };
+/** Or des bordures et reflets de la caisse épique (couleur Légendaire). */
+export const EPIC_GOLD = 0xf2c94c;
 
 /** Bouton rond à icône (menu, retour…) centré en (x, y). */
 export function iconButton(scene: Scene, x: number, y: number, icon: string, onClick: () => void, r = 30) {

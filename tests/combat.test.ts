@@ -327,6 +327,27 @@ describe('bots', () => {
     }
   });
 
+  it('1er cercle : bots fraîchement largués, quelle que soit la taille de la zone (jamais forts, Communs, sac de base)', () => {
+    for (const danger of [0, 0.5, 1]) {
+      for (let s = 0; s < 150; s++) {
+        const b = generateBot(s, 0, { danger });
+        expect(b.quality).not.toBe('fort');
+        expect(b.usable.length).toBe(20);
+        expect(b.items.length).toBeLessThanOrEqual(4);
+        expect(b.items.every((i) => i.rarity === 0)).toBe(true);
+      }
+    }
+  });
+
+  it('le sac de départ (sans assemblage) gagne au moins 60 % contre les bots du 1er cercle, toute zone', () => {
+    for (const op of ['viper', 'sentinelle'] as const) {
+      for (const danger of [0, 0.5, 1]) {
+        const rate = winRate(() => start(op), (s) => botLoadout(generateBot(s, 0, { danger })), 300);
+        expect(rate, `${op} danger ${danger}`).toBeGreaterThanOrEqual(0.6);
+      }
+    }
+  });
+
   it('Viper contre Sentinelle : entre 45 et 55 % à chaque manche et au Top 1 (bots de même tour)', () => {
     const N = 300;
     for (const round of [0, 1, 2, 3, 4, 5]) {

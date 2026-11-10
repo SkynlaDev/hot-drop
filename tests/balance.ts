@@ -19,7 +19,8 @@ function bucket(round: number, danger: number): Record<string, BotBuild[]> {
   let c = cache.get(key);
   if (!c) {
     c = { faible: [], normal: [], fort: [], any: [] };
-    for (let s = 0; c.faible.length < N || c.normal.length < N || c.fort.length < N; s++) {
+    // Plafond de recherche : certaines qualités n'existent pas à certains tours (pas de bot fort au 1er cercle).
+    for (let s = 0; (c.faible.length < N || c.normal.length < N || c.fort.length < N) && s < 20 * N; s++) {
       const b = generateBot(s, round, { danger });
       if (c[b.quality].length < N) c[b.quality].push(b);
       if (c.any.length < N) c.any.push(b);
@@ -29,7 +30,8 @@ function bucket(round: number, danger: number): Record<string, BotBuild[]> {
   return c;
 }
 function botOf(quality: BotBuild['quality'] | 'any', s: number, round: number, danger = 0): BotBuild {
-  const list = bucket(round, danger)[quality];
+  const b = bucket(round, danger);
+  const list = b[quality].length ? b[quality] : b.any;
   return list[s % list.length];
 }
 

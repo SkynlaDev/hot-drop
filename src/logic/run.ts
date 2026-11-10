@@ -20,6 +20,12 @@ export const SHOP_OFFERS = 5;
 export const SHOP_BAG_CHANCE = 0.4;
 /** Chance qu'une caisse donne aussi une sacoche, en plus de l'objet. */
 export const CRATE_BAG_CHANCE = 0.3;
+/** Caisse épique (grandes zones) : 1 objet Épique garanti, Légendaire avec cette chance… */
+export const EPIC_LEGENDARY_CHANCE = 0.15;
+/** … plus ce nombre d'objets ordinaires de la manche. */
+export const EPIC_EXTRA_ITEMS = 1;
+/** Objets à choisir dans le sac de chaque bot vaincu (squad ou solo : un par duel gagné). */
+export const LOOT_PICKS = 1;
 /** Chance qu'une squad terminée donne aussi une sacoche. */
 export const SQUAD_BAG_CHANCE = 0.5;
 /** Manche du duel final « Top 1 ». */
@@ -59,6 +65,19 @@ export interface Fight {
   hp: number;
 }
 
+/**
+ * Butin à choisir après un duel gagné : le sac du bot vaincu tel qu'il était rangé.
+ * Tant qu'il est là, ni carte, ni fin d'action, ni duel suivant de la squad.
+ */
+export interface PendingLoot {
+  /** Objets du sac du bot (uid du bot, positions d'origine). */
+  items: ItemInst[];
+  /** Cases utilisables du sac du bot, pour l'afficher en entier. */
+  usable: string[];
+  /** Nombre d'objets à prendre (LOOT_PICKS, jamais plus que le sac n'en contient). */
+  picks: number;
+}
+
 export interface RunState {
   version: 6;
   seed: number;
@@ -75,6 +94,7 @@ export interface RunState {
   fight?: Fight;
   goulagUsed: boolean;
   /** Un duel vient d'être perdu : le Goulag attend d'être joué. */
+  pendingLoot?: PendingLoot;
   pendingGoulag?: boolean;
   credits: number;
   items: ItemInst[];
@@ -106,7 +126,8 @@ export interface Loot {
   credits: number;
 }
 
-export type PlayResult = { kind: 'shop' } | { kind: 'caisse'; loot: Loot } | ({ kind: 'duel' } & DuelParams);
+/** `epic` : caisse épique (au moins un objet Épique ou Légendaire). */
+export type PlayResult = { kind: 'shop' } | { kind: 'caisse'; loot: Loot; epic?: boolean } | ({ kind: 'duel' } & DuelParams);
 
 // ---------- Création ----------
 
@@ -172,7 +193,7 @@ export function dropInZone(run: RunState, zoneId: number): boolean {
 
 /** Vrai si le joueur peut jouer une carte maintenant (largué, pas de combat ni de Goulag en cours). */
 export function canPlayCard(run: RunState, index: number): boolean {
-  return !run.over && run.zoneId !== null && run.actionsLeft > 0 && !run.fight && !run.pendingGoulag &&
+  return !run.over && run.zoneId !== null && run.actionsLeft > 0 && !run.fight && !run.pendingGoulag && !run.pendingLoot &&
     index >= 0 && index < run.cards.length && !run.played.includes(index);
 }
 
@@ -206,6 +227,13 @@ export function playCard(run: RunState, index: number): PlayResult | null {
     const bags = rng() < CRATE_BAG_CHANCE ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
     return { kind: 'caisse', loot: { items: items.taken, bags: bags.taken, credits: items.credits + bags.credits } };
   }
+  if (card.type === 'caisse_epique') {
+    const rng = rngFor(run.seed, 'caisse_epique', run.round, run.zoneId!, index);
+    const best = randomItems(run, rng, 1, rng() < EPIC_LEGENDARY_CHANCE ? MAX_RARITY : 3);
+    const extra = randomItems(run, rng, EPIC_EXTRA_ITEMS).filter((it) => !best.some((b) => b.defId === it.defId));
+    const items = addDrops(run, [...best, ...extra]);
+    return { kind: 'caisse', epic: true, loot: { items: items.taken, bags: [], credits: items.credits } };
+  }
   run.fight = { kind: card.type, cardIndex: index, duel: 0, total: card.duels, hp: roundMaxHp(run.round) };
   return { kind: 'duel', ...currentDuel(run)! };
 }
@@ -227,15 +255,22 @@ export interface DuelOutcome {
   win: boolean;
   /** PV du joueur à la fin du duel. */
   hpEnd: number;
-  /** Objets du sac du bot (le butin est tiré dedans). */
+  /** Objets du sac du bot (le joueur choisit son butin dedans). */
   botItems: ItemInst[];
+  /** Cases utilisables du sac du bot (affichage du choix). */
+  botUsable?: string[];
 }
 
 export interface DuelResolution {
+  /** Gagné tout de suite : crédits et sacoche éventuelle. Les objets se choisissent avec takeLoot. */
   loot: Loot;
-  /** Duel suivant de la squad (PV reportés), si elle continue. */
+  /** Victoire : objets du sac du bot parmi lesquels choisir (aussi dans run.pendingLoot). */
+  lootChoices?: ItemInst[];
+  /** Nombre d'objets à choisir. */
+  picks?: number;
+  /** Duel suivant de la squad (PV reportés), si elle continue : à lancer après takeLoot. */
   next?: DuelParams;
-  /** L'action est terminée : l'UI appelle endAction. */
+  /** L'action est terminée : l'UI appelle endAction (après takeLoot). */
   actionDone: boolean;
   /** Défaite avec le Goulag disponible : l'UI lance goulagParams puis resolveGoulag. */
   goulag: boolean;
@@ -249,11 +284,14 @@ export function duelCredits(kind: FightKind, round: number, last: boolean): numb
   return 5 + 2 * round + (last ? 8 + 2 * round : 0);
 }
 
-/** Résout le duel en cours. */
+/**
+ * Résout le duel en cours. Victoire : crédits (et sacoche de fin de squad) tout de suite ; les objets du bot
+ * attendent le choix du joueur (run.pendingLoot, puis takeLoot).
+ */
 export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const empty: Loot = { items: [], bags: [], credits: 0 };
   const f = run.fight;
-  if (!f || run.over) return { loot: empty, actionDone: false, goulag: false, over: run.over };
+  if (!f || run.over || run.pendingLoot) return { loot: empty, actionDone: false, goulag: false, over: run.over };
   if (f.kind === 'final') {
     run.fight = undefined;
     run.over = out.win ? 'win' : 'lose';
@@ -272,30 +310,36 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const last = f.duel + 1 >= f.total;
   const squadEnd = f.kind === 'squad' && last;
   const rng = rngFor(run.seed, 'loot', run.round, run.zoneId ?? -1, f.cardIndex, f.duel);
-  const picked = pickFromBot(rng, out.botItems, squadEnd ? 2 : 1);
-  const items = addDrops(run, picked);
   const bags = squadEnd && rng() < SQUAD_BAG_CHANCE ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
   const reward = duelCredits(f.kind, run.round, last);
   run.credits += reward;
-  const loot: Loot = { items: items.taken, bags: bags.taken, credits: reward + items.credits + bags.credits };
+  const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
+  // Le sac du bot, tel quel : le joueur y choisit son butin.
+  const choices = out.botItems.map((it) => ({ ...it, placed: true }));
+  const picks = Math.min(LOOT_PICKS, choices.length);
+  if (picks > 0) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], picks };
+  const res: DuelResolution = { loot, lootChoices: choices, picks, actionDone: last, goulag: false };
   if (!last) {
     f.duel++;
     f.hp = Math.max(1, Math.round(out.hpEnd));
-    return { loot, next: currentDuel(run)!, actionDone: false, goulag: false };
+    res.next = currentDuel(run)!;
+    return res;
   }
   run.fight = undefined;
-  return { loot, actionDone: true, goulag: false };
+  return res;
 }
 
-/** Objets tirés au hasard dans le sac du bot (copies, sans uid). */
-function pickFromBot(rng: Rng, botItems: ItemInst[], count: number): ItemInst[] {
-  const pool = [...botItems];
-  const out: ItemInst[] = [];
-  while (out.length < count && pool.length) {
-    const it = pool.splice(Math.floor(rng() * pool.length), 1)[0];
-    out.push({ uid: -1, defId: it.defId, rarity: it.rarity, rot: 0, x: 0, y: 0, placed: false });
-  }
-  return out;
+/**
+ * Prend le butin choisi dans le sac du bot vaincu : exactement `picks` objets différents de ce sac (uids du bot).
+ * Ils vont en réserve ; ce qui n'y tient pas est revendu (comme addDrops). Renvoie null si le choix est invalide.
+ */
+export function takeLoot(run: RunState, uids: number[]): { taken: ItemInst[]; credits: number } | null {
+  const p = run.pendingLoot;
+  if (!p || uids.length !== p.picks || new Set(uids).size !== uids.length) return null;
+  const chosen = uids.map((u) => p.items.find((it) => it.uid === u));
+  if (chosen.some((c) => !c)) return null;
+  run.pendingLoot = undefined;
+  return addDrops(run, chosen.map((c) => ({ uid: -1, defId: c!.defId, rarity: c!.rarity, rot: 0, x: 0, y: 0, placed: false })));
 }
 
 /** Paramètres du Goulag : un duel équitable au niveau de la manche, PV pleins. */
@@ -315,10 +359,10 @@ export function resolveGoulag(run: RunState, win: boolean): void {
 /**
  * Fin d'une action (boutique fermée, caisse ouverte, combat terminé, Goulag gagné).
  * Après la 3e action, le cercle se resserre : manche suivante, retour sur la carte.
- * Sans effet (renvoie null) si un combat ou le Goulag est en cours, ou hors zone.
+ * Sans effet (renvoie null) si un combat, un butin à choisir ou le Goulag est en cours, ou hors zone.
  */
 export function endAction(run: RunState): { nextRound: boolean; final: boolean } | null {
-  if (run.over || run.fight || run.pendingGoulag || run.zoneId === null || run.actionsLeft <= 0) return null;
+  if (run.over || run.fight || run.pendingGoulag || run.pendingLoot || run.zoneId === null || run.actionsLeft <= 0) return null;
   run.actionsLeft--;
   run.shop = undefined;
   if (run.actionsLeft > 0) return { nextRound: false, final: false };
@@ -361,14 +405,14 @@ function pickWeighted(rng: Rng, ids: string[]): string {
   return ids[ids.length - 1];
 }
 
-/** Objets tirés dans le pool de l'opérateur, tous différents, rareté selon la manche. */
-function randomItems(run: RunState, rng: Rng, count: number): ItemInst[] {
+/** Objets tirés dans le pool de l'opérateur, tous différents, rareté selon la manche (au moins `guarantee`). */
+function randomItems(run: RunState, rng: Rng, count: number, guarantee = 0): ItemInst[] {
   const ids = lootPool(run.operator);
   const out: ItemInst[] = [];
   for (let i = 0; i < count && ids.length; i++) {
     const id = pickWeighted(rng, ids);
     ids.splice(ids.indexOf(id), 1);
-    out.push({ uid: -1, defId: id, rarity: rollRarity(rng, run.round, ITEMS[id].minRarity), rot: 0, x: 0, y: 0, placed: false });
+    out.push({ uid: -1, defId: id, rarity: rollRarity(rng, run.round, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
   }
   return out;
 }

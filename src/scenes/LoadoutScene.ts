@@ -11,11 +11,11 @@ import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
   dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
 } from '../logic/grid';
-import { RARITY_COLORS, RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
+import { MAX_RARITY, RARITY_COLORS, RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, canFuse, currentDuel, endAction,
-  finalDuelParams, fuse, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
+  finalDuelParams, fuse, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag, takeLoot,
   sellItem, shopOffers, unplaceBag, usable,
 } from '../logic/run';
 import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
@@ -89,6 +89,8 @@ export default class LoadoutScene extends Phaser.Scene {
   private run!: RunState;
   private mode: LoadoutMode = 'manage';
   private loot?: Loot;
+  /** Caisse épique (grandes zones) : présentation violet et or. */
+  private epic = false;
   private phase: Phase = 'edit';
   private params: DuelParams | null = null;
   private bot: BotBuild | null = null;
@@ -150,10 +152,11 @@ export default class LoadoutScene extends Phaser.Scene {
     super('loadout');
   }
 
-  init(data: { mode?: LoadoutMode; loot?: Loot }) {
+  init(data: { mode?: LoadoutMode; loot?: Loot; epic?: boolean }) {
     this.run = this.registry.get('run');
     this.mode = data?.mode ?? 'manage';
     this.loot = data?.loot;
+    this.epic = !!data?.epic && this.mode === 'caisse';
     this.phase = 'edit';
     this.params = null;
     this.bot = null;
@@ -517,7 +520,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const x1 = COMBAT.x + 350;
     L.add(this.add.rectangle(x1 - 16, COMBAT.y + 18, 2, COMBAT.h - 36, C.panelLine).setOrigin(0));
     let y1 = COMBAT.y + 18;
-    const title = this.mode === 'shop' ? 'BOUTIQUE' : this.mode === 'caisse' ? 'CAISSE DE RAVITAILLEMENT' : 'SAC À DOS';
+    const title = this.mode === 'shop' ? 'BOUTIQUE' : this.mode === 'caisse' ? (this.epic ? 'CAISSE ÉPIQUE' : 'CAISSE DE RAVITAILLEMENT') : 'SAC À DOS';
     L.add(txt(this, x1, y1, title, 22, C.text, { fontStyle: 'bold', wordWrap: { width: 310 } }));
     y1 += 40;
     const lines: [string, string][] = [];
@@ -1178,64 +1181,128 @@ export default class LoadoutScene extends Phaser.Scene {
     this.shopAnimated = false;
   }
 
-  /** Caisse de ravitaillement : la caisse tremble, s'ouvre, le butin jaillit puis file en réserve. */
+  /**
+   * Caisse de ravitaillement : la caisse tremble, s'ouvre, le butin jaillit puis file en réserve.
+   * Caisse épique : caisse violette cerclée d'or, lueur qui monte, tremblements plus longs, double gerbe de rayons
+   * et pluie d'étoiles ; l'objet Épique ou Légendaire sort en premier avec son bandeau.
+   */
   private openCrate(loot: Loot) {
     if (this.modal) return;
+    const epic = this.epic;
     const m = modalBase(this);
     this.modal = m;
     this.updateButtons();
     const cx = W / 2;
     const cy = 760;
-    m.add(txt(this, W / 2, 200, 'CAISSE DE RAVITAILLEMENT', 36, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
+    const legendary = epic && loot.items.some((it) => it.rarity >= MAX_RARITY);
+    const head = txt(this, W / 2, 200, epic ? 'CAISSE ÉPIQUE' : 'CAISSE DE RAVITAILLEMENT', epic ? 46 : 36, epic ? RARITY_HEX[3] : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    m.add(head);
+    if (epic) {
+      head.setShadow(0, 0, '#f2c94c', 14, true, true);
+      head.setScale(0.4).setAlpha(0);
+      this.tweens.add({ targets: head, scale: 1, alpha: 1, duration: 420, ease: 'Back.Out' });
+      m.add(txt(this, W / 2, 252, 'Au moins un objet Épique', 24, GOLD, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
+    }
+    // Lueur au sol qui monte pendant les tremblements (épique).
+    const aura = this.add.graphics().setPosition(cx, cy).setAlpha(0);
+    if (epic) {
+      for (let k = 6; k >= 1; k--) {
+        aura.fillStyle(k % 2 ? RARITY_COLORS[3] : RARITY_COLORS[4], 0.09);
+        aura.fillCircle(0, 0, 90 + k * 34);
+      }
+      m.add(aura);
+    }
     const rays = this.add.graphics().setPosition(cx, cy - 40).setAlpha(0);
-    rays.fillStyle(0xf2c94c, 0.18);
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      rays.fillTriangle(0, 0, Math.cos(a - 0.12) * 420, Math.sin(a - 0.12) * 420, Math.cos(a + 0.12) * 420, Math.sin(a + 0.12) * 420);
+    const nRays = epic ? 18 : 12;
+    rays.fillStyle(epic ? RARITY_COLORS[3] : 0xf2c94c, epic ? 0.26 : 0.18);
+    for (let i = 0; i < nRays; i++) {
+      const a = (i / nRays) * Math.PI * 2;
+      rays.fillTriangle(0, 0, Math.cos(a - 0.1) * 460, Math.sin(a - 0.1) * 460, Math.cos(a + 0.1) * 460, Math.sin(a + 0.1) * 460);
     }
     m.add(rays);
+    // 2e gerbe de rayons, or, qui tourne en sens inverse (épique).
+    const rays2 = this.add.graphics().setPosition(cx, cy - 40).setAlpha(0);
+    if (epic) {
+      rays2.fillStyle(0xf2c94c, 0.2);
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2 + 0.2;
+        rays2.fillTriangle(0, 0, Math.cos(a - 0.05) * 520, Math.sin(a - 0.05) * 520, Math.cos(a + 0.05) * 520, Math.sin(a + 0.05) * 520);
+      }
+      m.add(rays2);
+    }
     // Caisse : corps et couvercle
     const crate = this.add.container(cx, cy);
     const body = this.add.graphics();
+    const cBody = epic ? 0x4b2a6e : 0x4a5530;
+    const cDark = epic ? 0x2a1640 : 0x2e3620;
+    const cBand = epic ? 0x3a2058 : 0x3a4426;
     body.fillStyle(0x000000, 0.4);
     body.fillRoundedRect(-130, -64, 260, 150, 10);
-    body.fillStyle(0x4a5530, 1);
+    body.fillStyle(cBody, 1);
     body.fillRoundedRect(-130, -70, 260, 150, 10);
-    body.lineStyle(4, 0x2e3620, 1);
+    body.lineStyle(4, epic ? 0xf2c94c : cDark, 1);
     body.strokeRoundedRect(-130, -70, 260, 150, 10);
-    body.fillStyle(0x3a4426, 1);
-    body.fillRect(-130, -20, 260, 14);
-    body.fillRect(-130, 40, 260, 14);
+    body.fillStyle(epic ? 0xf2c94c : cBand, 1);
+    body.fillRect(-130, -20, 260, epic ? 8 : 14);
+    body.fillRect(-130, 40, 260, epic ? 8 : 14);
+    if (epic) {
+      // Coins renforcés dorés
+      for (const [qx, qy] of [[-130, -70], [106, -70], [-130, 56], [106, 56]]) body.fillRect(qx, qy, 24, 24);
+    }
     body.fillStyle(0xf2c94c, 1);
     body.fillRect(-40, -2, 80, 30);
     crate.add(body);
-    crate.add(txt(this, 0, 13, 'SUPPLY', 18, '#1a1206', { fontStyle: 'bold' }).setOrigin(0.5));
+    crate.add(txt(this, 0, 13, epic ? '★ ÉPIQUE ★' : 'SUPPLY', epic ? 15 : 18, '#1a1206', { fontStyle: 'bold' }).setOrigin(0.5));
     const lid = this.add.container(0, -70);
     const lg = this.add.graphics();
-    lg.fillStyle(0x56633a, 1);
+    lg.fillStyle(epic ? 0x5c3486 : 0x56633a, 1);
     lg.fillRoundedRect(-140, -30, 280, 34, 8);
-    lg.lineStyle(4, 0x2e3620, 1);
+    lg.lineStyle(4, epic ? 0xf2c94c : cDark, 1);
     lg.strokeRoundedRect(-140, -30, 280, 34, 8);
-    lg.fillStyle(0x8a8f6a, 1);
+    lg.fillStyle(epic ? 0xf2c94c : 0x8a8f6a, 1);
     lg.fillRect(-14, -26, 28, 10);
     lid.add(lg);
     crate.add(lid);
     m.add(crate);
     crate.setScale(0.2).setAlpha(0);
     this.tweens.add({ targets: crate, scale: 1, alpha: 1, duration: 320, ease: 'Back.Out' });
-    // Tremblements croissants
-    this.tweens.add({ targets: crate, angle: { from: -4, to: 4 }, duration: 70, yoyo: true, repeat: 5, delay: 380, onComplete: () => crate.setAngle(0) });
-    const t0 = 380 + 70 * 12 + 40;
+    // Tremblements croissants (plus longs pour l'épique, avec la lueur qui monte)
+    const shakes = epic ? 11 : 5;
+    this.tweens.add({ targets: crate, angle: { from: -4, to: 4 }, duration: 70, yoyo: true, repeat: shakes, delay: 380, onComplete: () => crate.setAngle(0) });
+    if (epic) {
+      this.tweens.add({ targets: aura, alpha: 1, scale: { from: 0.5, to: 1.1 }, delay: 380, duration: 70 * 2 * (shakes + 1) });
+      this.time.delayedCall(380 + 70 * (shakes + 1), () => this.cameras.main.shake(70 * (shakes + 1), 0.003));
+    }
+    const t0 = 380 + 70 * 2 * (shakes + 1) + 40;
     this.time.delayedCall(t0, () => {
       // Le couvercle saute
       this.tweens.add({ targets: lid, y: -300, angle: -35, alpha: 0, duration: 520, ease: 'Quad.Out' });
       this.tweens.add({ targets: rays, alpha: 1, duration: 260 });
       this.tweens.add({ targets: rays, angle: 360, duration: 12000, repeat: -1 });
-      this.cameras.main.shake(220, 0.008);
-      this.cameras.main.flash(160, 255, 236, 180);
-      vibrate([30, 40, 30]);
+      if (epic) {
+        this.tweens.add({ targets: rays2, alpha: 1, duration: 260 });
+        this.tweens.add({ targets: rays2, angle: -360, duration: 9000, repeat: -1 });
+        this.tweens.add({ targets: aura, scale: 1.25, alpha: 0.75, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+        // Pluie d'étoiles violettes et dorées
+        for (let k = 0; k < 26; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const d = 180 + Math.random() * 300;
+          const star = txt(this, cx, cy - 60, '★', 18 + Math.floor(Math.random() * 22), k % 2 ? GOLD : RARITY_HEX[3]).setOrigin(0.5);
+          m.add(star);
+          this.tweens.add({
+            targets: star, x: cx + Math.cos(a) * d, y: cy - 60 + Math.sin(a) * d * 0.8 + 120, angle: 360 * (Math.random() < 0.5 ? -1 : 1),
+            alpha: 0, scale: 0.3, duration: 900 + Math.random() * 700, ease: 'Cubic.Out', onComplete: () => star.destroy(),
+          });
+        }
+      }
+      this.cameras.main.shake(epic ? 380 : 220, epic ? 0.014 : 0.008);
+      if (epic) this.cameras.main.flash(260, 200, 150, 255);
+      else this.cameras.main.flash(160, 255, 236, 180);
+      vibrate(epic ? [40, 40, 40, 40, 80] : [30, 40, 30]);
       const entries: { v: Container; label: string; col: string; w: number; h: number }[] = [];
-      for (const it of loot.items) {
+      // Épique : le meilleur objet sort en premier.
+      const items = epic ? [...loot.items].sort((a, b) => b.rarity - a.rarity) : loot.items;
+      for (const it of items) {
         const d = dims(it);
         const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
         entries.push({ v: itemView(this, it, CELL).setScale(s), label: `${ITEMS[it.defId].name}\n${RARITY_NAMES[it.rarity]}`, col: RARITY_HEX[it.rarity], w: d.w * CELL * s, h: d.h * CELL * s });
@@ -1263,6 +1330,12 @@ export default class LoadoutScene extends Phaser.Scene {
         m.add(ct);
       }
       if (!n) m.add(txt(this, W / 2, 400, 'Vide… pas de chance.', 26, C.quiet).setOrigin(0.5));
+      if (legendary) {
+        // Bandeau Légendaire qui claque sous le titre.
+        const lb = txt(this, W / 2, 590, 'LÉGENDAIRE !', 44, RARITY_HEX[MAX_RARITY], { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 7, padding: { x: 14, y: 10 } }).setOrigin(0.5).setScale(3).setAlpha(0).setAngle(-6);
+        m.add(lb);
+        this.tweens.add({ targets: lb, scale: 1, alpha: 1, delay: 300, duration: 300, ease: 'Back.Out', onComplete: () => this.cameras.main.shake(120, 0.006) });
+      }
       const hint = txt(this, W / 2, 1040, 'Touche pour ranger', 24, C.text, { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0);
       m.add(hint);
       this.tweens.add({ targets: hint, alpha: 1, delay: 700, duration: 300 });
@@ -1326,6 +1399,8 @@ export default class LoadoutScene extends Phaser.Scene {
   private onMain() {
     if (this.modal) return;
     if (this.phase === 'prep') return this.startFight();
+    // Butin pas encore choisi : on rouvre la fouille.
+    if (this.run.pendingLoot && !this.run.over) return this.openLootChoice(this.bot?.name);
     if (this.phase === 'result' || this.phase === 'over') {
       const go = this.post?.go;
       if (go) go();
@@ -1377,6 +1452,13 @@ export default class LoadoutScene extends Phaser.Scene {
     if (r.pendingGoulag) {
       this.refresh();
       this.showGoulag();
+      return;
+    }
+    if (r.pendingLoot) {
+      // Rechargement pendant la fouille d'un sac : on y revient.
+      this.phase = 'result';
+      this.refresh();
+      this.time.delayedCall(150, () => this.openLootChoice());
       return;
     }
     if (!r.fight && r.round >= FINAL_ROUND) {
@@ -2086,7 +2168,7 @@ export default class LoadoutScene extends Phaser.Scene {
       return;
     }
 
-    const out = resolveDuel(r, { win: res.win, hpEnd: res.hpEndA, botItems: this.bot.items });
+    const out = resolveDuel(r, { win: res.win, hpEnd: res.hpEndA, botItems: this.bot.items, botUsable: this.bot.usable });
     if (out.over) {
       this.gameOver(out.over === 'win');
       this.refresh();
@@ -2099,49 +2181,148 @@ export default class LoadoutScene extends Phaser.Scene {
       this.refresh();
       return;
     }
-    // Victoire : butin tiré du sac adverse
+    // Victoire : crédits (et sacoche de fin de squad) tout de suite, puis on fouille le sac du vaincu.
     banner(this, 'VICTOIRE', C.goodStr, GRID_Y + 160);
     vibrate([30, 30, 60]);
-    if (out.next) {
-      const next = out.next;
-      this.post = { label: `Combat ${next.squad.duel + 1}/${next.squad.total} →`, go: () => this.setupDuel(next) };
-    } else if (out.actionDone) {
-      const e = endAction(r);
-      this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
-    } else this.post = { label: 'Continuer', go: () => this.route() };
-    this.refresh();
+    this.post = null;
+    this.refresh(); // sauvegarde : un rechargement reprend au choix du butin
     const loot = out.loot;
-    // Les objets s'envolent du sac adverse vers la réserve
-    const used = new Set<number>();
-    const sources = loot.items.map((it) => {
-      const src = this.bot!.items.find((b) => !used.has(b.uid) && b.defId === it.defId && b.rarity === it.rarity)
-        ?? this.bot!.items.find((b) => !used.has(b.uid) && b.defId === it.defId);
-      if (src) used.add(src.uid);
-      const v = src && this.enemyViews.get(src.uid);
-      if (v) {
-        flashItem(this, v, 0xf2c94c);
-        this.time.delayedCall(700, () => v.setAlpha(0.25));
-        return { x: v.x + (v.width * v.scaleX) / 2, y: v.y + (v.height * v.scaleY) / 2 };
-      }
-      return { x: ENEMY.x + ENEMY.w / 2, y: ENEMY.y + ENEMY.h / 2 };
-    });
-    // Les sacoches partent du centre du panneau adverse
-    for (const _b of loot.bags) sources.push({ x: ENEMY.x + ENEMY.w / 2, y: ENEMY.y + ENEMY.h / 2 });
-    loot.items.forEach((it) => this.hidden.add(it.uid));
+    const bagSources = loot.bags.map(() => ({ x: ENEMY.x + ENEMY.w / 2, y: ENEMY.y + ENEMY.h / 2 }));
     loot.bags.forEach((b) => this.hiddenBags.add(b.uid));
     this.refresh();
-    this.time.delayedCall(800, () => {
-      this.flyToReserve(loot.items, sources, 0, loot.bags);
-      const parts: string[] = [];
-      if (loot.items.length) parts.push(`${loot.items.length} objet${loot.items.length > 1 ? 's' : ''}`);
-      if (loot.bags.length) parts.push(`${loot.bags.length} sacoche${loot.bags.length > 1 ? 's' : ''}`);
-      if (parts.length) toast(this, `Butin : ${parts.join(' + ')} → réserve`, C.accentStr, GRID_Y + 250);
-      if (loot.credits) this.time.delayedCall(500, () => {
-        toast(this, `+${loot.credits} cr`, C.accentStr, GRID_Y + 320);
+    this.time.delayedCall(700, () => {
+      if (loot.bags.length) this.flyToReserve([], bagSources, 0, loot.bags);
+      if (loot.credits) {
+        toast(this, `+${loot.credits} cr${loot.bags.length ? ' + sacoche' : ''}`, C.accentStr, GRID_Y + 250);
         this.coinBurst(ENEMY.x + ENEMY.w / 2, ENEMY.y + ENEMY.h - 30);
-      });
-      if (out.next) this.time.delayedCall(1300, () => toast(this, `Prochain combat avec ${out.next!.hp}/${out.next!.maxHp} PV`, C.text, GRID_Y + 390));
+      }
     });
+    this.time.delayedCall(r.pendingLoot ? 1300 : 700, () => {
+      if (r.pendingLoot) this.openLootChoice(this.bot?.name);
+      else this.afterLoot();
+    });
+  }
+
+  /** Suite après le butin : duel suivant de la squad, ou fin de l'action. */
+  private afterLoot() {
+    const r = this.run;
+    const next = currentDuel(r);
+    if (next && next.type !== 'final' && next.type !== 'goulag') {
+      this.post = { label: `Combat ${next.squad.duel + 1}/${next.squad.total} →`, go: () => this.setupDuel(next) };
+      this.time.delayedCall(400, () => toast(this, `Prochain combat avec ${next.hp}/${next.maxHp} PV`, C.text, GRID_Y + 390));
+    } else {
+      const e = endAction(r);
+      this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
+    }
+    this.refresh();
+  }
+
+  /**
+   * Fouille du sac adverse (« comme quand on loot vraiment un gars ») : son sac en grand, tel qu'il était rangé.
+   * Touche un objet pour sa fiche, puis « Prendre ». Dernier duel d'une squad : 2 objets, l'un après l'autre.
+   * Le choix est en attente dans la run (pendingLoot) : un rechargement le reprend ici.
+   */
+  private openLootChoice(botName?: string) {
+    const pl = this.run.pendingLoot;
+    if (!pl) return this.afterLoot();
+    this.closeModal();
+    const m = modalBase(this);
+    this.modal = m;
+    this.phase = 'result';
+    this.updateButtons();
+    const top = 96;
+    const pnl = panel(this, 24, top, W - 48, 1130, 0x7a3a32);
+    m.add(pnl);
+    m.add(txt(this, 54, top + 26, botName ? `SAC DE ${botName.toUpperCase()}` : 'SAC DU VAINCU', 34, '#ffb4a8', { fontStyle: 'bold' }));
+    const counter = txt(this, 54, top + 76, '', 24, GOLD, { fontStyle: 'bold' });
+    m.add(counter);
+    // Sac du bot : ses cases (ou, à défaut, la boîte englobante de ses objets)
+    const cells = (pl.usable.length ? pl.usable.map((k) => k.split(',').map(Number)) : pl.items.flatMap((it) => cellsAt(it, it.x, it.y)));
+    const x0 = Math.min(...cells.map((c) => c[0]));
+    const y0 = Math.min(...cells.map((c) => c[1]));
+    const bwc = Math.max(...cells.map((c) => c[0])) - x0 + 1;
+    const bhc = Math.max(...cells.map((c) => c[1])) - y0 + 1;
+    const cell = Math.floor(Math.min(620 / bwc, 520 / bhc, 96));
+    const gx = (W - bwc * cell) / 2;
+    const gy = top + 130;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x5a4a3a, 1);
+    bg.fillRoundedRect(gx - 8, gy - 8, bwc * cell + 16, bhc * cell + 16, 14);
+    bg.fillStyle(0x3a3024, 1);
+    bg.fillRoundedRect(gx - 3, gy - 3, bwc * cell + 6, bhc * cell + 6, 10);
+    bg.fillStyle(0x000000, 0.2);
+    for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 5, gy + (cy - y0) * cell + 5, cell - 10, cell - 10, 6);
+    m.add(bg);
+    const infoY = gy + bhc * cell + 26;
+    const title = txt(this, 54, infoY, 'Touche un objet pour voir sa fiche.', 24, C.text, { fontStyle: 'bold', wordWrap: { width: W - 108 } });
+    const info = txt(this, 54, infoY + 40, '', 19, C.quiet, { wordWrap: { width: W - 108 }, lineSpacing: 4 });
+    m.add([title, info]);
+    const sel = this.add.graphics();
+    const views = new Map<number, Container>();
+    const chosen: number[] = [];
+    let current: ItemInst | null = null;
+    const full = () => reserve(this.run).length >= RESERVE_MAX;
+    const take = button(this, 54, top + 1130 - 120, W - 108, 96, 'Choisis un objet', () => {
+      if (!current) return;
+      chosen.push(current.uid);
+      const v = views.get(current.uid)!;
+      flashItem(this, v, 0xf2c94c);
+      this.tweens.add({ targets: v, alpha: 0.25, duration: 250 });
+      vibrate(15);
+      current = null;
+      sel.clear();
+      if (chosen.length < pl.picks) return update();
+      // Tout est choisi : le butin file en réserve depuis le sac adverse.
+      const got = takeLoot(this.run, chosen);
+      if (!got) return;
+      const sources = chosen.map((u) => {
+        const vv = views.get(u)!;
+        return { x: vv.x + (vv.width * vv.scaleX) / 2, y: vv.y + (vv.height * vv.scaleY) / 2 };
+      });
+      this.closeModal();
+      if (got.taken.length) this.flyToReserve(got.taken, sources, 0);
+      if (got.credits) toast(this, `Réserve pleine : revendu +${got.credits} cr`, C.accentStr, GRID_Y + 320);
+      this.afterLoot();
+    }, { primary: true, size: 28 });
+    m.add(take.root);
+    const update = () => {
+      counter.setText(pl.picks > 1 ? `Choisis ${pl.picks} objets · ${chosen.length + 1}/${pl.picks}` : 'Choisis 1 objet');
+      if (current) {
+        const d = describe(current);
+        title.setText(`${d.title} · ${d.subtitle}`).setColor(RARITY_HEX[current.rarity]);
+        info.setText(d.lines.slice(0, 5).join('\n') + (full() ? '\nRéserve pleine : il sera revendu.' : ''));
+        take.setLabel(`Prendre · ${ITEMS[current.defId].short} ▸`);
+        take.setEnabled(true);
+      } else {
+        title.setText(chosen.length ? 'Encore un : touche un autre objet.' : 'Touche un objet pour voir sa fiche.').setColor(C.text);
+        info.setText(full() ? 'Réserve pleine : ce que tu prends sera revendu.' : '');
+        take.setLabel('Choisis un objet');
+        take.setEnabled(false);
+      }
+    };
+    for (const it of pl.items) {
+      const v = itemView(this, it, cell).setPosition(gx + (it.x - x0) * cell, gy + (it.y - y0) * cell);
+      m.add(v);
+      views.set(it.uid, v);
+      v.setAlpha(0);
+      this.tweens.add({ targets: v, alpha: 1, delay: 80 + views.size * 50, duration: 200 });
+      for (const [cx, cy] of cellsAt(it, it.x, it.y)) {
+        const z = this.add.zone(gx + (cx - x0 + 0.5) * cell, gy + (cy - y0 + 0.5) * cell, cell, cell).setInteractive({ useHandCursor: true });
+        z.on('pointerup', () => {
+          if (chosen.includes(it.uid)) return;
+          current = it;
+          vibrate(8);
+          sel.clear();
+          sel.lineStyle(5, 0xf2c94c, 1);
+          for (const [sx, sy] of cellsAt(it, it.x, it.y)) sel.strokeRoundedRect(gx + (sx - x0) * cell + 2, gy + (sy - y0) * cell + 2, cell - 4, cell - 4, 8);
+          pop(this, v, 1.08, 160);
+          update();
+        });
+        m.add(z);
+      }
+    }
+    m.add(sel);
+    update();
   }
 
   private gameOver(win: boolean) {
