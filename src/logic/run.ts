@@ -149,8 +149,8 @@ export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1
     nextUid: 1,
     speed: 1,
   };
-  for (const [id, x, y] of OPERATORS[operator].start) {
-    const it = makeItem(run, id, 0);
+  for (const [id, x, y, rarity = 0] of OPERATORS[operator].start) {
+    const it = makeItem(run, id, rarity);
     Object.assign(it, { x, y, placed: true });
     run.items.push(it);
   }

@@ -10,7 +10,7 @@ const N = 400;
 const pctS = (w: number, n: number) => `${Math.round((w / n) * 100)}%`.padEnd(8);
 
 const startItems = (op: OperatorId): ItemInst[] =>
-  OPERATORS[op].start.map(([defId, x, y], i) => ({ uid: 100 + i, defId, rarity: 0, rot: 0, x, y, placed: true }));
+  OPERATORS[op].start.map(([defId, x, y, rarity = 0], i) => ({ uid: 100 + i, defId, rarity, rot: 0, x, y, placed: true }));
 
 // Bots générés une fois par (tour, danger), rangés par qualité.
 const cache = new Map<string, Record<string, BotBuild[]>>();

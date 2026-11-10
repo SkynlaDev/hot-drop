@@ -7,7 +7,7 @@ import { ItemInst, Rot, canPlace, cellKey, cellsOf } from '../src/logic/grid';
 import { DRUM_RELOAD, FEU_CAP, FEU_RATE, MARK_BONUS, PlayerLoadout, WeaponRt, computeLoadout, describe as describeItem, estimateDps, maxHpFor } from '../src/logic/stats';
 
 const inst = (uid: number, defId: string, x: number, y: number, rarity = 0, rot: Rot = 0): ItemInst => ({ uid, defId, rarity, rot, x, y, placed: true });
-const startItems = (op: OperatorId): ItemInst[] => OPERATORS[op].start.map(([defId, x, y], i) => inst(100 + i, defId, x, y));
+const startItems = (op: OperatorId): ItemInst[] => OPERATORS[op].start.map(([defId, x, y, rarity = 0], i) => inst(100 + i, defId, x, y, rarity));
 const start = (op: OperatorId, hp = 100) => computeLoadout(startItems(op), op, hp).loadout;
 
 const winRate = (a: () => ReturnType<typeof start>, b: (s: number) => ReturnType<typeof start>, n: number) => {
