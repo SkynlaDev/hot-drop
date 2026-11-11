@@ -59,5 +59,7 @@
     "casque_lourd": "heavy ballistic helmet with visor",
     "plaque": "grey ceramic ballistic armor plate"
   },
-  "_armes": "Armes (27) : refaites avec create_image_pro pour un style commun, en noir neutre (les skins viendront par-dessus). Image de style : tools/art/style-armes.png (Hadès, SMG Furet, revolver, pompe). Référence : le masque de la forme (gris = cases). Armes assemblées : référence = le sprite de l'arme de base, pour qu'on reconnaisse l'amélioration ; Akimbo et Jumeaux = deux exemplaires de l'arme de base. Post-traitement : tools/art/fit-place.py (décalage seul, sans mise à l'échelle, puis découpe au masque)."
+  "_armes": "Armes (27) : refaites avec create_image_pro pour un style commun, en noir neutre (les skins viendront par-dessus). Image de style : tools/art/style-armes.png (Hadès, SMG Furet, revolver, pompe). Référence : le masque de la forme (gris = cases). Armes assemblées : référence = le sprite de l'arme de base, pour qu'on reconnaisse l'amélioration ; Akimbo et Jumeaux = deux exemplaires de l'arme de base. Post-traitement : tools/art/fit-place.py (décalage seul, sans mise à l'échelle, puis découpe au masque).",
+  "_accessoires": "Accessoires et munitions (16, taser compris) : même méthode et même image de style que les armes, noir neutre ; seuls accents : laiton des douilles, cartouches 12G rouges, pointes des traçantes.",
+  "_menu": "Illustration du menu : public/art/menu/keyart.png (create_image_pro 360×400, style et référence = public/art/px/viper.png), affichée ×2. Logo dessiné en code (src/ui/logo.ts)."
 }

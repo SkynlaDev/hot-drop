@@ -80,6 +80,9 @@ export function zoneBg(name: string): BgId {
 }
 
 /** À appeler dans le preload de la première scène. */
+/** Illustration du menu principal (PixelLab, 360×400, affichée ×2). */
+export const MENU_ART = 'menu-keyart';
+
 export function preloadArt(load: Phaser.Loader.LoaderPlugin) {
   for (const [k, v] of Object.entries(ART.icons)) load.svg(`ic-${k}`, `art/icons/${k}.svg`, { width: v.w / 2, height: v.h / 2 });
   for (const [k, v] of Object.entries(ART.figures)) load.svg(`fig-${k}`, `art/fig/${k}.svg`, { width: v.w * 3, height: v.h * 3 });
@@ -87,9 +90,10 @@ export function preloadArt(load: Phaser.Loader.LoaderPlugin) {
   for (const b of ART.backgrounds) load.svg(`bg-${b}`, `art/bg/${b}.svg`, { width: 1360, height: 576 });
   for (const id of Object.keys(PX_FIGS) as PxFigId[]) load.image(pxKey(id), `art/px/${id}.png`);
   for (const id of Object.keys(ITEMS)) load.image(itemSpriteKey(id), `art/items/${id}.png`);
+  load.image(MENU_ART, 'art/menu/keyart.png');
   // Pixel art : agrandi sans lissage.
   load.once(Phaser.Loader.Events.COMPLETE, () => {
-    for (const key of [...(Object.keys(PX_FIGS) as PxFigId[]).map(pxKey), ...Object.keys(ITEMS).map(itemSpriteKey)]) {
+    for (const key of [...(Object.keys(PX_FIGS) as PxFigId[]).map(pxKey), ...Object.keys(ITEMS).map(itemSpriteKey), MENU_ART]) {
       const tex = load.scene.textures.get(key);
       if (tex.key !== '__MISSING') tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
