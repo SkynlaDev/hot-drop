@@ -1,0 +1,1192 @@
+<!doctype html><meta charset="utf-8"><title>Hot Drop — Wiki</title><style>body{font-family:system-ui,sans-serif;background:#1d2127;color:#dfe3e8;max-width:980px;margin:auto;padding:24px 32px;line-height:1.5}
+h1,h2,h3{color:#f0b252}h2{border-bottom:1px solid #3a414b;padding-bottom:4px;margin-top:40px}h4{margin-bottom:4px;color:#fff}
+table{border-collapse:collapse;margin:12px 0}td,th{border:1px solid #3a414b;padding:4px 10px}th{background:#2a3038}
+img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-radius:4px;padding:2px}a{color:#6fd0fa}code{background:#2a3038;padding:1px 4px}</style><h1 id="hot-drop-wiki">Hot Drop — Wiki</h1>
+<blockquote>
+<p>Généré par <code>npm run wiki</code> depuis les données du jeu : ne pas modifier à la main.</p>
+</blockquote>
+<h2 id="sommaire">Sommaire</h2>
+<ol>
+<li><a href="#le-principe">Le principe</a></li>
+<li><a href="#déroulé-dune-partie">Déroulé d’une partie</a></li>
+<li><a href="#le-sac">Le sac</a></li>
+<li><a href="#le-combat">Le combat</a></li>
+<li><a href="#les-liens--étoiles-et-accessoires">Les liens : étoiles et accessoires</a></li>
+<li><a href="#familles">Familles</a></li>
+<li><a href="#opérateurs">Opérateurs</a></li>
+<li><a href="#recettes">Recettes</a></li>
+<li><a href="#butin-caisses-et-boutique">Butin, caisses et boutique</a></li>
+<li><a href="#sacoches">Sacoches</a></li>
+<li><a href="#objets">Objets</a></li>
+</ol>
+<h2 id="le-principe">Le principe</h2>
+<p>Un battle royale en solo, joué comme un <em>backpack battler</em> : on se largue sur une carte, on ramasse des objets, on les range dans un sac en grille, et les duels se jouent seuls à partir de ce que contient le sac.</p>
+<p>Tout se décide <strong>hors combat</strong> : quoi prendre, quoi revendre, et surtout <strong>où ranger chaque objet</strong>, car les objets qui se touchent se renforcent (étoiles, accessoires, chargeurs, recettes).</p>
+<p>Objectif : survivre aux 5 cercles puis gagner le duel final, le <strong>Top 1</strong>.</p>
+<h2 id="deroule-dune-partie">Déroulé d’une partie</h2>
+<h3 id="la-carte-et-le-cercle">La carte et le cercle</h3>
+<ul>
+<li>La carte compte 9 zones de trois tailles (petite, moyenne, grande). Elle est grande au départ et le cercle de gaz se resserre à chaque manche : les zones gazées ne sont plus jouables.</li>
+<li>Une partie dure 5 manches (cercles). À chaque manche on choisit une zone dans le cercle et on s’y largue.</li>
+<li>Dans une zone, on tire des cartes (petite 4, moyenne 6, grande 8) et on en joue <strong>3</strong> : chaque carte jouée est une action.</li>
+<li>Après la dernière action, le cercle se resserre : <strong>ravitaillement</strong> (une boutique garantie), puis retour sur la carte pour la manche suivante.</li>
+<li>Après la 5ᵉ manche : ravitaillement, puis le duel final <strong>Top 1</strong> contre le bot le plus fort de la partie.</li>
+</ul>
+<h3 id="les-cartes">Les cartes</h3>
+<table>
+<thead>
+<tr>
+<th>Carte</th>
+<th>Effet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duel</td>
+<td>Un duel contre un bot. Victoire : crédits, puis on prend 1 objet dans son sac.</td>
+</tr>
+<tr>
+<td>Élite</td>
+<td>Un duel contre un bot fort. Victoire : plus de crédits, 2 objets à prendre dans son sac, 40 % de chance d’une sacoche.</td>
+</tr>
+<tr>
+<td>Caisse</td>
+<td>Quelques objets proposés, on en garde un, plus des crédits.</td>
+</tr>
+<tr>
+<td>Caisse renforcée</td>
+<td>Plus d’objets et de crédits, dont un ingrédient qui complète une recette commencée (à partir du cercle 2).</td>
+</tr>
+<tr>
+<td>Caisse épique</td>
+<td>Contient un objet assemblé. Seulement dans les grandes zones (50 % de chance par zone, à partir du cercle 2).</td>
+</tr>
+<tr>
+<td>Boutique</td>
+<td>Acheter, revendre, relancer les offres.</td>
+</tr>
+</tbody>
+</table>
+<p>Fréquence des cartes selon la taille de la zone (poids relatifs) :</p>
+<table>
+<thead>
+<tr>
+<th>Zone</th>
+<th>Duel</th>
+<th>Élite</th>
+<th>Caisse</th>
+<th>Caisse renforcée</th>
+<th>Boutique</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>petite</td>
+<td>38</td>
+<td>6</td>
+<td>30</td>
+<td>6</td>
+<td>20</td>
+</tr>
+<tr>
+<td>moyenne</td>
+<td>36</td>
+<td>16</td>
+<td>20</td>
+<td>8</td>
+<td>20</td>
+</tr>
+<tr>
+<td>grande</td>
+<td>34</td>
+<td>28</td>
+<td>12</td>
+<td>6</td>
+<td>13</td>
+</tr>
+</tbody>
+</table>
+<p>Une zone contient toujours au moins un combat, au plus une boutique et une caisse renforcée. Plus la zone est grande, plus les bots sont dangereux… et plus le butin est riche.</p>
+<h3 id="themes-de-zone">Thèmes de zone</h3>
+<p>Chaque zone a un thème : 50 % du butin (boutique, caisses, objets des bots) en vient.</p>
+<table>
+<thead>
+<tr>
+<th>Thème</th>
+<th>Oriente vers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Armurerie</td>
+<td>Armes à feu et armes de mêlée</td>
+</tr>
+<tr>
+<td>Hôpital</td>
+<td>Soins et protections</td>
+</tr>
+<tr>
+<td>Chantier</td>
+<td>Explosifs et famille Démolition</td>
+</tr>
+<tr>
+<td>Commissariat</td>
+<td>Accessoires et munitions</td>
+</tr>
+<tr>
+<td>Marché noir</td>
+<td>Pas d’orientation, mais deux fois plus de boutiques</td>
+</tr>
+</tbody>
+</table>
+<h3 id="duels-credits-et-goulag">Duels, crédits et Goulag</h3>
+<ul>
+<li>Chaque duel commence PV pleins. PV max à la manche <em>n</em> (1ʳᵉ = 0) : 300 + 150 × <em>n</em> (300, 450, 600, 750, 900, 1050 PV au Top 1). Les bots ont les mêmes PV.</li>
+<li>Crédits d’un duel gagné : 6 + 2 × manche ; Élite : 10 + 3 × manche.</li>
+<li><strong>Goulag</strong> : la première défaite de la partie envoie au Goulag, un duel équitable PV pleins. Gagné, on revient en jeu ; perdu, c’est la fin. Une seule fois par partie.</li>
+<li>Une défaite sans Goulag disponible, ou au Top 1, termine la partie.</li>
+</ul>
+<h2 id="le-sac">Le sac</h2>
+<ul>
+<li>La grille fait 9 × 8 cases. Le sac de base occupe le centre (5 × 4 cases) ; les <strong>sacoches</strong> posées autour ajoutent des cases utilisables.</li>
+<li>Chaque objet a une forme ; on peut le tourner par quarts de tour. Ses étoiles tournent avec lui.</li>
+<li>Réserve : 6 objets et 3 sacoches non posés. Seuls les objets posés dans le sac comptent en combat.</li>
+<li>Revente : 50 % du prix (au moins 1 crédit).</li>
+<li>Crédits de départ : 10.</li>
+</ul>
+<h2 id="le-combat">Le combat</h2>
+<p>Le duel se joue seul, sac contre sac, et dure en général 12 à 20 secondes.</p>
+<ul>
+<li><strong>Armes à feu</strong> : tirent en continu. Précision de base 85 %. Critique de base 5 %, dégâts ×2.</li>
+<li><strong>Chargeurs</strong> : les munitions sont infinies, mais une arme rechargée sans chargeur de son calibre posé contre elle recharge <strong>2 fois plus lentement</strong> (badge « RECH ×2 »). Chaque chargeur adjacent du bon calibre accélère encore la recharge.</li>
+<li><strong>Armure</strong> : absorbe les dégâts avant les PV, sauf la part qui la perce.</li>
+<li><strong>Mêlée</strong> : frappe pendant tout le duel, à côté des armes à feu. Dans un sac <strong>sans aucune arme à feu</strong>, elle frappe 1,5 fois plus vite (build Lame).</li>
+<li><strong>Saignement</strong> : dégâts qui ignorent l'armure, versés peu à peu (35 % de la réserve par seconde).</li>
+<li><strong>Objets actifs</strong> (grenades, fumigène, soins, taser, bandage…) : se déclenchent seuls, avec des charges et un délai.</li>
+<li><strong>Temps limite</strong> : 90 s. Au-delà, gagne celui qui a la plus grande part de ses PV max.</li>
+</ul>
+<h2 id="les-liens-etoiles-et-accessoires">Les liens : étoiles et accessoires</h2>
+<p>Les objets se renforcent quand ils se touchent dans le sac (bords partagés). Tout lien se voit dans le sac :</p>
+<ul>
+<li><strong>Étoiles</strong> : certains objets ont des étoiles sur des cases précises autour d’eux. Une étoile s’allume quand un objet du bon type occupe une de ses cases. Quand on tient un objet, les cases où il se lierait s’affichent en étoiles creuses, et les objets qu’il attend sont entourés en vert. Chaque objet posé affiche « ★ n », son nombre d’étoiles allumées.</li>
+<li><strong>Accessoires et chargeurs</strong> : ils ont une étoile tout autour d’eux qui attend une arme compatible (calibre pour les chargeurs, arme longue pour la lunette et le bipied, arme courte pour le viseur holo).</li>
+<li>En boutique, en caisse et au butin : « ★ » signale un objet qui se lierait au sac, « ⚗ » un objet qui complète une recette.</li>
+<li><em>Max</em> : au plus ce nombre d’objets comptent pour une même étoile.</li>
+</ul>
+<h3 id="toutes-les-etoiles">Toutes les étoiles</h3>
+<table>
+<thead>
+<tr>
+<th>Objet</th>
+<th>Attend</th>
+<th>Effet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="../public/art/items/pompe.png" height="24"> Pompe Sanglier</td>
+<td>Explosif (tout autour)</td>
+<td>+15 % de dégâts (max 2)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm</td>
+<td>Arme 9mm (tout autour)</td>
+<td>−25 % de recharge (max 3)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56</td>
+<td>Arme 5.56 (tout autour)</td>
+<td>−25 % de recharge (max 3)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62</td>
+<td>Arme 7.62 (tout autour)</td>
+<td>−25 % de recharge (max 3)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/lunette.png" height="24"> Lunette ×4</td>
+<td>Arme longue (tout autour)</td>
+<td>+25 % de critique</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/silencieux.png" height="24"> Silencieux</td>
+<td>Arme (tout autour)</td>
+<td>son 1er tir est critique</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/plaque.png" height="24"> Plaque céramique</td>
+<td>Protection (cases précises)</td>
+<td>+8 d'armure (max 2)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/casque.png" height="24"> Casque balistique</td>
+<td>Protection (cases précises)</td>
+<td>+6 d'armure (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/frag.png" height="24"> Grenade frag</td>
+<td>Explosif (tout autour)</td>
+<td>+20 % de dégâts (max 2)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/fumigene.png" height="24"> Fumigène</td>
+<td>Explosif (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/ifak.png" height="24"> Trousse IFAK</td>
+<td>Protection (cases précises)</td>
+<td>soins +20 % (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/perforantes.png" height="24"> Munitions perforantes</td>
+<td>Arme (tout autour)</td>
+<td>perce 30 % de l'armure</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/flash.png" height="24"> Grenade flash</td>
+<td>Explosif (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/seringue.png" height="24"> Seringue d'adrénaline</td>
+<td>Arme (tout autour)</td>
+<td>+10 % de cadence à cet objet (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/pompe_belier.png" height="24"> Pompe auto Bélier</td>
+<td>Explosif (tout autour)</td>
+<td>+15 % de dégâts (max 2)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G</td>
+<td>Arme 12G (tout autour)</td>
+<td>−25 % de recharge (max 3)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_44.png" height="24"> Balles .44</td>
+<td>Arme .44 (tout autour)</td>
+<td>−25 % de recharge (max 3)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/poignee.png" height="24"> Poignée verticale</td>
+<td>Arme (tout autour)</td>
+<td>+25 % de cadence</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_etendu.png" height="24"> Chargeur étendu</td>
+<td>Arme (tout autour)</td>
+<td>chargeur +50 %</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/viseur_holo.png" height="24"> Viseur holo</td>
+<td>Arme courte (tout autour)</td>
+<td>+25 % de critique</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/bipied.png" height="24"> Bipied</td>
+<td>Arme longue (tout autour)</td>
+<td>+25 % de dégâts</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_tambour.png" height="24"> Chargeur tambour</td>
+<td>Arme (tout autour)</td>
+<td>chargeur +100 %, recharge +40 % (nourrit le Feu continu)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/refroidisseur.png" height="24"> Refroidisseur de canon</td>
+<td>Arme (tout autour)</td>
+<td>son Feu continu monte 100 % plus vite (passif de Viper)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/tracantes.png" height="24"> Munitions traçantes</td>
+<td>Arme (tout autour)</td>
+<td>quand elle consomme la Marque, +30 % de dégâts en plus (passif de Sentinelle)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/pompe_dragon.png" height="24"> Pompe Dragon</td>
+<td>Explosif (tout autour)</td>
+<td>+15 % de dégâts (max 2)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/thermite.png" height="24"> Grenade thermite</td>
+<td>Arme (tout autour)</td>
+<td>+10 % de dégâts à cet objet (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/armure_lourde.png" height="24"> Armure lourde</td>
+<td>Soin (tout autour)</td>
+<td>soins +25 % à cet objet (max 2)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/kit_trauma.png" height="24"> Kit de trauma</td>
+<td>Protection (tout autour)</td>
+<td>soins +30 % (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/couteau.png" height="24"> Couteau</td>
+<td>Arme de mêlée (cases précises)</td>
+<td>+2 de saignement par coup (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/couteau_combat.png" height="24"> Couteau de combat</td>
+<td>Arme de mêlée (cases précises)</td>
+<td>+2 de saignement par coup (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/masse.png" height="24"> Masse</td>
+<td>Protection (tout autour)</td>
+<td>+25 % de dégâts (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/taser.png" height="24"> Taser</td>
+<td>Arme de mêlée (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/bandage.png" height="24"> Bandage</td>
+<td>Protection (tout autour)</td>
+<td>soins +50 % (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/machette.png" height="24"> Machette</td>
+<td>Arme de mêlée (cases précises)</td>
+<td>+25 % de dégâts (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/casque_lourd.png" height="24"> Casque lourd</td>
+<td>Protection (cases précises)</td>
+<td>+10 d'armure (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/sous_munitions.png" height="24"> Grenade à sous-munitions</td>
+<td>Explosif (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td><img src="../public/art/items/sac_medical.png" height="24"> Sac médical</td>
+<td>Soin (tout autour)</td>
+<td>+1 charge à cet objet (max 2)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="familles">Familles</h2>
+<p>Chaque objet appartient à une famille. Avoir 2 puis 4 objets d’une famille posés dans le sac donne des bonus.</p>
+<table>
+<thead>
+<tr>
+<th>Famille</th>
+<th>2 objets</th>
+<th>4 objets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rafale</td>
+<td>+15 % de cadence des armes Rafale</td>
+<td>1 balle sur 3 touche deux fois</td>
+</tr>
+<tr>
+<td>Précision</td>
+<td>+10 % de critique pour toutes les armes</td>
+<td>Critiques ×2,25 au lieu de ×2</td>
+</tr>
+<tr>
+<td>Démolition</td>
+<td>+1 charge pour chaque explosif</td>
+<td>Explosions et fusils à pompe ignorent l'armure</td>
+</tr>
+<tr>
+<td>Rempart</td>
+<td>+20 % d'armure</td>
+<td>L'armure se régénère de 2 par seconde</td>
+</tr>
+<tr>
+<td>Tactique</td>
+<td>Le fumigène dure 50 % plus longtemps</td>
+<td>Prévu avec la radio et le drone</td>
+</tr>
+</tbody>
+</table>
+<h2 id="operateurs">Opérateurs</h2>
+<p>On choisit un opérateur au début de la partie. Le pool d’objets est commun : chacun peut tout prendre, sauf les <strong>objets de signature</strong> de l’autre opérateur (et ce qui s’assemble avec eux).</p>
+<h3 id="viper">Viper</h3>
+<p><em>Fusils d’assaut et SMG : noie l’ennemi sous les balles, sans lâcher la gâchette.</em></p>
+<ul>
+<li><strong>Passif</strong> : Feu continu : chaque arme gagne +5 % de cadence par seconde de tir sans recharger (max +30 %).</li>
+<li><strong>Famille</strong> : Rafale.</li>
+<li><strong>Objets de signature</strong> : Chargeur tambour, Refroidisseur de canon.</li>
+<li><strong>Sac de départ</strong> : Casque balistique, Pistolet Mamba, Chargeur 9 mm, Refroidisseur de canon, Couteau.</li>
+</ul>
+<h3 id="sentinelle">Sentinelle</h3>
+<p><em>Fusils de précision et revolvers : une arme marque, l’autre achève.</em></p>
+<ul>
+<li><strong>Passif</strong> : Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +50 %.</li>
+<li><strong>Famille</strong> : Précision.</li>
+<li><strong>Objets de signature</strong> : Munitions traçantes.</li>
+<li><strong>Sac de départ</strong> : Casque balistique, Revolver Taureau, Balles .44, Poignée verticale, Couteau.</li>
+</ul>
+<p>Détails des passifs : Feu continu +5 % de cadence par seconde de tir sans recharger, plafonné à +30 % ; Marque +50 % de dégâts sur la touche suivante d’une autre arme.</p>
+<h2 id="recettes">Recettes</h2>
+<p>Quand tous les ingrédients d’une recette sont <strong>posés dans le sac et se touchent</strong> (en un seul bloc), ils s’assemblent automatiquement hors combat en un objet plus fort. Les objets assemblés ne se trouvent jamais au butin ni en boutique (sauf caisse épique).</p>
+<table>
+<thead>
+<tr>
+<th>Ingrédients</th>
+<th>Résultat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><img src="../public/art/items/fusil_assaut.png" height="24"> Fusil d'assaut KR-4 + <img src="../public/art/items/poignee.png" height="24"> Poignée verticale + <img src="../public/art/items/chg_etendu.png" height="24"> Chargeur étendu</td>
+<td><img src="../public/art/items/kr4_tactique.png" height="24"> <strong>KR-4 Tactique</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/smg.png" height="24"> SMG Furet + <img src="../public/art/items/smg_guepe.png" height="24"> Pistolet-mitrailleur Guêpe</td>
+<td><img src="../public/art/items/furet_akimbo.png" height="24"> <strong>Furet Akimbo</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/precision.png" height="24"> Fusil de précision Aigle + <img src="../public/art/items/lunette.png" height="24"> Lunette ×4 + <img src="../public/art/items/bipied.png" height="24"> Bipied</td>
+<td><img src="../public/art/items/aigle_longuevue.png" height="24"> <strong>Aigle Longue-vue</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/revolver.png" height="24"> Revolver Taureau + <img src="../public/art/items/chg_44.png" height="24"> Balles .44 + <img src="../public/art/items/silencieux.png" height="24"> Silencieux</td>
+<td><img src="../public/art/items/taureau_magnum.png" height="24"> <strong>Taureau Magnum</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/smg_ours.png" height="24"> SMG lourd Ours + <img src="../public/art/items/chg_tambour.png" height="24"> Chargeur tambour</td>
+<td><img src="../public/art/items/ours_deluge.png" height="24"> <strong>Ours Déluge</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/dmr_faucon.png" height="24"> DMR Faucon + <img src="../public/art/items/tracantes.png" height="24"> Munitions traçantes</td>
+<td><img src="../public/art/items/faucon_traqueur.png" height="24"> <strong>Faucon Traqueur</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/pompe.png" height="24"> Pompe Sanglier + <img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G</td>
+<td><img src="../public/art/items/pompe_dragon.png" height="24"> <strong>Pompe Dragon</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/frag.png" height="24"> Grenade frag + <img src="../public/art/items/fumigene.png" height="24"> Fumigène</td>
+<td><img src="../public/art/items/thermite.png" height="24"> <strong>Grenade thermite</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/plaque.png" height="24"> Plaque céramique + <img src="../public/art/items/casque.png" height="24"> Casque balistique</td>
+<td><img src="../public/art/items/armure_lourde.png" height="24"> <strong>Armure lourde</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/ifak.png" height="24"> Trousse IFAK + <img src="../public/art/items/seringue.png" height="24"> Seringue d'adrénaline</td>
+<td><img src="../public/art/items/kit_trauma.png" height="24"> <strong>Kit de trauma</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba</td>
+<td><img src="../public/art/items/mamba_akimbo.png" height="24"> <strong>Mamba Akimbo</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/revolver.png" height="24"> Revolver Taureau + <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau</td>
+<td><img src="../public/art/items/taureau_jumeaux.png" height="24"> <strong>Taureau Jumeaux</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/casque.png" height="24"> Casque balistique + <img src="../public/art/items/casque.png" height="24"> Casque balistique</td>
+<td><img src="../public/art/items/casque_lourd.png" height="24"> <strong>Casque lourd</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/frag.png" height="24"> Grenade frag + <img src="../public/art/items/frag.png" height="24"> Grenade frag</td>
+<td><img src="../public/art/items/sous_munitions.png" height="24"> <strong>Grenade à sous-munitions</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/ifak.png" height="24"> Trousse IFAK + <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK</td>
+<td><img src="../public/art/items/sac_medical.png" height="24"> <strong>Sac médical</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/couteau.png" height="24"> Couteau + <img src="../public/art/items/couteau.png" height="24"> Couteau</td>
+<td><img src="../public/art/items/machette.png" height="24"> <strong>Machette</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="butin-caisses-et-boutique">Butin, caisses et boutique</h2>
+<table>
+<thead>
+<tr>
+<th>Caisse</th>
+<th>Objets proposés</th>
+<th>À garder</th>
+<th>Crédits (manche <em>n</em>)</th>
+<th>Chance de sacoche</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Caisse</td>
+<td>3</td>
+<td>1</td>
+<td>3 + 1 × <em>n</em></td>
+<td>30 %</td>
+</tr>
+<tr>
+<td>Caisse renforcée</td>
+<td>4</td>
+<td>2</td>
+<td>6 + 2 × <em>n</em></td>
+<td>60 %</td>
+</tr>
+<tr>
+<td>Caisse épique</td>
+<td>5</td>
+<td>2</td>
+<td>10 + 3 × <em>n</em></td>
+<td>50 %</td>
+</tr>
+</tbody>
+</table>
+<p>Une caisse propose toujours au moins une arme.</p>
+<ul>
+<li><strong>Boutique</strong> : 5 offres, 40 % de chance que l’une soit une sacoche. Relance : 2 crédits.</li>
+<li><strong>Répartition du butin</strong> par catégorie : Arme 20 %, Munition 25 %, Accessoire 22 %, Protection 12 %, Explosif 11 %, Médical 10 %.</li>
+<li>Certains objets n’apparaissent qu’à partir d’un certain cercle (colonne « Dès » des tableaux d’objets).</li>
+</ul>
+<h2 id="sacoches">Sacoches</h2>
+<p>Posées sur la grille à côté du sac de base, elles ajoutent des cases. Les grandes deviennent plus fréquentes en fin de partie.</p>
+<table>
+<thead>
+<tr>
+<th>Sacoche</th>
+<th>Forme</th>
+<th>Prix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pochette</td>
+<td><code>■■</code></td>
+<td>4</td>
+</tr>
+<tr>
+<td>Sacoche</td>
+<td><code>■■ / ■■</code></td>
+<td>8</td>
+</tr>
+<tr>
+<td>Ceinture</td>
+<td><code>■■■■</code></td>
+<td>8</td>
+</tr>
+<tr>
+<td>Sac tactique</td>
+<td><code>■■ / ■■ / ■■</code></td>
+<td>13</td>
+</tr>
+</tbody>
+</table>
+<h2 id="objets">Objets</h2>
+<p>Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (avant rotation).</p>
+<h3 id="armes-a-feu">Armes à feu</h3>
+<h4 id="pistolet-mamba">Pistolet Mamba</h4>
+<p><img src="../public/art/items/pistolet.png" height="48"></p>
+<p><strong>Base · Pistolet · 9mm</strong> · Forme <code>■■ / ■·</code> (3 cases) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 11 toutes les 0,9 s</li>
+<li>Chargeur 8 balles · recharge 2 s</li>
+<li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Recette : Mamba + Mamba → Mamba Akimbo (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>3 cases · revente 2 cr</li>
+</ul>
+<h4 id="smg-furet">SMG Furet</h4>
+<p><img src="../public/art/items/smg.png" height="48"></p>
+<p><strong>Base · SMG · 9mm</strong> · Forme <code>■■■ / ·■·</code> (4 cases) · Prix 6 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 4,5 toutes les 0,4 s</li>
+<li>Chargeur 15 balles · recharge 2,5 s</li>
+<li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Recette : Furet + Guêpe → Furet Akimbo (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>4 cases · revente 3 cr</li>
+</ul>
+<h4 id="fusil-dassaut-kr-4">Fusil d'assaut KR-4</h4>
+<p><img src="../public/art/items/fusil_assaut.png" height="48"></p>
+<p><strong>Base · Fusil d'assaut · 5.56</strong> · Forme <code>■■■■ / ·■··</code> (5 cases) · Prix 8 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 10 toutes les 0,7 s</li>
+<li>Chargeur 15 balles · recharge 2,5 s</li>
+<li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Recette : KR-4 + Poignée + Étendu → KR-4 Tactique (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>5 cases · revente 4 cr</li>
+</ul>
+<h4 id="pompe-sanglier">Pompe Sanglier</h4>
+<p><img src="../public/art/items/pompe.png" height="48"></p>
+<p><strong>Base · Fusil à pompe · 12G</strong> · Forme <code>■■■■ / ■···</code> (5 cases) · Prix 8 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 18,5 toutes les 1,5 s</li>
+<li>Chargeur 4 balles · recharge 3 s</li>
+<li>Alimentation : un chargeur 12G adjacent, sinon recharge ×2</li>
+<li>Plombs : chaque tir touche 2 fois</li>
+<li>★ Explosif adjacent : +15 % de dégâts</li>
+<li>Recette : Sanglier + Cart. 12G → Pompe Dragon (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>5 cases · revente 4 cr</li>
+</ul>
+<h4 id="fusil-de-precision-aigle">Fusil de précision Aigle</h4>
+<p><img src="../public/art/items/precision.png" height="48"></p>
+<p><strong>Base · Fusil de précision · 7.62</strong> · Forme <code>■■■■■ / ··■··</code> (6 cases) · Prix 14 · dès le cercle 2</p>
+<ul>
+<li>Dégâts 51,5 toutes les 3 s</li>
+<li>Chargeur 4 balles · recharge 3,5 s</li>
+<li>Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2</li>
+<li>Recette : Aigle + Lunette + Bipied → Aigle Longue-vue (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>6 cases · revente 7 cr</li>
+</ul>
+<h4 id="bullpup-vesta">Bullpup Vesta</h4>
+<p><img src="../public/art/items/ar_vesta.png" height="48"></p>
+<p><strong>Base · Fusil d'assaut · 5.56</strong> · Forme <code>■■■ / ·■·</code> (4 cases) · Prix 8 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 7,5 toutes les 0,6 s</li>
+<li>Chargeur 15 balles · recharge 2,2 s</li>
+<li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>4 cases · revente 4 cr</li>
+</ul>
+<h4 id="fusil-de-combat-hades">Fusil de combat Hadès</h4>
+<p><img src="../public/art/items/ar_hades.png" height="48"></p>
+<p><strong>Base · Fusil d'assaut · 5.56</strong> · Forme <code>■■■■ / ·■■·</code> (6 cases) · Prix 10 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 18 toutes les 1,1 s</li>
+<li>Chargeur 10 balles · recharge 3 s</li>
+<li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>6 cases · revente 5 cr</li>
+</ul>
+<h4 id="carabine-lynx">Carabine Lynx</h4>
+<p><img src="../public/art/items/ar_lynx.png" height="48"></p>
+<p><strong>Base · Fusil d'assaut · 5.56</strong> · Forme <code>■■■ / ··■</code> (4 cases) · Prix 7 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 6 toutes les 0,5 s</li>
+<li>Chargeur 12 balles · recharge 1,8 s</li>
+<li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>4 cases · revente 3 cr</li>
+</ul>
+<h4 id="pistolet-mitrailleur-guepe">Pistolet-mitrailleur Guêpe</h4>
+<p><img src="../public/art/items/smg_guepe.png" height="48"></p>
+<p><strong>Base · SMG · 9mm</strong> · Forme <code>■■ / ·■</code> (3 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 3 toutes les 0,3 s</li>
+<li>Chargeur 12 balles · recharge 1,8 s</li>
+<li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Recette : Furet + Guêpe → Furet Akimbo (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>3 cases · revente 2 cr</li>
+</ul>
+<h4 id="smg-lourd-ours">SMG lourd Ours</h4>
+<p><img src="../public/art/items/smg_ours.png" height="48"></p>
+<p><strong>Base · SMG · 9mm</strong> · Forme <code>■■■ / ■■·</code> (5 cases) · Prix 8 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 6 toutes les 0,5 s</li>
+<li>Chargeur 18 balles · recharge 2,6 s</li>
+<li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Recette : Ours + Tambour → Ours Déluge (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>5 cases · revente 4 cr</li>
+</ul>
+<h4 id="revolver-taureau">Revolver Taureau</h4>
+<p><img src="../public/art/items/revolver.png" height="48"></p>
+<p><strong>Base · Pistolet · .44</strong> · Forme <code>■■■ / ■··</code> (4 cases) · Prix 7 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 19 toutes les 1,4 s</li>
+<li>Chargeur 4 balles · recharge 2,4 s</li>
+<li>Alimentation : un chargeur .44 adjacent, sinon recharge ×2</li>
+<li>Recette : Taureau + Balles .44 + Silenc. → Taureau Magnum (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Taureau + Taureau → Taureau Jumeaux (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>4 cases · revente 3 cr</li>
+</ul>
+<h4 id="pompe-auto-belier">Pompe auto Bélier</h4>
+<p><img src="../public/art/items/pompe_belier.png" height="48"></p>
+<p><strong>Base · Fusil à pompe · 12G</strong> · Forme <code>■■■■ / ■■··</code> (6 cases) · Prix 12 · dès le cercle 2</p>
+<ul>
+<li>Dégâts 13 toutes les 1 s</li>
+<li>Chargeur 4 balles · recharge 3,2 s</li>
+<li>Alimentation : un chargeur 12G adjacent, sinon recharge ×2</li>
+<li>Plombs : chaque tir touche 2 fois</li>
+<li>★ Explosif adjacent : +15 % de dégâts</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>6 cases · revente 6 cr</li>
+</ul>
+<h4 id="dmr-faucon">DMR Faucon</h4>
+<p><img src="../public/art/items/dmr_faucon.png" height="48"></p>
+<p><strong>Base · Fusil de précision · 7.62</strong> · Forme <code>■■■■ / ··■·</code> (5 cases) · Prix 10 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 35,5 toutes les 1,6 s</li>
+<li>Chargeur 5 balles · recharge 3 s</li>
+<li>Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2</li>
+<li>Recette : Faucon + Traçantes → Faucon Traqueur (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>5 cases · revente 5 cr</li>
+</ul>
+<h4 id="pistolet-de-poche-colibri">Pistolet de poche Colibri</h4>
+<p><img src="../public/art/items/colibri.png" height="48"></p>
+<p><strong>Base · Pistolet · .44</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>Dégâts 8,5 toutes les 0,8 s</li>
+<li>Chargeur 6 balles · recharge 1,8 s</li>
+<li>Alimentation : un chargeur .44 adjacent, sinon recharge ×2</li>
+<li>+20 % de critique</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h3 id="armes-a-feu-assemblees">Armes à feu assemblées</h3>
+<h4 id="kr-4-tactique">KR-4 Tactique</h4>
+<p><img src="../public/art/items/kr4_tactique.png" height="48"></p>
+<p><strong>Assemblé · Fusil d'assaut · 5.56</strong> · Forme <code>■■■■ / ·■■·</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 11 toutes les 0,6 s</li>
+<li>Chargeur 22 balles · recharge 2,2 s</li>
+<li>Alimentation : n'importe quel chargeur adjacent, sinon recharge ×2</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>6 cases · revente 9 cr</li>
+</ul>
+<h4 id="furet-akimbo">Furet Akimbo</h4>
+<p><img src="../public/art/items/furet_akimbo.png" height="48"></p>
+<p><strong>Assemblé · SMG · 9mm</strong> · Forme <code>■■■ / ■■■</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 4,5 toutes les 0,4 s</li>
+<li>Chargeur 24 balles · recharge 2,6 s</li>
+<li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Plombs : chaque tir touche 2 fois</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>6 cases · revente 8 cr</li>
+</ul>
+<h4 id="aigle-longue-vue">Aigle Longue-vue</h4>
+<p><img src="../public/art/items/aigle_longuevue.png" height="48"></p>
+<p><strong>Assemblé · Fusil de précision · 7.62</strong> · Forme <code>■■■■■ / ··■··</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 51,5 toutes les 2,8 s</li>
+<li>Chargeur 5 balles · recharge 3,2 s</li>
+<li>Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2</li>
+<li>Son 1er tir est toujours critique</li>
+<li>Ignore 50 % de l'armure</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>6 cases · revente 13 cr</li>
+</ul>
+<h4 id="taureau-magnum">Taureau Magnum</h4>
+<p><img src="../public/art/items/taureau_magnum.png" height="48"></p>
+<p><strong>Assemblé · Pistolet · .44</strong> · Forme <code>■■■ / ■··</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 32 toutes les 1,3 s</li>
+<li>Chargeur 6 balles · recharge 2,2 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>Ses critiques retardent les tirs adverses de 0,5 s</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>4 cases · revente 8 cr</li>
+</ul>
+<h4 id="ours-deluge">Ours Déluge</h4>
+<p><img src="../public/art/items/ours_deluge.png" height="48"></p>
+<p><strong>Assemblé · SMG · 9mm</strong> · Forme <code>■■■■ / ·■■·</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 8,5 toutes les 0,4 s</li>
+<li>Chargeur 40 balles · recharge 3,4 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>Viper : Feu continu jusqu'à +50 % au lieu de +30 %</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>6 cases · revente 9 cr</li>
+</ul>
+<h4 id="faucon-traqueur">Faucon Traqueur</h4>
+<p><img src="../public/art/items/faucon_traqueur.png" height="48"></p>
+<p><strong>Assemblé · Fusil de précision · 7.62</strong> · Forme <code>■■■■ / ·■■·</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 28 toutes les 1,5 s</li>
+<li>Chargeur 6 balles · recharge 2,8 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>+10 % de critique</li>
+<li>Sentinelle : quand elle consomme la Marque, +30 % de dégâts en plus</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>6 cases · revente 9 cr</li>
+</ul>
+<h4 id="pompe-dragon">Pompe Dragon</h4>
+<p><img src="../public/art/items/pompe_dragon.png" height="48"></p>
+<p><strong>Assemblé · Fusil à pompe · 12G</strong> · Forme <code>■■■■ / ■···</code> (5 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 16 toutes les 1,4 s</li>
+<li>Chargeur 5 balles · recharge 2,8 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>Incendiaire : +5 dégâts qui ignorent l'armure</li>
+<li>Plombs : chaque tir touche 2 fois</li>
+<li>★ Explosif adjacent : +15 % de dégâts</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>5 cases · revente 8 cr</li>
+</ul>
+<h4 id="mamba-akimbo">Mamba Akimbo</h4>
+<p><img src="../public/art/items/mamba_akimbo.png" height="48"></p>
+<p><strong>Assemblé · Pistolet · 9mm</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 11 toutes les 0,8 s</li>
+<li>Chargeur 16 balles · recharge 2,2 s</li>
+<li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Plombs : chaque tir touche 2 fois</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>4 cases · revente 5 cr</li>
+</ul>
+<h4 id="taureau-jumeaux">Taureau Jumeaux</h4>
+<p><img src="../public/art/items/taureau_jumeaux.png" height="48"></p>
+<p><strong>Assemblé · Pistolet · .44</strong> · Forme <code>■■■ / ■■·</code> (5 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 21 toutes les 1,3 s</li>
+<li>Chargeur 8 balles · recharge 2,6 s</li>
+<li>Alimentation : un chargeur .44 adjacent, sinon recharge ×2</li>
+<li>Plombs : chaque tir touche 2 fois</li>
+<li>+10 % de critique</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>5 cases · revente 7 cr</li>
+</ul>
+<h3 id="armes-de-melee">Armes de mêlée</h3>
+<h4 id="couteau">Couteau</h4>
+<p><img src="../public/art/items/couteau.png" height="48"></p>
+<p><strong>Base · Couteau</strong> · Forme <code>■■</code> (2 cases) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>Mêlée : 4 dégâts toutes les 1 s, pendant tout le duel</li>
+<li>Frappe 1.5 fois plus vite dans un sac sans arme à feu</li>
+<li>★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup</li>
+<li>Recette : Couteau + Couteau → Machette (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>2 cases · revente 1 cr</li>
+</ul>
+<h4 id="couteau-de-combat">Couteau de combat</h4>
+<p><img src="../public/art/items/couteau_combat.png" height="48"></p>
+<p><strong>Base · Couteau</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>Mêlée : 3 dégâts toutes les 1 s, pendant tout le duel</li>
+<li>Saignement +4 par coup (ignore l'armure)</li>
+<li>Frappe 1.5 fois plus vite dans un sac sans arme à feu</li>
+<li>★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="masse">Masse</h4>
+<p><img src="../public/art/items/masse.png" height="48"></p>
+<p><strong>Base · Masse</strong> · Forme <code>■■■</code> (3 cases) · Prix 7 · dès le cercle 2</p>
+<ul>
+<li>Mêlée : 12 dégâts toutes les 1,8 s, pendant tout le duel</li>
+<li>Ignore 30 % de l'armure</li>
+<li>Frappe 1.5 fois plus vite dans un sac sans arme à feu</li>
+<li>★ Protection adjacent : +25 % de dégâts</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>3 cases · revente 3 cr</li>
+</ul>
+<h4 id="machette">Machette</h4>
+<p><img src="../public/art/items/machette.png" height="48"></p>
+<p><strong>Assemblé · Machette</strong> · Forme <code>■■■</code> (3 cases) · Assemblé</p>
+<ul>
+<li>Mêlée : 8 dégâts toutes les 1,2 s, pendant tout le duel</li>
+<li>Frappe 1.5 fois plus vite dans un sac sans arme à feu</li>
+<li>★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>3 cases · revente 3 cr</li>
+</ul>
+<h3 id="munitions">Munitions</h3>
+<h4 id="chargeur-9-mm">Chargeur 9 mm</h4>
+<p><img src="../public/art/items/chg_9mm.png" height="48"></p>
+<p><strong>Base · Munition · 9mm</strong> · Forme <code>■</code> (1 case) · Prix 2 · dès le cercle 1</p>
+<ul>
+<li>★ Arme 9mm adjacent : −25 % de recharge (max 3)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="chargeur-556">Chargeur 5.56</h4>
+<p><img src="../public/art/items/chg_556.png" height="48"></p>
+<p><strong>Base · Munition · 5.56</strong> · Forme <code>■</code> (1 case) · Prix 2 · dès le cercle 1</p>
+<ul>
+<li>★ Arme 5.56 adjacent : −25 % de recharge (max 3)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="chargeur-762">Chargeur 7.62</h4>
+<p><img src="../public/art/items/chg_762.png" height="48"></p>
+<p><strong>Base · Munition · 7.62</strong> · Forme <code>■</code> (1 case) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>★ Arme 7.62 adjacent : −25 % de recharge (max 3)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="munitions-perforantes">Munitions perforantes</h4>
+<p><img src="../public/art/items/perforantes.png" height="48"></p>
+<p><strong>Base · Munition</strong> · Forme <code>■</code> (1 case) · Prix 6 · dès le cercle 2</p>
+<ul>
+<li>★ Arme adjacent : perce 30 % de l'armure</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>1 case · revente 3 cr</li>
+</ul>
+<h4 id="cartouches-12g">Cartouches 12G</h4>
+<p><img src="../public/art/items/chg_12g.png" height="48"></p>
+<p><strong>Base · Munition · 12G</strong> · Forme <code>■</code> (1 case) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>★ Arme 12G adjacent : −25 % de recharge (max 3)</li>
+<li>Recette : Sanglier + Cart. 12G → Pompe Dragon (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="balles-44">Balles .44</h4>
+<p><img src="../public/art/items/chg_44.png" height="48"></p>
+<p><strong>Base · Munition · .44</strong> · Forme <code>■</code> (1 case) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>★ Arme .44 adjacent : −25 % de recharge (max 3)</li>
+<li>Recette : Taureau + Balles .44 + Silenc. → Taureau Magnum (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="munitions-tracantes">Munitions traçantes</h4>
+<p><img src="../public/art/items/tracantes.png" height="48"></p>
+<p><strong>Base · Munition</strong> · Forme <code>■</code> (1 case) · Prix 5 · dès le cercle 2 · Signature Sentinelle</p>
+<ul>
+<li>★ Arme adjacent : quand elle consomme la Marque, +30 % de dégâts en plus (passif de Sentinelle)</li>
+<li>Recette : Faucon + Traçantes → Faucon Traqueur (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>1 case · revente 2 cr</li>
+</ul>
+<h3 id="accessoires">Accessoires</h3>
+<h4 id="lunette-4">Lunette ×4</h4>
+<p><img src="../public/art/items/lunette.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>★ Arme longue adjacent : +25 % de critique</li>
+<li>Recette : Aigle + Lunette + Bipied → Aigle Longue-vue (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="silencieux">Silencieux</h4>
+<p><img src="../public/art/items/silencieux.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■■</code> (2 cases) · Prix 7 · dès le cercle 2</p>
+<ul>
+<li>★ Arme adjacent : son 1er tir est critique</li>
+<li>Recette : Taureau + Balles .44 + Silenc. → Taureau Magnum (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>2 cases · revente 3 cr</li>
+</ul>
+<h4 id="poignee-verticale">Poignée verticale</h4>
+<p><img src="../public/art/items/poignee.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■ / ■</code> (2 cases) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>★ Arme adjacent : +25 % de cadence</li>
+<li>Recette : KR-4 + Poignée + Étendu → KR-4 Tactique (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="chargeur-etendu">Chargeur étendu</h4>
+<p><img src="../public/art/items/chg_etendu.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■ / ■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>★ Arme adjacent : chargeur +50 %</li>
+<li>Recette : KR-4 + Poignée + Étendu → KR-4 Tactique (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="viseur-holo">Viseur holo</h4>
+<p><img src="../public/art/items/viseur_holo.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■</code> (1 case) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>★ Arme courte adjacent : +25 % de critique</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>1 case · revente 2 cr</li>
+</ul>
+<h4 id="bipied">Bipied</h4>
+<p><img src="../public/art/items/bipied.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>★ Arme longue adjacent : +25 % de dégâts</li>
+<li>Recette : Aigle + Lunette + Bipied → Aigle Longue-vue (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="chargeur-tambour">Chargeur tambour</h4>
+<p><img src="../public/art/items/chg_tambour.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■■ / ■■</code> (4 cases) · Prix 5 · dès le cercle 1 · Signature Viper</p>
+<ul>
+<li>★ Arme adjacent : chargeur +100 %, recharge +40 % (nourrit le Feu continu)</li>
+<li>Recette : Ours + Tambour → Ours Déluge (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>4 cases · revente 2 cr</li>
+</ul>
+<h4 id="refroidisseur-de-canon">Refroidisseur de canon</h4>
+<p><img src="../public/art/items/refroidisseur.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■■■</code> (3 cases) · Prix 5 · dès le cercle 1 · Signature Viper</p>
+<ul>
+<li>★ Arme adjacent : son Feu continu monte 100 % plus vite (passif de Viper)</li>
+<li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
+<li>3 cases · revente 2 cr</li>
+</ul>
+<h4 id="taser">Taser</h4>
+<p><img src="../public/art/items/taser.png" height="48"></p>
+<p><strong>Base · Accessoire</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>3 dégâts, immobilise l'adversaire 1,5 s (quand il recharge, sinon à 6 s)</li>
+<li>1 charge par combat · délai 0 s</li>
+<li>★ Arme de mêlée adjacent : +1 charge</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h3 id="protections">Protections</h3>
+<h4 id="plaque-ceramique">Plaque céramique</h4>
+<p><img src="../public/art/items/plaque.png" height="48"></p>
+<p><strong>Base · Protection</strong> · Forme <code>■■ / ■■ / ■■</code> (6 cases) · Prix 7 · dès le cercle 1</p>
+<ul>
+<li>Armure +40</li>
+<li>★ Protection adjacent (cases marquées) : +8 d'armure</li>
+<li>Recette : Plaque + Casque → Armure lourde (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>6 cases · revente 3 cr</li>
+</ul>
+<h4 id="casque-balistique">Casque balistique</h4>
+<p><img src="../public/art/items/casque.png" height="48"></p>
+<p><strong>Base · Protection</strong> · Forme <code>■■ / ■■</code> (4 cases) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>Armure +15</li>
+<li>★ Protection adjacent (cases marquées) : +6 d'armure</li>
+<li>Recette : Plaque + Casque → Armure lourde (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Casque + Casque → Casque lourd (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>4 cases · revente 2 cr</li>
+</ul>
+<h4 id="armure-lourde">Armure lourde</h4>
+<p><img src="../public/art/items/armure_lourde.png" height="48"></p>
+<p><strong>Assemblé · Protection</strong> · Forme <code>■■ / ■■ / ■■</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Armure +75</li>
+<li>Chaque balle reçue perd 2 dégâts</li>
+<li>★ Soin adjacent : soins +25 % à cet objet</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>6 cases · revente 10 cr</li>
+</ul>
+<h4 id="casque-lourd">Casque lourd</h4>
+<p><img src="../public/art/items/casque_lourd.png" height="48"></p>
+<p><strong>Assemblé · Protection</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Armure +32</li>
+<li>Chaque balle reçue perd 1 dégâts</li>
+<li>★ Protection adjacent (cases marquées) : +10 d'armure</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>4 cases · revente 4 cr</li>
+</ul>
+<h3 id="explosifs">Explosifs</h3>
+<h4 id="grenade-frag">Grenade frag</h4>
+<p><img src="../public/art/items/frag.png" height="48"></p>
+<p><strong>Base · Explosif</strong> · Forme <code>■</code> (1 case) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>20 dégâts à l'adversaire</li>
+<li>2 charges par combat · délai 7 s</li>
+<li>★ Explosif adjacent : +20 % de dégâts</li>
+<li>Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Frag + Frag → Grenade à sous-munitions (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 2 cr</li>
+</ul>
+<h4 id="fumigene">Fumigène</h4>
+<p><img src="../public/art/items/fumigene.png" height="48"></p>
+<p><strong>Base · Explosif</strong> · Forme <code>■ / ■</code> (2 cases) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>Précision adverse −50 % pendant 3 s</li>
+<li>2 charges par combat · délai 8 s</li>
+<li>★ Explosif adjacent : +1 charge</li>
+<li>Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>2 cases · revente 1 cr</li>
+</ul>
+<h4 id="grenade-flash">Grenade flash</h4>
+<p><img src="../public/art/items/flash.png" height="48"></p>
+<p><strong>Base · Explosif</strong> · Forme <code>■</code> (1 case) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>Étourdit les armes adverses 1,5 s</li>
+<li>2 charges par combat · délai 8 s</li>
+<li>★ Explosif adjacent : +1 charge</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 2 cr</li>
+</ul>
+<h4 id="grenade-thermite">Grenade thermite</h4>
+<p><img src="../public/art/items/thermite.png" height="48"></p>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■ / ■</code> (2 cases) · Assemblé</p>
+<ul>
+<li>30 dégâts à l'adversaire, ignore l'armure</li>
+<li>2 charges par combat · délai 7 s</li>
+<li>★ Arme adjacent : +10 % de dégâts à cet objet</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>2 cases · revente 6 cr</li>
+</ul>
+<h4 id="grenade-a-sous-munitions">Grenade à sous-munitions</h4>
+<p><img src="../public/art/items/sous_munitions.png" height="48"></p>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■</code> (1 case) · Assemblé</p>
+<ul>
+<li>26 dégâts à l'adversaire</li>
+<li>3 charges par combat · délai 6 s</li>
+<li>★ Explosif adjacent : +1 charge</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 4 cr</li>
+</ul>
+<h3 id="medical">Médical</h3>
+<h4 id="trousse-ifak">Trousse IFAK</h4>
+<p><img src="../public/art/items/ifak.png" height="48"></p>
+<p><strong>Base · Médical</strong> · Forme <code>■■ / ■■</code> (4 cases) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>Soigne 30 PV quand les PV passent sous 50 %</li>
+<li>1 charge par combat · délai 4 s</li>
+<li>★ Protection adjacent (cases marquées) : soins +20 %</li>
+<li>Recette : IFAK + Adré. → Kit de trauma (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : IFAK + IFAK → Sac médical (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>4 cases · revente 2 cr</li>
+</ul>
+<h4 id="seringue-dadrenaline">Seringue d'adrénaline</h4>
+<p><img src="../public/art/items/seringue.png" height="48"></p>
+<p><strong>Base · Médical</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 1</p>
+<ul>
+<li>+30 % de cadence pendant 4 s sous 30 % PV</li>
+<li>1 charge par combat · délai 6 s</li>
+<li>★ Arme adjacent : +10 % de cadence à cet objet</li>
+<li>Recette : IFAK + Adré. → Kit de trauma (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="kit-de-trauma">Kit de trauma</h4>
+<p><img src="../public/art/items/kit_trauma.png" height="48"></p>
+<p><strong>Assemblé · Médical</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Soigne 35 PV quand les PV passent sous 50 %</li>
+<li>2 charges par combat · délai 4 s</li>
+<li>★ Protection adjacent : soins +30 %</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>4 cases · revente 7 cr</li>
+</ul>
+<h4 id="bandage">Bandage</h4>
+<p><img src="../public/art/items/bandage.png" height="48"></p>
+<p><strong>Base · Médical</strong> · Forme <code>■</code> (1 case) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>Retire 10 de saignement et soigne 12 PV (saignement ≥ 8 ou PV sous 50 %)</li>
+<li>1 charge par combat · délai 2 s</li>
+<li>★ Protection adjacent : soins +50 %</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="sac-medical">Sac médical</h4>
+<p><img src="../public/art/items/sac_medical.png" height="48"></p>
+<p><strong>Assemblé · Médical</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Soigne 28 PV quand les PV passent sous 50 %</li>
+<li>3 charges par combat · délai 5 s</li>
+<li>★ Soin adjacent : +1 charge à cet objet</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>4 cases · revente 4 cr</li>
+</ul>
