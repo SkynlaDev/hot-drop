@@ -17,7 +17,6 @@ export type Side = 'a' | 'b';
  * - smoke : `side` se couvre, la précision adverse est divisée par 2 jusqu'à `until`.
  * - flash : `side` étourdit les armes adverses jusqu'à `until`.
  * - adrenaline / heal : sur `side` lui-même.
- * - reflect : `side` renvoie des dégâts bloqués au tireur ; hp/armor = ceux du tireur après.
  * - death : `side` est mort.
  */
 export type DuelEvent =
@@ -28,7 +27,6 @@ export type DuelEvent =
   | { t: number; kind: 'flash'; side: Side; uid: number; until: number }
   | { t: number; kind: 'adrenaline'; side: Side; uid: number; until: number }
   | { t: number; kind: 'heal'; side: Side; uid: number; amount: number; hp: number }
-  | { t: number; kind: 'reflect'; side: Side; amount: number; hp: number; armor: number }
   | { t: number; kind: 'death'; side: Side };
 
 export interface DuelResult {
@@ -120,7 +118,6 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         continue;
       }
       const shotNo = s.shots + 1;
-      const legendary = s.w.pierceEvery > 0 && shotNo % s.w.pierceEvery === 0;
       const doubled = s.w.doubleEvery > 0 && shotNo % s.w.doubleEvery === 0;
       const hits = s.w.pellets * (doubled ? 2 : 1);
       const acc = ACCURACY * (t < foe.smokeUntil ? 0.5 : 1);
@@ -142,7 +139,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           // Le bonus de Marque s'ajoute au multiplicateur (critique marqué ×2 → ×2,5), il ne le multiplie pas.
           const raw = s.w.dmg * ((crit ? me.l.critMult : 1) + (marked ? me.l.markBonus + s.w.markBoost : 0));
           amount = Math.max(1, Math.round(raw - Math.min(foe.l.flatReduce, raw * MAX_FLAT_REDUCE)));
-          const absorbed = applyDamage(foe, amount, legendary ? 1 : s.w.armorPierce);
+          applyDamage(foe, amount, s.w.armorPierce);
           if (s.w.trueDmg > 0) {
             foe.hp = Math.max(0, foe.hp - Math.round(s.w.trueDmg));
             amount += Math.round(s.w.trueDmg);
@@ -151,23 +148,13 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           if (crit && s.w.critStun > 0) for (const fw of foe.ws) fw.next = Math.max(fw.next, t) + s.w.critStun;
           events.push({
             t, kind: 'shot', from: me.side, uid: s.w.uid, amount, crit, miss: false,
-            pierce: legendary || s.w.armorPierce > 0, ...(n > 0 ? { double: true } : {}), ...heatField,
+            pierce: s.w.armorPierce > 0, ...(n > 0 ? { double: true } : {}), ...heatField,
             ...(mark ? { mark: true } : {}), ...(marked ? { marked: true } : {}),
             hp: round1(foe.hp), armor: round1(foe.armor),
           });
           if (foe.hp <= 0) {
             events.push({ t, kind: 'death', side: foe.side });
             return foe.side;
-          }
-          if (absorbed > 0 && foe.l.reflect > 0) {
-            const ra = Math.max(1, Math.round(absorbed * foe.l.reflect));
-            applyDamage(me, ra);
-            foe.dealt += ra;
-            events.push({ t, kind: 'reflect', side: foe.side, amount: ra, hp: round1(me.hp), armor: round1(me.armor) });
-            if (me.hp <= 0) {
-              events.push({ t, kind: 'death', side: me.side });
-              return me.side;
-            }
           }
         } else {
           events.push({

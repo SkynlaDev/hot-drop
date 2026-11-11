@@ -6,16 +6,16 @@ export const ART = manifest;
 
 /** Icône de chaque objet. */
 const ICON_OF: Record<string, string> = {
-  pistolet: 'pistol', revolver: 'pistol', colibri: 'pistol', taureau_magnum: 'pistol',
+  pistolet: 'pistol', mamba_akimbo: 'pistol', taureau_jumeaux: 'pistol', revolver: 'pistol', colibri: 'pistol', taureau_magnum: 'pistol',
   smg: 'smg', smg_guepe: 'smg', smg_ours: 'smg', furet_akimbo: 'smg', ours_deluge: 'smg',
   fusil_assaut: 'rifle', ar_vesta: 'rifle', ar_hades: 'rifle', ar_lynx: 'rifle', kr4_tactique: 'rifle',
   pompe: 'shotgun', pompe_belier: 'shotgun', pompe_dragon: 'shotgun',
   precision: 'sniper', dmr_faucon: 'sniper', aigle_longuevue: 'sniper', faucon_traqueur: 'sniper',
   chg_9mm: 'mag', chg_556: 'mag', chg_762: 'mag', chg_etendu: 'mag', chg_tambour: 'mag', tracantes: 'bullets', chg_12g: 'shells', chg_44: 'bullets', perforantes: 'bullet',
   lunette: 'scope', silencieux: 'silencer', poignee: 'grip', viseur_holo: 'holo', bipied: 'bipod', refroidisseur: 'silencer',
-  plaque: 'plate', armure_lourde: 'plate', casque: 'helmet',
-  frag: 'frag', thermite: 'frag', fumigene: 'smoke', flash: 'flash',
-  ifak: 'medkit', kit_trauma: 'medkit', seringue: 'syringe',
+  plaque: 'plate', armure_lourde: 'plate', casque: 'helmet', casque_lourd: 'helmet',
+  frag: 'frag', thermite: 'frag', sous_munitions: 'frag', fumigene: 'smoke', flash: 'flash',
+  ifak: 'medkit', kit_trauma: 'medkit', sac_medical: 'medkit', seringue: 'syringe',
 };
 export const iconKey = (defId: string) => `ic-${ICON_OF[defId] ?? 'bolt'}`;
 export const isWeaponIcon = (defId: string) => ['pistol', 'smg', 'rifle', 'shotgun', 'sniper'].includes(ICON_OF[defId] ?? '');

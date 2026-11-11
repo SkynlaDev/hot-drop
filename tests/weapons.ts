@@ -1,12 +1,12 @@
 // Outil d'équilibrage : npx vite-node tests/weapons.ts
-// Chaque arme seule (+ casque et IFAK, rareté Peu commun) en duel contre des bots normaux du tour 2.
+// Chaque arme seule (+ casque et IFAK) en duel contre des bots normaux du tour 2.
 import { ITEMS, ITEM_IDS } from '../src/data/items';
 import { generateBot, botLoadout } from '../src/logic/bots';
 import { simulateDuel } from '../src/logic/combat';
 import { ItemInst } from '../src/logic/grid';
 import { computeLoadout, estimateDps, maxHpFor } from '../src/logic/stats';
 
-const it = (uid: number, defId: string, x: number, y: number): ItemInst => ({ uid, defId, rarity: 1, rot: 0, x, y, placed: true });
+const it = (uid: number, defId: string, x: number, y: number): ItemInst => ({ uid, defId, rot: 0, x, y, placed: true });
 const N = 200;
 console.log('arme'.padEnd(28), 'cases DPS  victoire');
 for (const id of ITEM_IDS.filter((i) => ITEMS[i].weapon)) {

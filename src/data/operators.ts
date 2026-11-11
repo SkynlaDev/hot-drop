@@ -12,8 +12,8 @@ export interface OperatorDef {
   pitch: string;
   /** Passif, appliqué par computeLoadout. */
   passive: string;
-  /** Objets de départ : [defId, x, y, rareté ?] dans le sac de base (colonnes 2 à 6, lignes 2 à 5). */
-  start: [string, number, number, number?][];
+  /** Objets de départ : [defId, x, y] dans le sac de base (colonnes 2 à 6, lignes 2 à 5). */
+  start: [string, number, number][];
 }
 
 export const OPERATORS: Record<OperatorId, OperatorDef> = {

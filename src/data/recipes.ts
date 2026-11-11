@@ -1,4 +1,4 @@
-// Recettes : des objets différents, adjacents dans le sac, assemblés automatiquement hors combat (pas d'Établi).
+// Recettes : des objets adjacents dans le sac, assemblés automatiquement hors combat (pas d'Établi).
 
 export interface Recipe {
   id: string;
@@ -17,4 +17,11 @@ export const RECIPES: Recipe[] = [
   { id: 'thermite', inputs: ['frag', 'fumigene'], output: 'thermite' },
   { id: 'armure_lourde', inputs: ['plaque', 'casque'], output: 'armure_lourde' },
   { id: 'kit_trauma', inputs: ['ifak', 'seringue'], output: 'kit_trauma' },
+  // Recettes de doublon (remplacent l'ancienne fusion de raretés). Après les autres : à ingrédients égaux,
+  // la première recette de la liste l'emporte (frag + fumigène donne la thermite avant frag + frag).
+  { id: 'mamba_akimbo', inputs: ['pistolet', 'pistolet'], output: 'mamba_akimbo' },
+  { id: 'taureau_jumeaux', inputs: ['revolver', 'revolver'], output: 'taureau_jumeaux' },
+  { id: 'casque_lourd', inputs: ['casque', 'casque'], output: 'casque_lourd' },
+  { id: 'sous_munitions', inputs: ['frag', 'frag'], output: 'sous_munitions' },
+  { id: 'sac_medical', inputs: ['ifak', 'ifak'], output: 'sac_medical' },
 ];

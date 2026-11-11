@@ -59,7 +59,7 @@ export function recipeLabel(r: Recipe): string {
 }
 
 /**
- * Assemble une recette : les ingrédients disparaissent, l'objet obtenu prend leur meilleure rareté.
+ * Assemble une recette : les ingrédients disparaissent.
  * Il est posé de préférence là où étaient les ingrédients, sinon il va dans la réserve.
  */
 export function craft(run: RunState, c: Craftable): ItemInst {
@@ -67,8 +67,7 @@ export function craft(run: RunState, c: Craftable): ItemInst {
   const uids = new Set(c.parts.map((p) => p.uid));
   run.items = run.items.filter((i) => !uids.has(i.uid));
   const out: ItemInst = {
-    uid: run.nextUid++, defId: c.recipe.output, rarity: Math.max(...c.parts.map((p) => p.rarity)),
-    rot: 0, x: 0, y: 0, placed: false,
+    uid: run.nextUid++, defId: c.recipe.output, rot: 0, x: 0, y: 0, placed: false,
   };
   const usable = usableCells(run.bags);
   let best: { x: number; y: number; rot: Rot; score: number } | null = null;

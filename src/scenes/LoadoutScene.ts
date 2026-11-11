@@ -11,11 +11,11 @@ import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
   dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
 } from '../logic/grid';
-import { MAX_RARITY, RARITY_COLORS, RARITY_HEX, RARITY_NAMES } from '../logic/rarity';
+import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
-  BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, canFuse, currentDuel, endAction,
-  finalDuelParams, fuse, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag, takeLoot,
+  BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
+  finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag, takeLoot,
   sellItem, shopOffers, unplaceBag, usable,
 } from '../logic/run';
 import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
@@ -82,6 +82,9 @@ const QUALITY: Record<BotBuild['quality'], { label: string; color: number; hex: 
   fort: { label: 'FORT', color: 0xe5484d, hex: '#ff6b6b' },
 };
 const GOLD = '#f2c94c';
+/** Violet de la caisse épique (ancienne couleur Épique). */
+const EPIC_HEX = '#b57bf0';
+const EPIC_COLOR = 0x9b51e0;
 
 const inRect = (px: number, py: number, r: { x: number; y: number; w: number; h: number }) => px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 
@@ -428,7 +431,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.trayLayer.add(v);
       this.trayViews.set(it.uid, v);
       if (this.hidden.has(it.uid) || (this.drag?.item?.uid === it.uid && this.drag.moved)) v.setVisible(false);
-      this.trayLayer.add(txt(this, sx + slotW / 2, RESERVE.y + RESERVE.h - 16, RARITY_NAMES[it.rarity], 12, RARITY_HEX[it.rarity], { fontStyle: 'bold' }).setOrigin(0.5));
+      this.trayLayer.add(txt(this, sx + slotW / 2, RESERVE.y + RESERVE.h - 16, TIER_NAMES[tierOf(it.defId)], 12, TIER_HEX[tierOf(it.defId)], { fontStyle: 'bold' }).setOrigin(0.5));
     });
     const bw = BAG_RESERVE.w / BAG_RESERVE.slots;
     this.trayBags.slice(0, BAG_RESERVE.slots).forEach((b, i) => {
@@ -530,7 +533,7 @@ export default class LoadoutScene extends Phaser.Scene {
     } else if (this.mode === 'caisse') {
       const l = this.loot;
       if (l && (l.items.length || l.bags.length)) {
-        for (const it of l.items) lines.push([`${ITEMS[it.defId].name} · ${RARITY_NAMES[it.rarity]}`, RARITY_HEX[it.rarity]]);
+        for (const it of l.items) lines.push([ITEMS[it.defId].name, TIER_HEX[tierOf(it.defId)]]);
         for (const b of l.bags) lines.push([`${BAGS[b.defId as BagId].name} : +${cellCount(b.defId)} cases`, '#d8b98c']);
         if (l.credits) lines.push([`Réserve pleine : revendu +${l.credits} cr`, C.accentStr]);
       } else lines.push(['Caisse ouverte.', C.quiet]);
@@ -715,12 +718,6 @@ export default class LoadoutScene extends Phaser.Scene {
     return { gx, gy, ax, ay, overGrid };
   }
 
-  private fuseTarget(d: DragState, ax: number, ay: number): ItemInst | undefined {
-    if (!d.item) return undefined;
-    const ov = overlapping(this.run.items, d.item, ax, ay, d.rot);
-    return ov.length === 1 && canFuse(ov[0], d.item) ? ov[0] : undefined;
-  }
-
   private validDrop(d: DragState, ax: number, ay: number): boolean {
     if (d.item) return canPlace(this.run.items, d.item, ax, ay, d.rot, usable(this.run));
     return canPlaceBag(this.run.bags, this.run.items, d.bag!, ax, ay, d.rot);
@@ -740,8 +737,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     if (!a.overGrid) return;
     const valid = this.validDrop(d, a.ax, a.ay);
-    const fusion = !valid && this.fuseTarget(d, a.ax, a.ay);
-    const col = valid ? (d.bag ? 0xd8a25e : C.good) : fusion ? C.accent : C.danger;
+    const col = valid ? (d.bag ? 0xd8a25e : C.good) : C.danger;
     for (const [cx, cy] of cellsAt((d.item ?? d.bag)!, a.ax, a.ay, d.rot)) {
       if (cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) continue;
       this.previewG.fillStyle(col, 0.3);
@@ -777,27 +773,16 @@ export default class LoadoutScene extends Phaser.Scene {
       this.coinBurst(p.x, p.y);
       vibrate(10);
     } else if (a.overGrid) {
-      const target = this.fuseTarget(d, a.ax, a.ay);
       if (canPlace(this.run.items, inst, a.ax, a.ay, d.rot, usable(this.run))) {
         Object.assign(inst, { x: a.ax, y: a.ay, rot: d.rot, placed: true });
         this.popUid = inst.uid;
         this.dust(inst);
         vibrate(8);
-      } else if (target) {
-        this.doFuse(target, inst);
       } else {
         toast(this, this.outsideUsable(inst, a.ax, a.ay, d.rot) ? 'Hors du sac : pose une sacoche ici' : 'Pas la place ici', C.dangerStr, 880);
         this.cameras.main.shake(120, 0.004);
         vibrate([10, 30, 10]);
       }
-    } else if (this.traySlot(p.x, p.y) && canFuse(this.traySlot(p.x, p.y)!, inst)) {
-      const target = this.traySlot(p.x, p.y)!;
-      fuse(this.run, target, inst);
-      this.fuseFx(target);
-      this.refresh();
-      const tv = this.trayViews.get(target.uid);
-      if (tv) pop(this, tv, 1.4, 320);
-      return;
     } else if (inst.placed) {
       if (reserve(this.run).length >= RESERVE_MAX) toast(this, 'Réserve pleine', C.dangerStr, 880);
       else Object.assign(inst, { placed: false, rot: d.rot });
@@ -812,19 +797,6 @@ export default class LoadoutScene extends Phaser.Scene {
     const u = usable(this.run);
     const cells = cellsAt(inst, x, y, rot);
     return cells.every(([cx, cy]) => cx >= 0 && cy >= 0 && cx < COLS && cy < ROWS) && cells.some(([cx, cy]) => !u.has(`${cx},${cy}`));
-  }
-
-  private doFuse(target: ItemInst, consumed: ItemInst) {
-    fuse(this.run, target, consumed);
-    this.popUid = target.uid;
-    this.fuseFx(target);
-  }
-
-  private fuseFx(target: ItemInst) {
-    this.cameras.main.flash(180, 255, 200, 120);
-    this.cameras.main.shake(140, 0.004);
-    toast(this, `Fusion : ${ITEMS[target.defId].name} ${RARITY_NAMES[target.rarity]}`, RARITY_HEX[target.rarity], 880);
-    vibrate(30);
   }
 
   private dropBag(d: DragState, p: Phaser.Input.Pointer) {
@@ -1058,7 +1030,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private showInfo(inst: ItemInst) {
     const info = describe(inst);
-    this.infoModal(info.title, info.subtitle, RARITY_HEX[inst.rarity], info.lines, RARITY_COLORS[inst.rarity]);
+    this.infoModal(info.title, info.subtitle, TIER_HEX[tierOf(inst.defId)], info.lines, TIER_COLORS[tierOf(inst.defId)]);
   }
 
   private showBagInfo(b: BagInst) {
@@ -1081,7 +1053,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.tweens.add({ targets: cc, y: y0, alpha: 1, delay, duration: 320, ease: 'Back.Out' });
     }
     const afford = this.run.credits >= o.price;
-    const stroke = o.item ? RARITY_COLORS[o.item.rarity] : C.leatherLine;
+    const stroke = o.item ? TIER_COLORS[tierOf(o.item.defId)] : C.leatherLine;
     const g = this.add.graphics();
     g.fillStyle(0x000000, 0.35);
     g.fillRoundedRect(0, 4, w, h, 14);
@@ -1100,7 +1072,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (o.item) {
       const info = describe(o.item);
       cc.add(txt(this, w / 2, 118, info.title, 20, C.text, { fontStyle: 'bold', align: 'center' }).setOrigin(0.5, 0));
-      cc.add(txt(this, w / 2, 144, RARITY_NAMES[o.item.rarity], 16, RARITY_HEX[o.item.rarity]).setOrigin(0.5, 0));
+      cc.add(txt(this, w / 2, 144, TIER_NAMES[tierOf(o.item.defId)], 16, TIER_HEX[tierOf(o.item.defId)]).setOrigin(0.5, 0));
       const desc = txt(this, w / 2, 166, info.lines[0], 14, C.quiet).setOrigin(0.5, 0);
       if (desc.width > w - 20) desc.setScale((w - 20) / desc.width);
       cc.add(desc);
@@ -1184,7 +1156,7 @@ export default class LoadoutScene extends Phaser.Scene {
   /**
    * Caisse de ravitaillement : la caisse tremble, s'ouvre, le butin jaillit puis file en réserve.
    * Caisse épique : caisse violette cerclée d'or, lueur qui monte, tremblements plus longs, double gerbe de rayons
-   * et pluie d'étoiles ; l'objet Épique ou Légendaire sort en premier avec son bandeau.
+   * et pluie d'étoiles ; l'objet assemblé sort en premier.
    */
   private openCrate(loot: Loot) {
     if (this.modal) return;
@@ -1194,27 +1166,26 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
     const cx = W / 2;
     const cy = 760;
-    const legendary = epic && loot.items.some((it) => it.rarity >= MAX_RARITY);
-    const head = txt(this, W / 2, 200, epic ? 'CAISSE ÉPIQUE' : 'CAISSE DE RAVITAILLEMENT', epic ? 46 : 36, epic ? RARITY_HEX[3] : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const head = txt(this, W / 2, 200, epic ? 'CAISSE ÉPIQUE' : 'CAISSE DE RAVITAILLEMENT', epic ? 46 : 36, epic ? EPIC_HEX : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     m.add(head);
     if (epic) {
       head.setShadow(0, 0, '#f2c94c', 14, true, true);
       head.setScale(0.4).setAlpha(0);
       this.tweens.add({ targets: head, scale: 1, alpha: 1, duration: 420, ease: 'Back.Out' });
-      m.add(txt(this, W / 2, 252, 'Au moins un objet Épique', 24, GOLD, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
+      m.add(txt(this, W / 2, 252, 'Un objet assemblé garanti', 24, GOLD, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
     }
     // Lueur au sol qui monte pendant les tremblements (épique).
     const aura = this.add.graphics().setPosition(cx, cy).setAlpha(0);
     if (epic) {
       for (let k = 6; k >= 1; k--) {
-        aura.fillStyle(k % 2 ? RARITY_COLORS[3] : RARITY_COLORS[4], 0.09);
+        aura.fillStyle(k % 2 ? EPIC_COLOR : TIER_COLORS[1], 0.09);
         aura.fillCircle(0, 0, 90 + k * 34);
       }
       m.add(aura);
     }
     const rays = this.add.graphics().setPosition(cx, cy - 40).setAlpha(0);
     const nRays = epic ? 18 : 12;
-    rays.fillStyle(epic ? RARITY_COLORS[3] : 0xf2c94c, epic ? 0.26 : 0.18);
+    rays.fillStyle(epic ? EPIC_COLOR : 0xf2c94c, epic ? 0.26 : 0.18);
     for (let i = 0; i < nRays; i++) {
       const a = (i / nRays) * Math.PI * 2;
       rays.fillTriangle(0, 0, Math.cos(a - 0.1) * 460, Math.sin(a - 0.1) * 460, Math.cos(a + 0.1) * 460, Math.sin(a + 0.1) * 460);
@@ -1287,7 +1258,7 @@ export default class LoadoutScene extends Phaser.Scene {
         for (let k = 0; k < 26; k++) {
           const a = Math.random() * Math.PI * 2;
           const d = 180 + Math.random() * 300;
-          const star = txt(this, cx, cy - 60, '★', 18 + Math.floor(Math.random() * 22), k % 2 ? GOLD : RARITY_HEX[3]).setOrigin(0.5);
+          const star = txt(this, cx, cy - 60, '★', 18 + Math.floor(Math.random() * 22), k % 2 ? GOLD : EPIC_HEX).setOrigin(0.5);
           m.add(star);
           this.tweens.add({
             targets: star, x: cx + Math.cos(a) * d, y: cy - 60 + Math.sin(a) * d * 0.8 + 120, angle: 360 * (Math.random() < 0.5 ? -1 : 1),
@@ -1300,12 +1271,12 @@ export default class LoadoutScene extends Phaser.Scene {
       else this.cameras.main.flash(160, 255, 236, 180);
       vibrate(epic ? [40, 40, 40, 40, 80] : [30, 40, 30]);
       const entries: { v: Container; label: string; col: string; w: number; h: number }[] = [];
-      // Épique : le meilleur objet sort en premier.
-      const items = epic ? [...loot.items].sort((a, b) => b.rarity - a.rarity) : loot.items;
+      // Épique : l'objet assemblé sort en premier.
+      const items = epic ? [...loot.items].sort((a, b) => tierOf(b.defId) - tierOf(a.defId)) : loot.items;
       for (const it of items) {
         const d = dims(it);
         const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
-        entries.push({ v: itemView(this, it, CELL).setScale(s), label: `${ITEMS[it.defId].name}\n${RARITY_NAMES[it.rarity]}`, col: RARITY_HEX[it.rarity], w: d.w * CELL * s, h: d.h * CELL * s });
+        entries.push({ v: itemView(this, it, CELL).setScale(s), label: `${ITEMS[it.defId].name}\n${TIER_NAMES[tierOf(it.defId)]}`, col: TIER_HEX[tierOf(it.defId)], w: d.w * CELL * s, h: d.h * CELL * s });
       }
       for (const b of loot.bags) {
         const d = dims(b);
@@ -1330,12 +1301,6 @@ export default class LoadoutScene extends Phaser.Scene {
         m.add(ct);
       }
       if (!n) m.add(txt(this, W / 2, 400, 'Vide… pas de chance.', 26, C.quiet).setOrigin(0.5));
-      if (legendary) {
-        // Bandeau Légendaire qui claque sous le titre.
-        const lb = txt(this, W / 2, 590, 'LÉGENDAIRE !', 44, RARITY_HEX[MAX_RARITY], { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 7, padding: { x: 14, y: 10 } }).setOrigin(0.5).setScale(3).setAlpha(0).setAngle(-6);
-        m.add(lb);
-        this.tweens.add({ targets: lb, scale: 1, alpha: 1, delay: 300, duration: 300, ease: 'Back.Out', onComplete: () => this.cameras.main.shake(120, 0.006) });
-      }
       const hint = txt(this, W / 2, 1040, 'Touche pour ranger', 24, C.text, { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0);
       m.add(hint);
       this.tweens.add({ targets: hint, alpha: 1, delay: 700, duration: 300 });
@@ -1725,7 +1690,7 @@ export default class LoadoutScene extends Phaser.Scene {
           ev?.stopPropagation?.();
           const d = describe(it);
           info.setText(`${d.title} · ${d.subtitle}\n${d.lines.slice(0, 4).join('\n')}`).setColor(C.text);
-          flashItem(this, v, RARITY_COLORS[it.rarity]);
+          flashItem(this, v, TIER_COLORS[tierOf(it.defId)]);
         });
         m.add(z);
       }
@@ -2093,15 +2058,6 @@ export default class LoadoutScene extends Phaser.Scene {
         }
         break;
       }
-      case 'reflect': {
-        // hp/armor = ceux du tireur, qui encaisse le renvoi
-        const shooter = this.actor(e.side === 'a' ? 'b' : 'a');
-        shooter.hp = e.hp;
-        shooter.armor = e.armor;
-        this.drawBars(shooter);
-        if (animate) this.floatText(shooter, `${e.amount} ↩`, GOLD, 20);
-        break;
-      }
       case 'death': {
         const a = this.actor(e.side);
         a.hp = 0;
@@ -2289,7 +2245,7 @@ export default class LoadoutScene extends Phaser.Scene {
       counter.setText(pl.picks > 1 ? `Choisis ${pl.picks} objets · ${chosen.length + 1}/${pl.picks}` : 'Choisis 1 objet');
       if (current) {
         const d = describe(current);
-        title.setText(`${d.title} · ${d.subtitle}`).setColor(RARITY_HEX[current.rarity]);
+        title.setText(`${d.title} · ${d.subtitle}`).setColor(TIER_HEX[tierOf(current.defId)]);
         info.setText(d.lines.slice(0, 5).join('\n') + (full() ? '\nRéserve pleine : il sera revendu.' : ''));
         take.setLabel(`Prendre · ${ITEMS[current.defId].short} ▸`);
         take.setEnabled(true);

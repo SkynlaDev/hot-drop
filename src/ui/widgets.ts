@@ -3,7 +3,7 @@ import { iconKey, isWeaponIcon } from '../art';
 import { C, FONT, H, W } from '../config';
 import { CATEGORY_COLORS, FAMILY_INFO, ITEMS } from '../data/items';
 import { ItemInst, Mask, maskOf } from '../logic/grid';
-import { RARITY_COLORS, RARITY_HEX, RARITY_SHORT } from '../logic/rarity';
+import { TIER_COLORS, tierOf } from '../logic/tier';
 
 type Scene = Phaser.Scene;
 type Container = Phaser.GameObjects.Container;
@@ -140,24 +140,25 @@ function labelCell(mask: Mask): [number, number] {
 }
 
 /** Vue d'un objet : conteneur dont l'origine est le coin haut-gauche de sa boîte englobante. */
-export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot' | 'rarity'>, cell: number): Container {
+export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot'>, cell: number): Container {
   const d = ITEMS[inst.defId];
   const mask = maskOf(inst.defId, inst.rot);
   const pw = mask[0].length * cell;
   const ph = mask.length * cell;
   const c = scene.add.container(0, 0);
   const g = scene.add.graphics();
-  const rc = RARITY_COLORS[inst.rarity];
+  const tier = tierOf(inst.defId);
+  const rc = TIER_COLORS[tier];
   const k = cell / 80;
-  if (inst.rarity >= 3) {
-    // Lueur pour Épique et Légendaire
+  if (tier >= 1) {
+    // Lueur pour les objets assemblés
     const glow = scene.add.graphics();
     glow.fillStyle(rc, 0.35);
     fillMask(glow, mask, cell, -2 * k, 14 * k);
     c.add(glow);
     scene.tweens.add({ targets: glow, alpha: 0.25, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.InOut' });
   }
-  // Bordure de rareté, corps sombre teinté par la catégorie, reflet sur le haut de chaque case.
+  // Bordure de niveau (base / assemblé), corps sombre teinté par la catégorie, reflet sur le haut de chaque case.
   g.fillStyle(rc, 1);
   fillMask(g, mask, cell, 3 * k, 10 * k);
   g.fillStyle(0x15170f, 1);

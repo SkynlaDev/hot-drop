@@ -2,7 +2,7 @@ import { CATEGORY_NAMES, FAMILY_INFO, Family, ITEMS } from '../data/items';
 import type { OperatorId } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { ItemInst, maskOf, sharedEdge } from './grid';
-import { EFFECT_MULT, EXTRA_CHARGES, MAG_MULT, MAX_RARITY, PRICE_MULT, RARITY_NAMES, RECHARGE_MULT } from './rarity';
+import { TIER_NAMES, tierOf } from './tier';
 
 export const FAMILY_TIERS = [2, 4];
 export const FAMILY_ORDER: Family[] = ['rafale', 'precision', 'demolition', 'rempart', 'tactique'];
@@ -23,8 +23,6 @@ export interface WeaponRt {
   /** Impacts par tir sur l'adversaire (plombs) : 2 = chaque tir touche deux fois. */
   pellets: number;
   firstCrit: boolean;
-  /** Toutes les N balles, la balle ignore l'armure (trait Légendaire). 0 = jamais. */
-  pierceEvery: number;
   /** Part des dégâts qui traverse l'armure (0..1). */
   armorPierce: number;
   /** Toutes les N balles, la balle touche deux fois (Rafale palier 4). 0 = jamais. */
@@ -64,7 +62,6 @@ export interface FamilyState {
 export interface PlayerLoadout {
   maxHp: number;
   armor: number;
-  reflect: number;
   weapons: WeaponRt[];
   actives: ActiveRt[];
   critMult: number;
@@ -97,13 +94,13 @@ export const DRUM_RELOAD = 0.4;
 /** Multiplicateur de recharge d'une arme qu'aucun chargeur de son calibre ne touche. */
 export const UNFED_RELOAD = 2;
 
-/** Familles du sac : un objet Légendaire compte pour 2. */
+/** Familles du sac : nombre d'objets posés de chaque famille. */
 export function familyStates(items: ItemInst[]): FamilyState[] {
   const counts = new Map<Family, number>();
   for (const it of items) {
     if (!it.placed) continue;
     const f = ITEMS[it.defId].family;
-    counts.set(f, (counts.get(f) ?? 0) + (it.rarity === MAX_RARITY ? 2 : 1));
+    counts.set(f, (counts.get(f) ?? 0) + 1);
   }
   return FAMILY_ORDER.filter((f) => counts.has(f)).map((family) => {
     const count = counts.get(family)!;
@@ -120,17 +117,15 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
   const weapons: WeaponRt[] = [];
   const actives: ActiveRt[] = [];
   let armor = 0;
-  let reflect = 0;
   let flatReduce = 0;
 
   for (const it of placed) {
     const d = ITEMS[it.defId];
-    const m = EFFECT_MULT[it.rarity];
 
     if (d.weapon) {
       let interval = d.weapon.interval;
       if (d.family === 'rafale' && tier('rafale') >= 1) interval /= 1.15;
-      let reload = d.weapon.reload * RECHARGE_MULT[it.rarity];
+      let reload = d.weapon.reload;
       let crit = 0.05 + (d.weapon.critBonus ?? 0) + (tier('precision') >= 1 ? 0.1 : 0);
       // Feu continu, passif de Viper : plafond relevé par l'arme elle-même, montée accélérée par un refroidisseur adjacent.
       let heatCap = operator === 'viper' ? FEU_CAP + (d.weapon.heatBonus ?? 0) : 0;
@@ -150,41 +145,40 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         if (!od.synergy) continue;
         const edge = sharedEdge(o, it);
         if (!edge) continue;
-        const om = EFFECT_MULT[o.rarity];
         if (od.synergy.kind === 'mag' && (od.caliber === d.caliber || d.weapon.feedsAny) && magCount < 3) {
           magCount++;
-          magBonus += od.synergy.value * om;
-          links.push({ a: o.uid, b: it.uid, label: `−${pct(od.synergy.value * om)} de recharge`, edge });
+          magBonus += od.synergy.value;
+          links.push({ a: o.uid, b: it.uid, label: `−${pct(od.synergy.value)} de recharge`, edge });
         } else if (od.synergy.kind === 'scope' && d.tags.includes('arme_longue')) {
-          crit += od.synergy.value * om;
-          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de critique`, edge });
+          crit += od.synergy.value;
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value)} de critique`, edge });
         } else if (od.synergy.kind === 'silencer') {
           firstCrit = true;
           links.push({ a: o.uid, b: it.uid, label: '1er tir critique', edge });
         } else if (od.synergy.kind === 'grip') {
-          grip = Math.max(grip, od.synergy.value * om);
-          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de cadence`, edge });
+          grip = Math.max(grip, od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value)} de cadence`, edge });
         } else if (od.synergy.kind === 'extmag') {
-          extMag = Math.max(extMag, od.synergy.value * om);
-          links.push({ a: o.uid, b: it.uid, label: `chargeur +${pct(od.synergy.value * om)}`, edge });
+          extMag = Math.max(extMag, od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `chargeur +${pct(od.synergy.value)}`, edge });
         } else if (od.synergy.kind === 'holo' && !d.tags.includes('arme_longue')) {
-          crit += od.synergy.value * om;
-          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de critique`, edge });
+          crit += od.synergy.value;
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value)} de critique`, edge });
         } else if (od.synergy.kind === 'bipod' && d.tags.includes('arme_longue')) {
-          dmgMult = Math.max(dmgMult, 1 + od.synergy.value * om);
-          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value * om)} de dégâts`, edge });
+          dmgMult = Math.max(dmgMult, 1 + od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value)} de dégâts`, edge });
         } else if (od.synergy.kind === 'drum') {
-          drum = Math.max(drum, od.synergy.value * om);
-          links.push({ a: o.uid, b: it.uid, label: `chargeur +${pct(od.synergy.value * om)}, recharge +${pct(DRUM_RELOAD)}`, edge });
+          drum = Math.max(drum, od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `chargeur +${pct(od.synergy.value)}, recharge +${pct(DRUM_RELOAD)}`, edge });
         } else if (od.synergy.kind === 'cooler') {
-          cooler = Math.max(cooler, od.synergy.value * om);
-          links.push({ a: o.uid, b: it.uid, label: `Feu continu +${pct(od.synergy.value * om)} plus rapide`, edge });
+          cooler = Math.max(cooler, od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `Feu continu +${pct(od.synergy.value)} plus rapide`, edge });
         } else if (od.synergy.kind === 'tracer') {
-          markBoost = Math.max(markBoost, od.synergy.value * om);
-          links.push({ a: o.uid, b: it.uid, label: `Marque +${pct(od.synergy.value * om)}`, edge });
+          markBoost = Math.max(markBoost, od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `Marque +${pct(od.synergy.value)}`, edge });
         } else if (od.synergy.kind === 'pierce') {
-          armorPierce = Math.max(armorPierce, Math.min(1, od.synergy.value * om));
-          links.push({ a: o.uid, b: it.uid, label: `perce ${pct(Math.min(1, od.synergy.value * om))} d'armure`, edge });
+          armorPierce = Math.max(armorPierce, Math.min(1, od.synergy.value));
+          links.push({ a: o.uid, b: it.uid, label: `perce ${pct(Math.min(1, od.synergy.value))} d'armure`, edge });
         }
       }
       if (d.wclass === 'Fusil à pompe' && tier('demolition') >= 2) armorPierce = 1;
@@ -195,19 +189,18 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       weapons.push({
         uid: it.uid,
         name: d.name,
-        dmg: d.weapon.dmg * m * dmgMult,
+        dmg: d.weapon.dmg * dmgMult,
         interval,
-        mag: Math.round(d.weapon.mag * MAG_MULT[it.rarity] * (1 + extMag) * (1 + drum)),
+        mag: Math.round(d.weapon.mag * (1 + extMag) * (1 + drum)),
         reload,
         crit: Math.min(crit, 0.9),
         pellets: d.weapon.targets ?? 1,
         firstCrit,
-        pierceEvery: it.rarity === MAX_RARITY ? 5 : 0,
         armorPierce,
         doubleEvery: d.family === 'rafale' && tier('rafale') >= 2 ? 3 : 0,
         fed,
         critStun: d.weapon.critStun ?? 0,
-        trueDmg: (d.weapon.trueDmg ?? 0) * m,
+        trueDmg: d.weapon.trueDmg ?? 0,
         heatRate: FEU_RATE * (1 + cooler),
         heatCap,
         markBoost,
@@ -215,24 +208,22 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     }
 
     if (d.armor) {
-      armor += d.armor * m;
+      armor += d.armor;
       flatReduce += d.flatReduce ?? 0;
-      if (it.rarity === MAX_RARITY && d.id === 'plaque') reflect += 0.1;
     }
 
     if (d.active) {
-      const cd = d.active.cooldown * RECHARGE_MULT[it.rarity];
+      const cd = d.active.cooldown;
       const kind = d.active.kind;
-      const flat = kind === 'smoke' || kind === 'adrenaline';
-      let duration = (d.active.duration ?? 0) * (kind === 'smoke' ? m : 1);
+      let duration = d.active.duration ?? 0;
       if (kind === 'smoke' && tier('tactique') >= 1) duration *= 1.5;
       const explosive = d.category === 'explosif';
       actives.push({
         uid: it.uid,
         kind,
-        value: flat ? d.active.value : d.active.value * m,
+        value: d.active.value,
         cooldown: cd,
-        charges: d.active.charges + EXTRA_CHARGES[it.rarity] + (explosive && tier('demolition') >= 1 ? 1 : 0),
+        charges: d.active.charges + (explosive && tier('demolition') >= 1 ? 1 : 0),
         duration,
         threshold: d.active.threshold ?? 0.5,
         ignoreArmor: kind === 'frag' && (tier('demolition') >= 2 || !!d.active.pierce),
@@ -246,7 +237,6 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     loadout: {
       maxHp,
       armor: Math.round(armor),
-      reflect,
       weapons,
       actives,
       critMult: tier('precision') >= 2 ? 2.25 : 2,
@@ -274,60 +264,57 @@ export function estimateDps(l: PlayerLoadout): number {
   return dps;
 }
 
-export function itemPrice(defId: string, rarity: number): number {
-  return Math.round(ITEMS[defId].price * PRICE_MULT[rarity]);
+export function itemPrice(defId: string): number {
+  return ITEMS[defId].price;
 }
 
-export function sellValue(inst: ItemInst): number {
-  return Math.max(1, Math.floor(itemPrice(inst.defId, inst.rarity) * 0.5));
+export function sellValue(inst: Pick<ItemInst, 'defId'>): number {
+  return Math.max(1, Math.floor(itemPrice(inst.defId) * 0.5));
 }
 
 const r1 = (v: number) => (Math.round(v * 10) / 10).toString().replace('.', ',');
 const cellCount = (defId: string) => maskOf(defId, 0).flat().filter(Boolean).length;
 
-/** Fiche d'un objet, valeurs ajustées à sa rareté. */
-export function describe(inst: ItemInst): { title: string; subtitle: string; lines: string[] } {
+/** Fiche d'un objet. */
+export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtitle: string; lines: string[] } {
   const d = ITEMS[inst.defId];
-  const m = EFFECT_MULT[inst.rarity];
   const lines: string[] = [];
   const cal = d.caliber ? ` · ${d.caliber}` : '';
-  const sub = `${RARITY_NAMES[inst.rarity]} · ${d.wclass ?? CATEGORY_NAMES[d.category]}${cal}`;
+  const sub = `${TIER_NAMES[tierOf(inst.defId)]} · ${d.wclass ?? CATEGORY_NAMES[d.category]}${cal}`;
 
   if (d.weapon) {
     const wp = d.weapon;
-    lines.push(`Dégâts ${r1(wp.dmg * m)} toutes les ${r1(wp.interval)} s`);
-    lines.push(`Chargeur ${Math.round(wp.mag * MAG_MULT[inst.rarity])} · recharge ${r1(wp.reload * RECHARGE_MULT[inst.rarity])} s`);
+    lines.push(`Dégâts ${r1(wp.dmg)} toutes les ${r1(wp.interval)} s`);
+    lines.push(`Chargeur ${wp.mag} · recharge ${r1(wp.reload)} s`);
     if (wp.selfFed) lines.push('Alimentation intégrée : jamais à sec');
     else if (wp.feedsAny) lines.push(`Alimentation : n'importe quel chargeur adjacent, sinon recharge ×${UNFED_RELOAD}`);
     else lines.push(`Alimentation : un chargeur ${d.caliber} adjacent, sinon recharge ×${UNFED_RELOAD}`);
     if (wp.firstCrit) lines.push('Son 1er tir est toujours critique');
     if (wp.armorPierce) lines.push(`Ignore ${pct(wp.armorPierce)} de l'armure`);
     if (wp.critStun) lines.push(`Ses critiques retardent les tirs adverses de ${r1(wp.critStun)} s`);
-    if (wp.trueDmg) lines.push(`Incendiaire : +${Math.round(wp.trueDmg * m)} dégâts qui ignorent l'armure`);
+    if (wp.trueDmg) lines.push(`Incendiaire : +${Math.round(wp.trueDmg)} dégâts qui ignorent l'armure`);
     if (wp.targets && wp.targets > 1) lines.push(`Plombs : chaque tir touche ${wp.targets} fois`);
     if (wp.critBonus) lines.push(`+${pct(wp.critBonus)} de critique`);
     if (wp.heatBonus) lines.push(`Viper : Feu continu jusqu'à +${pct(FEU_CAP + wp.heatBonus)} au lieu de +${pct(FEU_CAP)}`);
     if (wp.markBoost) lines.push(`Sentinelle : quand elle consomme la Marque, +${pct(wp.markBoost)} de dégâts en plus`);
-    if (inst.rarity === MAX_RARITY) lines.push("Trait légendaire : 1 balle sur 5 ignore l'armure");
   }
   if (d.armor) {
-    lines.push(`Armure +${Math.round(d.armor * m)}`);
-    if (inst.rarity === MAX_RARITY && d.id === 'plaque') lines.push('Trait légendaire : renvoie 10 % des dégâts bloqués');
+    lines.push(`Armure +${d.armor}`);
     if (d.flatReduce) lines.push(`Chaque balle reçue perd ${d.flatReduce} dégâts`);
   }
   if (d.active) {
     const a = d.active;
-    const cd = r1(a.cooldown * RECHARGE_MULT[inst.rarity]);
-    const ch = a.charges + EXTRA_CHARGES[inst.rarity];
-    if (a.kind === 'frag') lines.push(`${Math.round(a.value * m)} dégâts à l'adversaire${a.pierce ? ", ignore l'armure" : ''}`);
-    if (a.kind === 'smoke') lines.push(`Précision adverse −50 % pendant ${r1((a.duration ?? 0) * m)} s`);
-    if (a.kind === 'heal') lines.push(`Soigne ${Math.round(a.value * m)} PV quand les PV passent sous 50 %`);
-    if (a.kind === 'flash') lines.push(`Étourdit les armes adverses ${r1(a.value * m)} s`);
+    const cd = r1(a.cooldown);
+    const ch = a.charges;
+    if (a.kind === 'frag') lines.push(`${Math.round(a.value)} dégâts à l'adversaire${a.pierce ? ", ignore l'armure" : ''}`);
+    if (a.kind === 'smoke') lines.push(`Précision adverse −50 % pendant ${r1(a.duration ?? 0)} s`);
+    if (a.kind === 'heal') lines.push(`Soigne ${Math.round(a.value)} PV quand les PV passent sous 50 %`);
+    if (a.kind === 'flash') lines.push(`Étourdit les armes adverses ${r1(a.value)} s`);
     if (a.kind === 'adrenaline') lines.push(`+${pct(a.value)} de cadence pendant ${r1(a.duration ?? 0)} s sous 30 % PV`);
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
   }
   if (d.synergy) {
-    const v = pct(d.synergy.value * m);
+    const v = pct(d.synergy.value);
     if (d.synergy.kind === 'mag') lines.push(`Adjacent à une arme ${d.caliber} : −${v} de temps de recharge (max 3)`);
     if (d.synergy.kind === 'scope') lines.push(`Adjacent à une arme longue : +${v} de critique`);
     if (d.synergy.kind === 'silencer') lines.push('Adjacent à une arme : son 1er tir est critique');
@@ -346,7 +333,7 @@ export function describe(inst: ItemInst): { title: string; subtitle: string; lin
     lines.push(`Recette : ${label} (ingrédients adjacents : assemblage automatique)`);
   }
   const f = FAMILY_INFO[d.family];
-  lines.push(`Famille ${f.name}${inst.rarity === MAX_RARITY ? ' (compte double)' : ''} : 2 → ${f.tier2.toLowerCase()} · 4 → ${f.tier4.toLowerCase()}`);
+  lines.push(`Famille ${f.name} : 2 → ${f.tier2.toLowerCase()} · 4 → ${f.tier4.toLowerCase()}`);
   const n = cellCount(inst.defId);
   lines.push(`${n} case${n > 1 ? 's' : ''} · revente ${sellValue(inst)} cr`);
   return { title: d.name, subtitle: sub, lines };

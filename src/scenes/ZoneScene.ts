@@ -5,7 +5,7 @@ import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS } from '../logic/zone';
 import { DANGER_RAMP } from '../logic/bots';
-import { EPIC_EXTRA_ITEMS, EPIC_LEGENDARY_CHANCE } from '../logic/run';
+import { EPIC_EXTRA_ITEMS } from '../logic/run';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, statusPills } from '../ui/hud';
 import { Button, button, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
 
@@ -30,7 +30,7 @@ function cardDesc(card: Card): string {
     case 'caisse':
       return 'Pas de combat : un objet, et parfois une sacoche.';
     case 'caisse_epique':
-      return `Caisse épique, sans combat : au moins un objet Épique (${Math.round(EPIC_LEGENDARY_CHANCE * 100)} % de chances qu'il soit Légendaire), plus ${EPIC_EXTRA_ITEMS} objet ordinaire.`;
+      return `Caisse épique, sans combat : un objet assemblé (recette) garanti, plus ${EPIC_EXTRA_ITEMS} objet ordinaire.`;
     case 'shop':
       return 'Boutique : 5 offres de ton opérateur, relance possible contre des crédits.';
   }
@@ -291,7 +291,7 @@ export default class ZoneScene extends Phaser.Scene {
     } else if (epic) {
       root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
-      root.add(txt(this, 0, dy - 4, '≥ 1 objet\nÉpique', fs, '#f2c94c', { fontStyle: 'bold', align: 'center', lineSpacing: -2 }).setOrigin(0.5, 0));
+      root.add(txt(this, 0, dy - 4, '1 objet\nassemblé', fs, '#f2c94c', { fontStyle: 'bold', align: 'center', lineSpacing: -2 }).setOrigin(0.5, 0));
       dy += 2 * fs + 6;
       root.add(txt(this, 0, dy, `+ ${EPIC_EXTRA_ITEMS} objet`, fs - 5, C.quiet).setOrigin(0.5, 0));
     } else {

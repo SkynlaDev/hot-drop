@@ -129,8 +129,8 @@ export default class OperatorScene extends Phaser.Scene {
       }
     }
     root.add(grid);
-    for (const [defId, x, yy, rarity = 0] of op.start) {
-      const v = itemView(this, { defId, rot: 0, rarity }, PCELL);
+    for (const [defId, x, yy] of op.start) {
+      const v = itemView(this, { defId, rot: 0 }, PCELL);
       v.setPosition(gx + (x - BASE_X0) * PCELL, gy + (yy - BASE_Y0) * PCELL);
       root.add(v);
     }

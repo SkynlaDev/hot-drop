@@ -3,8 +3,7 @@ import { ITEMS, ItemDef } from '../data/items';
 import { OPERATOR_IDS, OperatorId, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { ItemInst, Rot, canPlace, cellKey, cellsAt, cellsOf } from './grid';
-import { MAX_RARITY } from './rarity';
-import { Rng, hashParts, mulberry32, pick, weighted } from './rng';
+import { Rng, hashParts, mulberry32, pick } from './rng';
 import { PlayerLoadout, computeLoadout, maxHpFor } from './stats';
 
 export type BotQuality = 'faible' | 'normal' | 'fort';
@@ -37,18 +36,15 @@ const BACKPACKS: [number, number, number, number][] = [
   [0, 1, 7, 6], // 8×6
 ];
 
-/** Chances (%) de rareté, de Commun à Légendaire, selon le niveau du bot. */
-const RARITY_ODDS = [
-  [95, 5, 0, 0, 0],
-  [50, 38, 12, 0, 0],
-  [35, 38, 22, 5, 0],
-  [22, 36, 30, 11, 1],
-  [12, 28, 36, 20, 4],
-  [5, 18, 37, 30, 10],
-  [0, 10, 32, 40, 18],
-];
+/**
+ * Chance, selon le niveau du bot, que son arme principale, sa protection ou un objet de soutien soit
+ * un objet assemblé (recette) : c'est ce qui remplace les raretés dans la montée en puissance des bots.
+ */
+export const CRAFTED_ODDS = [0, 0.1, 0.25, 0.4, 0.5, 0.65, 0.8];
+/** Bonus de chance d'objet assemblé pour un bot fort. */
+const FORT_CRAFTED_BONUS = 0.25;
 
-/** Niveau de rareté (ligne de RARITY_ODDS) et nombre d'objets du bot du Top 1 (avant le bonus de bot fort). */
+/** Niveau (index de CRAFTED_ODDS) et nombre d'objets du bot du Top 1 (avant le bonus de bot fort). */
 export const FINAL_LEVEL = 5;
 export const FINAL_ITEMS = 9;
 /** Objets dans le sac d'un bot normal, par manche (4 au 1er cercle, comme un sac de départ). */
@@ -60,8 +56,8 @@ export const BOT_ITEMS = [4, 6, 7, 8, 9];
  */
 export const DANGER_RAMP = [0, 0.25, 0.5, 0.5, 0.75];
 
-/** Plus haute rareté minimale autorisée dans le sac selon le niveau (pas de Fusil Aigle au 1er tour). */
-const minRarityCap = (lvl: number) => Math.min(MAX_RARITY, 1 + Math.floor(lvl / 2));
+/** Plus haute manche d'apparition autorisée dans le sac selon le niveau (pas de Fusil Aigle aux premiers niveaux). */
+const minRoundCap = (lvl: number) => Math.floor(lvl / 2);
 
 /** Chances de bot fort et faible par manche (danger 0). Jamais de bot fort au 1er cercle. */
 export const FORT_ODDS = [0, 0.35, 0.45, 0.5, 0.55];
@@ -93,7 +89,7 @@ const isAccessory = (id: string) => !!ITEMS[id].synergy && !isMag(id);
 /** Génère le sac d'un bot, déterministe pour (graine, tour, options). */
 export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean } = {}): BotBuild {
   // 1er cercle : tout le monde vient d'atterrir. Quelle que soit la zone, un bot a un sac de départ
-  // (jamais fort, objets de départ, tous Communs, sac de base) : la taille de la zone ne change que les cartes.
+  // (jamais fort, objets de départ, aucun objet assemblé, sac de base) : la taille de la zone ne change que les cartes.
   const landing = round === 0 && !opts.final;
   const danger = (opts.danger ?? 0) * (opts.final ? 1 : DANGER_RAMP[Math.min(round, DANGER_RAMP.length - 1)]);
   const rng = mulberry32(hashParts('bot', seed, round, opts.danger ?? 0, opts.final ? 1 : 0, opts.goulag ? 1 : 0));
@@ -108,9 +104,9 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
     quality = r < q.fort ? 'fort' : r < q.fort + q.faible ? 'faible' : 'normal';
   }
 
-  // Niveau : tour + danger, ajusté par la qualité. Le Top 1 a les raretés de la ligne FINAL_LEVEL.
+  // Niveau : tour + danger, ajusté par la qualité. Le Top 1 a le niveau FINAL_LEVEL.
   const qBonus = quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0;
-  const lvl = Math.max(0, Math.min(RARITY_ODDS.length - 1, Math.round(opts.final ? FINAL_LEVEL : round + danger + qBonus)));
+  const lvl = Math.max(0, Math.min(CRAFTED_ODDS.length - 1, Math.round(opts.final ? FINAL_LEVEL : round + danger + qBonus)));
   const bp = BACKPACKS[Math.min(BACKPACKS.length - 1, opts.final ? 5 : round + (danger >= 1 ? 1 : 0))];
   const usable: string[] = [];
   for (let y = bp[1]; y <= bp[3]; y++) for (let x = bp[0]; x <= bp[2]; x++) usable.push(cellKey(x, y));
@@ -118,12 +114,12 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   // Nombre d'objets : 4 au 1er tour (comme un sac de départ), puis plus ; ±1 selon la qualité.
   const baseItems = opts.final ? FINAL_ITEMS : BOT_ITEMS[Math.min(round, BOT_ITEMS.length - 1)] + Math.round(danger);
   const nItems = Math.max(3, baseItems + (quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0));
-  const cap = minRarityCap(lvl);
+  const cap = minRoundCap(lvl);
   // Aux premiers niveaux, pas d'objets chers (plaque céramique…) hors armes.
   const itemCap = [5, 7][lvl] ?? Infinity;
-  const pool = lootPool(operator).filter((id) => ITEMS[id].minRarity <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap));
+  const pool = lootPool(operator).filter((id) => ITEMS[id].minRound <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap));
   const crafted = RECIPES.filter((r) => r.inputs.every((id) => lootPool(operator).includes(id))).map((r) => r.output);
-  const rollRarity = (id: string) => landing ? 0 : Math.max(ITEMS[id].minRarity, weighted(rng, RARITY_ODDS[lvl].map((w, i) => [i, w] as const)));
+  const craftChance = landing ? 0 : Math.min(0.95, CRAFTED_ODDS[lvl] + (quality === 'fort' ? FORT_CRAFTED_BONUS : 0));
 
   // Composition : armes, chargeurs et accessoires assortis, protection, puis le reste.
   const ids: string[] = [];
@@ -132,12 +128,12 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const weapons = pool.filter((id) => isWeapon(id) && ITEMS[id].price <= priceCap);
   // 2e arme de plus en plus probable quand le sac se remplit (de 6 à 8 objets).
   const nWeapons = nItems >= 6 && rng() < (nItems - 5) / 3 ? 2 : 1;
-  const craftedOk = quality === 'fort' && lvl >= 2;
   const craftedWeapons = crafted.filter(isWeapon);
-  const craftedOther = crafted.filter((id) => !isWeapon(id));
+  const craftedArmors = crafted.filter((id) => ITEMS[id].armor);
+  const craftedSupport = crafted.filter((id) => ITEMS[id].active);
   const chosenWeapons: string[] = [];
   for (let i = 0; i < nWeapons; i++) {
-    if (i === 0 && craftedOk && rng() < 0.7) chosenWeapons.push(pick(rng, craftedWeapons));
+    if (i === 0 && craftedWeapons.length && rng() < craftChance) chosenWeapons.push(pick(rng, craftedWeapons));
     else chosenWeapons.push(pick(rng, weapons));
   }
   const mags = pool.filter(isMag);
@@ -155,7 +151,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   });
   ids.push(chosenWeapons[0], ...perWeapon[0]);
   const armors = pool.filter((id) => ITEMS[id].armor);
-  ids.push(craftedOk && chosenWeapons[0] && !ITEMS[chosenWeapons[0]].crafted ? pick(rng, craftedOther.filter((id) => ITEMS[id].armor)) ?? pick(rng, armors) : pick(rng, armors));
+  ids.push(craftedArmors.length && rng() < craftChance ? pick(rng, craftedArmors) : pick(rng, armors));
   if (chosenWeapons[1]) ids.push(chosenWeapons[1], ...perWeapon[1]);
   const support = pool.filter((id) => ITEMS[id].active);
   // Le reste : au plus 2 exemplaires d'un même objet.
@@ -163,7 +159,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   for (let guard = 0; ids.length < nItems && guard < 50; guard++) {
     const r = rng();
     let id: string | undefined;
-    if (r < 0.5) id = pick(rng, support);
+    if (r < 0.5) id = craftedSupport.length && rng() < craftChance ? pick(rng, craftedSupport) : pick(rng, support);
     else if (r < 0.75) {
       // Chargeur ou accessoire en plus pour une arme du sac.
       const wd = ITEMS[pick(rng, chosenWeapons)];
@@ -175,7 +171,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
 
   // Rangement bâclé (chargeur ou accessoire posé n'importe où) : fréquent chez les faibles, rare ensuite.
   const sloppy = quality === 'faible' ? 0.5 : quality === 'normal' ? Math.max(0.05, 0.3 - 0.06 * round) : 0;
-  const items = placeBot(ids.map((id) => ({ id, rarity: rollRarity(id) })), new Set(usable), rng, sloppy);
+  const items = placeBot(ids, new Set(usable), rng, sloppy);
   return { name, operator, items, usable, maxHp: maxHpFor(round), quality };
 }
 
@@ -188,13 +184,13 @@ export function botLoadout(b: BotBuild): PlayerLoadout {
  * contre une arme compatible, puis le reste en bordure. `sloppy` = chance de poser un chargeur ou
  * un accessoire n'importe où. Les objets qui ne rentrent pas sont abandonnés.
  */
-export function placeBot(list: { id: string; rarity: number }[], usable: Set<string>, rng: Rng, sloppy = 0): ItemInst[] {
+export function placeBot(list: string[], usable: Set<string>, rng: Rng, sloppy = 0): ItemInst[] {
   const placed: ItemInst[] = [];
   const order = [
-    ...list.filter((e) => isWeapon(e.id)),
-    ...list.filter((e) => isMag(e.id)),
-    ...list.filter((e) => isAccessory(e.id)),
-    ...list.filter((e) => !isWeapon(e.id) && !ITEMS[e.id].synergy).sort((x, y) => cells(y.id) - cells(x.id)),
+    ...list.filter((id) => isWeapon(id)),
+    ...list.filter((id) => isMag(id)),
+    ...list.filter((id) => isAccessory(id)),
+    ...list.filter((id) => !isWeapon(id) && !ITEMS[id].synergy).sort((x, y) => cells(y) - cells(x)),
   ];
   let uid = 1;
   const bounds = [...usable].map((k) => k.split(',').map(Number));
@@ -208,11 +204,11 @@ export function placeBot(list: { id: string; rarity: number }[], usable: Set<str
   /** Case occupée → objet posé. */
   const owner = new Map<number, ItemInst>();
 
-  for (const e of order) {
-    const inst: ItemInst = { uid: uid++, defId: e.id, rarity: e.rarity, rot: 0, x: 0, y: 0, placed: true };
-    const d = ITEMS[e.id];
+  for (const id of order) {
+    const inst: ItemInst = { uid: uid++, defId: id, rot: 0, x: 0, y: 0, placed: true };
+    const d = ITEMS[id];
     const free = (x: number, y: number) => use.has(nk(x, y)) && !owner.has(nk(x, y));
-    const weapon = isWeapon(e.id);
+    const weapon = isWeapon(id);
     const synergy = !!d.synergy;
     const careless = synergy && rng() < sloppy;
     const cands: { x: number; y: number; rot: Rot; score: number }[] = [];

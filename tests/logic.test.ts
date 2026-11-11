@@ -7,19 +7,18 @@ import {
   BASE_CELLS, BagInst, COLS, ItemInst, ROWS, Rot, bagsConnected, canMoveBag, canPlace, canPlaceBag, canRemoveBag, cellsAt,
   maskOf, rotationIsNoop, sharedEdge, usableCells,
 } from '../src/logic/grid';
-import { MAX_RARITY, ROUND_ODDS, rollRarity } from '../src/logic/rarity';
-import { mulberry32, rngFor } from '../src/logic/rng';
+import { rngFor } from '../src/logic/rng';
 import {
-  BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, canFuse, clearRun, currentDuel,
-  dropInZone, endAction, finalDuelParams, fuse, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
-  EPIC_LEGENDARY_CHANCE, LOOT_PICKS, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
+  BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
+  dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
+  LOOT_PICKS, craftedPool, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
   takeLoot, unplaceBag,
 } from '../src/logic/run';
 import {
   ACTIONS_PER_ZONE, CARDS_BY_SIZE, EPIC_CRATE_CHANCE, MapZone, ROUNDS, ZONE_COUNT, circle, dist, drawCards, genMap, isFight, isGassed, zonesInCircle,
 } from '../src/logic/zone';
 
-const inst = (uid: number, defId: string, x: number, y: number, rarity = 0, rot: Rot = 0): ItemInst => ({ uid, defId, rarity, rot, x, y, placed: true });
+const inst = (uid: number, defId: string, x: number, y: number, rot: Rot = 0): ItemInst => ({ uid, defId, rot, x, y, placed: true });
 const bag = (uid: number, defId: string, x: number, y: number, rot: Rot = 0, placed = true): BagInst => ({ uid, defId, rot, x, y, placed });
 const BASE = new Set(BASE_CELLS);
 const botItems = (): ItemInst[] => [inst(900, 'pistolet', 2, 2), inst(901, 'chg_9mm', 4, 2), inst(902, 'casque', 2, 4)];
@@ -313,7 +312,7 @@ describe('run', () => {
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
-    const bot = [inst(900, 'smg_ours', 2, 2, 3), inst(901, 'casque', 5, 2, 1)];
+    const bot = [inst(900, 'smg_ours', 2, 2), inst(901, 'casque', 5, 2)];
     const res = resolveDuel(run, { win: true, hpEnd: 50, botItems: bot, botUsable: ['2,2', '3,2'] });
     expect(res.loot.items).toEqual([]);
     expect(res.loot.credits).toBe(6);
@@ -327,7 +326,7 @@ describe('run', () => {
     expect(endAction(run)).toBeNull();
     expect(playCard(run, 1)).toBeNull();
     const got = takeLoot(run, [900])!;
-    expect(got.taken.map((i) => [i.defId, i.rarity, i.placed])).toEqual([['smg_ours', 3, false]]);
+    expect(got.taken.map((i) => [i.defId, i.placed])).toEqual([['smg_ours', false]]);
     expect(run.pendingLoot).toBeUndefined();
     expect(takeLoot(run, [901])).toBeNull(); // déjà choisi
     expect(endAction(run)).not.toBeNull();
@@ -339,7 +338,7 @@ describe('run', () => {
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
     while (reserve(run).length < RESERVE_MAX) addDrops(run, [inst(-1, 'chg_9mm', 0, 0)]);
-    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'smg_ours', 2, 2, 3)] });
+    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'smg_ours', 2, 2)] });
     const credits = run.credits;
     const got = takeLoot(run, [900])!;
     expect(got.taken).toEqual([]);
@@ -347,8 +346,7 @@ describe('run', () => {
     expect(run.credits).toBe(credits + got.credits);
   });
 
-  it('caisse épique : au moins un objet Épique, parfois Légendaire, sans combat', () => {
-    let legendary = 0;
+  it('caisse épique : un objet assemblé de l’opérateur garanti, sans combat', () => {
     for (let seed = 0; seed < 200; seed++) {
       const run = newRun(seed % 2 ? 'viper' : 'sentinelle', seed);
       run.round = seed % ROUNDS;
@@ -360,12 +358,9 @@ describe('run', () => {
       expect(r.epic).toBe(true);
       expect(run.fight).toBeUndefined();
       expect(r.loot.items.length).toBeGreaterThanOrEqual(1);
-      expect(Math.max(...r.loot.items.map((i) => i.rarity))).toBeGreaterThanOrEqual(3);
-      for (const it of r.loot.items) expect(lootPool(run.operator)).toContain(it.defId);
-      if (r.loot.items.some((i) => i.rarity === MAX_RARITY)) legendary++;
+      expect(r.loot.items.some((i) => ITEMS[i.defId].crafted)).toBe(true);
+      for (const it of r.loot.items) expect([...lootPool(run.operator), ...craftedPool(run.operator)]).toContain(it.defId);
     }
-    expect(legendary / 200).toBeGreaterThan(EPIC_LEGENDARY_CHANCE / 2);
-    expect(legendary / 200).toBeLessThan(0.45);
   });
 
   it('Goulag : 1re défaite → Goulag ; gagné → on continue ; 2e défaite → fin', () => {
@@ -463,42 +458,30 @@ describe('run', () => {
   });
 });
 
-describe('rareté', () => {
-  it('6 lignes de chances (5 manches + final), qui montent', () => {
-    expect(ROUND_ODDS.length).toBe(ROUNDS + 1);
-    for (const row of ROUND_ODDS) expect(row.reduce((a, b) => a + b, 0)).toBe(100);
-    const rng = mulberry32(1);
-    const avg = (round: number) => {
-      let s = 0;
-      for (let i = 0; i < 2000; i++) s += rollRarity(rng, round);
-      return s / 2000;
-    };
-    expect(avg(4)).toBeGreaterThan(avg(0) + 1);
-  });
-
-  it('respecte la rareté minimale et la garantie', () => {
-    const rng = rngFor('x');
-    for (let i = 0; i < 200; i++) {
-      expect(rollRarity(rng, 0, 2)).toBeGreaterThanOrEqual(2);
-      expect(rollRarity(rng, 0, 0, 3)).toBeGreaterThanOrEqual(3);
-      expect(rollRarity(rng, 9, 0, 9)).toBeLessThanOrEqual(MAX_RARITY);
+describe('objets sans rareté', () => {
+  it('un objet n’apparaît pas avant sa manche minimale', () => {
+    for (let seed = 0; seed < 60; seed++) {
+      const run = newRun(seed % 2 ? 'viper' : 'sentinelle', seed);
+      dropInZone(run, selectableZones(run)[0].id);
+      const offers = shopOffers(run);
+      for (const o of offers) if (o.item) expect(ITEMS[o.item.defId].minRound).toBe(0);
     }
   });
 });
 
-describe('fusion', () => {
-  it('fusionne deux objets identiques de même rareté', () => {
+describe('recettes de doublon', () => {
+  it('deux exemplaires identiques adjacents s’assemblent', () => {
+    expect(findCraftable([inst(1, 'frag', 2, 2), inst(2, 'frag', 3, 2)]).map((c) => c.recipe.output)).toEqual(['sous_munitions']);
+    expect(findCraftable([inst(1, 'frag', 2, 2), inst(2, 'frag', 4, 2)]).length).toBe(0);
+    // Un seul exemplaire ne suffit pas.
+    expect(findCraftable([inst(1, 'frag', 2, 2)]).length).toBe(0);
+  });
+
+  it('à ingrédients partagés, la première recette de la liste l’emporte', () => {
     const run = newRun('viper', 1);
-    const a = { ...inst(100, 'frag', 0, 0, 1), placed: false };
-    const b = { ...inst(101, 'frag', 0, 0, 1), placed: false };
-    run.items.push(a, b);
-    expect(canFuse(a, b)).toBe(true);
-    expect(canFuse(a, { ...b, rarity: 2 })).toBe(false);
-    expect(canFuse(a, a)).toBe(false);
-    fuse(run, a, b);
-    expect(a.rarity).toBe(2);
-    expect(run.items.some((i) => i.uid === 101)).toBe(false);
-    expect(canFuse({ ...a, rarity: MAX_RARITY }, { ...b, rarity: MAX_RARITY })).toBe(false);
+    run.items = [inst(1, 'frag', 2, 2), inst(2, 'fumigene', 3, 2), inst(3, 'frag', 2, 3)];
+    const done = autoCraft(run);
+    expect(done[0].recipe.output).toBe('thermite');
   });
 });
 
@@ -508,12 +491,12 @@ describe('recettes automatiques', () => {
     expect(findCraftable([inst(1, 'frag', 2, 2), inst(2, 'fumigene', 4, 2)]).length).toBe(0);
   });
 
-  it('assembler retire les ingrédients, garde la meilleure rareté et pose dans les cases utilisables', () => {
+  it('assembler retire les ingrédients et pose dans les cases utilisables', () => {
     const run = newRun('viper', 1);
-    run.items = [inst(1, 'plaque', 2, 2, 1), inst(2, 'casque', 3, 2, 2)];
+    run.items = [inst(1, 'plaque', 2, 2), inst(2, 'casque', 3, 2)];
     const made = craft(run, findCraftable(run.items)[0]);
     expect(made.defId).toBe('armure_lourde');
-    expect(made.rarity).toBe(2);
+    expect(run.items.map((i) => i.uid)).toEqual([made.uid]);
     expect(made.placed).toBe(true);
     const u = usableCells(run.bags);
     for (const [x, y] of cellsAt(made, made.x, made.y)) expect(u.has(`${x},${y}`)).toBe(true);
@@ -549,13 +532,13 @@ describe('sauvegarde', () => {
     };
   });
 
-  it('aller-retour, clé v6', () => {
+  it('aller-retour, clé v7', () => {
     const run = newRun('viper', 77);
     placeBag(run, run.bags[0].uid, 7, 2, 0);
     dropInZone(run, selectableZones(run)[0].id);
     playThrough(run, firstCard(run));
     saveRun(run);
-    expect(store.has('hotdrop.run.v6')).toBe(true);
+    expect(store.has('hotdrop.run.v7')).toBe(true);
     expect(loadRun()).toEqual(run);
     clearRun();
     expect(loadRun()).toBeNull();

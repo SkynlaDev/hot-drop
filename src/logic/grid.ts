@@ -23,7 +23,6 @@ export type Rot = 0 | 1 | 2 | 3;
 export interface ItemInst {
   uid: number;
   defId: string;
-  rarity: number;
   rot: Rot;
   x: number;
   y: number;

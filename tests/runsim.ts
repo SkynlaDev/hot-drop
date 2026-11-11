@@ -10,7 +10,7 @@ import { simulateDuel } from '../src/logic/combat';
 import { BagInst, ItemInst, Rot, canPlaceBag, cellKey, cellsOf, usableCells } from '../src/logic/grid';
 import { autoCraft } from '../src/logic/recipes';
 import {
-  DuelParams, RESERVE_MAX, REROLL_COST, RunState, buyOffer, canFuse, dropInZone, endAction, finalDuelParams, fuse,
+  DuelParams, RESERVE_MAX, REROLL_COST, RunState, buyOffer, dropInZone, endAction, finalDuelParams,
   goulagParams, newRun, playCard, reserve, rerollShop, resolveDuel, resolveGoulag, selectableZones, sellItem, shopOffers, takeLoot,
 } from '../src/logic/run';
 import { Rng, mulberry32, hashParts } from '../src/logic/rng';
@@ -26,7 +26,7 @@ export type Policy = 'prudent' | 'agressif';
 
 const isWeapon = (id: string) => !!ITEMS[id].weapon;
 const isSyn = (id: string) => !!ITEMS[id].synergy;
-const value = (it: { defId: string; rarity: number }) => itemPrice(it.defId, it.rarity);
+const value = (it: { defId: string }) => itemPrice(it.defId);
 
 /** Bots de référence (tour, danger 0) contre lesquels le joueur jauge ses rangements. */
 const refCache = new Map<number, PlayerLoadout[]>();
@@ -86,20 +86,8 @@ function selection(all: ItemInst[], weapons: ItemInst[]): ItemInst[] {
   return useful.filter((it) => !isWeapon(it.defId)).sort((a, b) => value(b) - value(a));
 }
 
-/** Range le sac : fusions, sacoches, choix des objets (plusieurs essais jaugés au combat), recettes, revente du surplus. */
+/** Range le sac : sacoches, choix des objets (plusieurs essais jaugés au combat), recettes, revente du surplus. */
 export function repack(run: RunState, rng: Rng) {
-  // Fusions : deux objets identiques de même rareté.
-  for (let again = true; again; ) {
-    again = false;
-    for (const a of run.items) {
-      const b = run.items.find((o) => canFuse(a, o));
-      if (b) {
-        fuse(run, a, b);
-        again = true;
-        break;
-      }
-    }
-  }
   for (const it of run.items) it.placed = false;
   placeBags(run, rng);
   const use = usableCells(run.bags);
@@ -112,11 +100,11 @@ export function repack(run: RunState, rng: Rng) {
   for (const ws of tries) {
     const list = [...ws, ...selection(all, ws)];
     for (let k = 0; k < 2; k++) {
-      const placed = placeBot(list.map((i) => ({ id: i.defId, rarity: i.rarity })), use, rng, 0);
+      const placed = placeBot(list.map((i) => i.defId), use, rng, 0);
       // Retrouve les objets de la run correspondants.
       const free = [...all];
       const layout: ItemInst[] = placed.map((p) => {
-        const src = free.splice(free.findIndex((f) => f.defId === p.defId && f.rarity === p.rarity), 1)[0];
+        const src = free.splice(free.findIndex((f) => f.defId === p.defId), 1)[0];
         return { ...src, x: p.x, y: p.y, rot: p.rot, placed: true };
       });
       const score = fitness(layout, run.operator, run.round) + layout.length * 0.01;
@@ -181,7 +169,7 @@ function shop(run: RunState, rng: Rng) {
 let randomLoot = false;
 
 /**
- * Choix du butin dans le sac du bot : l'objet le plus cher (prix × rareté), en ne comptant qu'au tiers
+ * Choix du butin dans le sac du bot : l'objet le plus cher, en ne comptant qu'au tiers
  * un chargeur ou un accessoire qui ne va sur aucune arme du joueur (ni sur l'arme choisie avec).
  */
 function chooseLoot(run: RunState, choices: ItemInst[], picks: number, rng: Rng): number[] {
@@ -243,9 +231,9 @@ export interface RunStats {
   reached: number;
   goulag: 'none' | 'win' | 'lose';
   top1: boolean;
-  /** Objets posés et rareté moyenne au début de chaque manche. */
+  /** Objets posés et part d'objets assemblés au début de chaque manche. */
   items: number[];
-  rarity: number[];
+  crafted: number[];
   epic: number;
 }
 
@@ -259,7 +247,7 @@ function duel(run: RunState, p: DuelParams): { win: boolean; hpEnd: number; bot:
 export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunStats {
   const rng = mulberry32(hashParts('sim', seed, policy));
   const run = newRun(op, seed);
-  const st: RunStats = { duels: Array.from({ length: ROUNDS }, () => [0, 0]), reached: 0, goulag: 'none', top1: false, items: [], rarity: [], epic: 0 };
+  const st: RunStats = { duels: Array.from({ length: ROUNDS }, () => [0, 0]), reached: 0, goulag: 'none', top1: false, items: [], crafted: [], epic: 0 };
   repack(run, rng);
   while (!run.over) {
     if (run.round >= ROUNDS) {
@@ -273,7 +261,7 @@ export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunSt
     st.reached = run.round;
     const placed = run.items.filter((i) => i.placed);
     st.items[run.round] = placed.length;
-    st.rarity[run.round] = placed.reduce((s, i) => s + i.rarity, 0) / Math.max(1, placed.length);
+    st.crafted[run.round] = placed.filter((i) => ITEMS[i.defId].crafted).length / Math.max(1, placed.length);
     dropInZone(run, chooseZone(run, policy, rng));
     while (run.zoneId !== null && !run.over) {
       const idx = run.cards.map((_, i) => i).filter((i) => !run.played.includes(i));
@@ -316,14 +304,14 @@ const opOf = (s: number) => OPERATOR_IDS[s % OPERATOR_IDS.length];
 function report(policy: Policy, n: number, all: RunStats[]) {
   const pct = (v: number) => `${Math.round(v * 100)} %`;
   console.log(`\n=== ${policy} (${n} runs) ===`);
-  console.log('cercle'.padEnd(10), 'atteint'.padEnd(10), 'duels gagnés'.padEnd(16), 'duels/run'.padEnd(11), 'objets'.padEnd(8), 'rareté moy.');
+  console.log('cercle'.padEnd(10), 'atteint'.padEnd(10), 'duels gagnés'.padEnd(16), 'duels/run'.padEnd(11), 'objets'.padEnd(8), 'assemblés');
   for (let r = 0; r < ROUNDS; r++) {
     const reached = all.filter((s) => s.reached >= r);
     const w = all.reduce((t, s) => t + s.duels[r][0], 0);
     const p = all.reduce((t, s) => t + s.duels[r][1], 0);
     const it = reached.reduce((t, s) => t + (s.items[r] ?? 0), 0) / Math.max(1, reached.length);
-    const ra = reached.reduce((t, s) => t + (s.rarity[r] ?? 0), 0) / Math.max(1, reached.length);
-    console.log(`C${r + 1}`.padEnd(10), pct(reached.length / n).padEnd(10), `${pct(w / Math.max(1, p))} (${p})`.padEnd(16), (p / Math.max(1, reached.length)).toFixed(1).padEnd(11), it.toFixed(1).padEnd(8), ra.toFixed(2));
+    const ra = reached.reduce((t, s) => t + (s.crafted[r] ?? 0), 0) / Math.max(1, reached.length);
+    console.log(`C${r + 1}`.padEnd(10), pct(reached.length / n).padEnd(10), `${pct(w / Math.max(1, p))} (${p})`.padEnd(16), (p / Math.max(1, reached.length)).toFixed(1).padEnd(11), it.toFixed(1).padEnd(8), pct(ra));
   }
   const top = all.filter((s) => s.reached >= ROUNDS);
   console.log('Top 1 atteint', pct(top.length / n), '· gagné', pct(all.filter((s) => s.top1).length / n), `(${pct(top.filter((s) => s.top1).length / Math.max(1, top.length))} des duels finaux)`);

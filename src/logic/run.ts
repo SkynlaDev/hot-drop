@@ -4,9 +4,9 @@
 import { Category, ITEMS } from '../data/items';
 import { BAGS, BAG_IDS, BagId } from '../data/bags';
 import { OPERATORS, OperatorId, lootPool } from '../data/operators';
+import { RECIPES } from '../data/recipes';
 import { BagInst, ItemInst, canPlace, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
-import { MAX_RARITY, rollRarity } from './rarity';
-import { Rng, hashParts, rngFor } from './rng';
+import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice } from './stats';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, drawCards, genMap, isGassed, zonesInCircle } from './zone';
 
@@ -20,8 +20,7 @@ export const SHOP_OFFERS = 5;
 export const SHOP_BAG_CHANCE = 0.4;
 /** Chance qu'une caisse donne aussi une sacoche, en plus de l'objet. */
 export const CRATE_BAG_CHANCE = 0.3;
-/** Caisse épique (grandes zones) : 1 objet Épique garanti, Légendaire avec cette chance… */
-export const EPIC_LEGENDARY_CHANCE = 0.15;
+/** Caisse épique (grandes zones) : 1 objet assemblé garanti (recette de l'opérateur)… */
 /** … plus ce nombre d'objets ordinaires de la manche. */
 export const EPIC_EXTRA_ITEMS = 1;
 /** Objets à choisir dans le sac de chaque bot vaincu (squad ou solo : un par duel gagné). */
@@ -35,7 +34,7 @@ export const FINAL_DANGER = 2;
 export const GOULAG_DANGER = 0;
 /** Revente : moitié du prix. */
 export const SELL_RATIO = 0.5;
-const SAVE_KEY = 'hotdrop.run.v6';
+const SAVE_KEY = 'hotdrop.run.v7';
 
 /** PV max de tout le monde (joueur et bots) à une manche donnée. */
 export function roundMaxHp(round: number): number {
@@ -79,7 +78,7 @@ export interface PendingLoot {
 }
 
 export interface RunState {
-  version: 6;
+  version: 7;
   seed: number;
   operator: OperatorId;
   /** Manche 0 à ROUNDS - 1 ; ROUNDS = duel final. */
@@ -93,8 +92,8 @@ export interface RunState {
   actionsLeft: number;
   fight?: Fight;
   goulagUsed: boolean;
-  /** Un duel vient d'être perdu : le Goulag attend d'être joué. */
   pendingLoot?: PendingLoot;
+  /** Un duel vient d'être perdu : le Goulag attend d'être joué. */
   pendingGoulag?: boolean;
   credits: number;
   items: ItemInst[];
@@ -126,14 +125,14 @@ export interface Loot {
   credits: number;
 }
 
-/** `epic` : caisse épique (au moins un objet Épique ou Légendaire). */
+/** `epic` : caisse épique (au moins un objet assemblé). */
 export type PlayResult = { kind: 'shop' } | { kind: 'caisse'; loot: Loot; epic?: boolean } | ({ kind: 'duel' } & DuelParams);
 
 // ---------- Création ----------
 
 export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1e9)): RunState {
   const run: RunState = {
-    version: 6,
+    version: 7,
     seed,
     operator,
     round: 0,
@@ -149,8 +148,8 @@ export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1
     nextUid: 1,
     speed: 1,
   };
-  for (const [id, x, y, rarity = 0] of OPERATORS[operator].start) {
-    const it = makeItem(run, id, rarity);
+  for (const [id, x, y] of OPERATORS[operator].start) {
+    const it = makeItem(run, id);
     Object.assign(it, { x, y, placed: true });
     run.items.push(it);
   }
@@ -159,8 +158,8 @@ export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1
   return run;
 }
 
-export function makeItem(run: RunState, defId: string, rarity: number): ItemInst {
-  return { uid: run.nextUid++, defId, rarity, rot: 0, x: 0, y: 0, placed: false };
+export function makeItem(run: RunState, defId: string): ItemInst {
+  return { uid: run.nextUid++, defId, rot: 0, x: 0, y: 0, placed: false };
 }
 
 export function makeBag(run: RunState, defId: BagId): BagInst {
@@ -229,7 +228,7 @@ export function playCard(run: RunState, index: number): PlayResult | null {
   }
   if (card.type === 'caisse_epique') {
     const rng = rngFor(run.seed, 'caisse_epique', run.round, run.zoneId!, index);
-    const best = randomItems(run, rng, 1, rng() < EPIC_LEGENDARY_CHANCE ? MAX_RARITY : 3);
+    const best = [drop(pick(rng, craftedPool(run.operator)))];
     const extra = randomItems(run, rng, EPIC_EXTRA_ITEMS).filter((it) => !best.some((b) => b.defId === it.defId));
     const items = addDrops(run, [...best, ...extra]);
     return { kind: 'caisse', epic: true, loot: { items: items.taken, bags: [], credits: items.credits } };
@@ -339,7 +338,7 @@ export function takeLoot(run: RunState, uids: number[]): { taken: ItemInst[]; cr
   const chosen = uids.map((u) => p.items.find((it) => it.uid === u));
   if (chosen.some((c) => !c)) return null;
   run.pendingLoot = undefined;
-  return addDrops(run, chosen.map((c) => ({ uid: -1, defId: c!.defId, rarity: c!.rarity, rot: 0, x: 0, y: 0, placed: false })));
+  return addDrops(run, chosen.map((c) => ({ uid: -1, defId: c!.defId, rot: 0, x: 0, y: 0, placed: false })));
 }
 
 /** Paramètres du Goulag : un duel équitable au niveau de la manche, PV pleins. */
@@ -405,16 +404,24 @@ function pickWeighted(rng: Rng, ids: string[]): string {
   return ids[ids.length - 1];
 }
 
-/** Objets tirés dans le pool de l'opérateur, tous différents, rareté selon la manche (au moins `guarantee`). */
-function randomItems(run: RunState, rng: Rng, count: number, guarantee = 0): ItemInst[] {
-  const ids = lootPool(run.operator);
+const drop = (defId: string): ItemInst => ({ uid: -1, defId, rot: 0, x: 0, y: 0, placed: false });
+
+/** Objets tirés dans le pool de l'opérateur, tous différents, parmi ceux déjà apparus à cette manche (`minRound`). */
+function randomItems(run: RunState, rng: Rng, count: number): ItemInst[] {
+  const ids = lootPool(run.operator).filter((id) => ITEMS[id].minRound <= run.round);
   const out: ItemInst[] = [];
   for (let i = 0; i < count && ids.length; i++) {
     const id = pickWeighted(rng, ids);
     ids.splice(ids.indexOf(id), 1);
-    out.push({ uid: -1, defId: id, rarity: rollRarity(rng, run.round, ITEMS[id].minRarity, guarantee), rot: 0, x: 0, y: 0, placed: false });
+    out.push(drop(id));
   }
   return out;
+}
+
+/** Objets assemblés que l'opérateur peut obtenir : recettes dont tous les ingrédients sont dans son pool. */
+export function craftedPool(op: OperatorId): string[] {
+  const pool = lootPool(op);
+  return RECIPES.filter((r) => r.inputs.every((id) => pool.includes(id))).map((r) => r.output);
 }
 
 export function rollBag(rng: Rng, round: number): BagId {
@@ -427,8 +434,8 @@ export function rollBag(rng: Rng, round: number): BagId {
   return BAG_IDS[BAG_IDS.length - 1];
 }
 
-export function itemSellValue(defId: string, rarity: number): number {
-  return Math.max(1, Math.floor(itemPrice(defId, rarity) * SELL_RATIO));
+export function itemSellValue(defId: string): number {
+  return Math.max(1, Math.floor(itemPrice(defId) * SELL_RATIO));
 }
 
 export function bagSellValue(defId: string): number {
@@ -441,7 +448,7 @@ export function addDrops(run: RunState, drops: ItemInst[]): { taken: ItemInst[];
   let credits = 0;
   for (const d of drops) {
     if (reserve(run).length < RESERVE_MAX) taken.push(takeItem(run, d));
-    else credits += itemSellValue(d.defId, d.rarity);
+    else credits += itemSellValue(d.defId);
   }
   run.credits += credits;
   return { taken, credits };
@@ -464,7 +471,7 @@ export function addBags(run: RunState, ids: BagId[]): { taken: BagInst[]; credit
 
 /** Ajoute un objet proposé (butin ou boutique) à la réserve. */
 export function takeItem(run: RunState, offer: ItemInst): ItemInst {
-  const it = makeItem(run, offer.defId, offer.rarity);
+  const it = makeItem(run, offer.defId);
   run.items.push(it);
   return it;
 }
@@ -480,7 +487,7 @@ export function reserveBags(run: RunState): BagInst[] {
 export function sellItem(run: RunState, uid: number): number {
   const it = run.items.find((i) => i.uid === uid);
   if (!it) return 0;
-  const v = itemSellValue(it.defId, it.rarity);
+  const v = itemSellValue(it.defId);
   run.items = run.items.filter((i) => i.uid !== uid);
   run.credits += v;
   return v;
@@ -537,7 +544,7 @@ export function rollShop(run: RunState): void {
   const rng = rngFor(run.seed, 'shop', run.shop.key, run.shop.rerolls);
   const hasBag = rng() < SHOP_BAG_CHANCE;
   const items = randomItems(run, rng, hasBag ? SHOP_OFFERS - 1 : SHOP_OFFERS);
-  const offers: ShopOffer[] = items.map((item) => ({ item, price: itemPrice(item.defId, item.rarity), sold: false }));
+  const offers: ShopOffer[] = items.map((item) => ({ item, price: itemPrice(item.defId), sold: false }));
   if (hasBag) {
     const bag = rollBag(rng, run.round);
     offers.push({ bag, price: BAGS[bag].price, sold: false });
@@ -575,19 +582,6 @@ export function buyOffer(run: RunState, index: number): ItemInst | BagInst | nul
   return null;
 }
 
-// ---------- Fusion ----------
-
-export function canFuse(a: ItemInst, b: ItemInst): boolean {
-  return a.uid !== b.uid && a.defId === b.defId && a.rarity === b.rarity && a.rarity < MAX_RARITY;
-}
-
-/** Fusionne `consumed` dans `keep` : `keep` monte d'une rareté, `consumed` disparaît. */
-export function fuse(run: RunState, keep: ItemInst, consumed: ItemInst): void {
-  if (!canFuse(keep, consumed)) return;
-  keep.rarity++;
-  run.items = run.items.filter((i) => i.uid !== consumed.uid);
-}
-
 // ---------- Sauvegarde ----------
 
 export function saveRun(run: RunState): void {
@@ -603,7 +597,7 @@ export function loadRun(): RunState | null {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const run = JSON.parse(raw) as RunState;
-    if (run.version !== 6 || run.over) return null;
+    if (run.version !== 7 || run.over) return null;
     sanitizeLayout(run);
     return run;
   } catch {

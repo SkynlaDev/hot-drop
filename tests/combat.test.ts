@@ -6,8 +6,8 @@ import { DuelEvent, MAX_FLAT_REDUCE, MAX_TIME, simulateDuel } from '../src/logic
 import { ItemInst, Rot, canPlace, cellKey, cellsOf } from '../src/logic/grid';
 import { DRUM_RELOAD, FEU_CAP, FEU_RATE, MARK_BONUS, PlayerLoadout, WeaponRt, computeLoadout, describe as describeItem, estimateDps, maxHpFor } from '../src/logic/stats';
 
-const inst = (uid: number, defId: string, x: number, y: number, rarity = 0, rot: Rot = 0): ItemInst => ({ uid, defId, rarity, rot, x, y, placed: true });
-const startItems = (op: OperatorId): ItemInst[] => OPERATORS[op].start.map(([defId, x, y, rarity = 0], i) => inst(100 + i, defId, x, y, rarity));
+const inst = (uid: number, defId: string, x: number, y: number, rot: Rot = 0): ItemInst => ({ uid, defId, rot, x, y, placed: true });
+const startItems = (op: OperatorId): ItemInst[] => OPERATORS[op].start.map(([defId, x, y], i) => inst(100 + i, defId, x, y));
 const start = (op: OperatorId, hp = 100) => computeLoadout(startItems(op), op, hp).loadout;
 
 const winRate = (a: () => ReturnType<typeof start>, b: (s: number) => ReturnType<typeof start>, n: number) => {
@@ -67,19 +67,17 @@ describe('statistiques 1v1', () => {
 
   it("les fiches ne parlent plus de gilet, d'Établi ni d'escouade", () => {
     for (const id of Object.keys(ITEMS)) {
-      for (const r of [0, 4]) {
-        const text = describeItem(inst(1, id, 0, 0, r)).lines.join(' ');
-        expect(text).not.toMatch(/Établi|escouade|Poitrine|Blindés|ennemi/i);
-      }
+      const text = describeItem(inst(1, id, 0, 0)).lines.join(' ');
+      expect(text).not.toMatch(/Établi|escouade|Poitrine|Blindés|ennemi|rareté|légendaire/i);
     }
     expect(describeItem(inst(1, 'frag', 0, 0)).lines.join(' ')).toMatch(/assemblage automatique/);
   });
 
-  it('un sac en vrac perd au moins 25 % de DPS par rapport au même sac bien rangé', () => {
+  it('un sac en vrac perd au moins 22 % de DPS par rapport au même sac bien rangé', () => {
     const builds = [
-      [inst(1, 'fusil_assaut', 0, 3, 2), inst(2, 'chg_556', 4, 3, 1), inst(3, 'lunette', 0, 2, 1), inst(5, 'smg', 3, 0, 1), inst(6, 'chg_9mm', 3, 2)],
-      [inst(1, 'precision', 0, 3, 2), inst(2, 'chg_762', 0, 2), inst(3, 'lunette', 1, 2, 1), inst(4, 'silencieux', 3, 2, 2), inst(6, 'pistolet', 3, 0)],
-      [inst(1, 'smg', 0, 0, 1), inst(2, 'chg_9mm', 3, 0), inst(3, 'fusil_assaut', 0, 3, 1), inst(4, 'chg_556', 4, 3), inst(7, 'poignee', 0, 1), inst(8, 'bipied', 0, 2)],
+      [inst(1, 'fusil_assaut', 0, 3), inst(2, 'chg_556', 4, 3), inst(3, 'lunette', 0, 2), inst(5, 'smg', 3, 0), inst(6, 'chg_9mm', 3, 2)],
+      [inst(1, 'precision', 0, 3), inst(2, 'chg_762', 0, 2), inst(3, 'lunette', 1, 2), inst(4, 'silencieux', 3, 2), inst(6, 'pistolet', 3, 0)],
+      [inst(1, 'smg', 0, 0), inst(2, 'chg_9mm', 3, 0), inst(3, 'fusil_assaut', 0, 3), inst(4, 'chg_556', 4, 3), inst(7, 'poignee', 0, 1), inst(8, 'bipied', 0, 2)],
       startItems('viper'),
       startItems('sentinelle'),
     ];
@@ -87,7 +85,8 @@ describe('statistiques 1v1', () => {
       for (const op of ['viper', 'sentinelle'] as const) {
         const good = estimateDps(computeLoadout(b, op, 100).loadout);
         const bad = estimateDps(computeLoadout(b.map((i, n) => ({ ...i, x: 20 + n * 8, y: 20 })), op, 100).loadout);
-        expect(bad / good).toBeLessThan(0.75);
+        // 22 % et plus : sans raretés, les synergies valent leur valeur de base (lunette +25 %, pas +29 %).
+        expect(bad / good).toBeLessThan(0.78);
       }
     }
   });
@@ -158,7 +157,7 @@ describe('duel', () => {
   });
 
   it('frag, flash et fumigène visent l’adversaire', () => {
-    const items = [inst(1, 'pistolet', 2, 2), inst(2, 'chg_9mm', 4, 2), inst(3, 'frag', 2, 4), inst(4, 'flash', 3, 4, 1), inst(5, 'fumigene', 5, 4)];
+    const items = [inst(1, 'pistolet', 2, 2), inst(2, 'chg_9mm', 4, 2), inst(3, 'frag', 2, 4), inst(4, 'flash', 3, 4), inst(5, 'fumigene', 5, 4)];
     const a = computeLoadout(items, 'viper', 100).loadout;
     const b = start('sentinelle');
     const r = simulateDuel(a, b, 3);
@@ -172,10 +171,10 @@ describe('duel', () => {
 describe('mécaniques des opérateurs', () => {
   /** Cible sans arme, aux PV énormes : le duel va au temps limite. */
   const dummy = (over: Partial<PlayerLoadout> = {}): PlayerLoadout => ({
-    maxHp: 1e6, armor: 0, reflect: 0, weapons: [], actives: [], critMult: 2, armorRegen: 0, flatReduce: 0, markBonus: 0, families: [], ...over,
+    maxHp: 1e6, armor: 0, weapons: [], actives: [], critMult: 2, armorRegen: 0, flatReduce: 0, markBonus: 0, families: [], ...over,
   });
   const gun = (uid: number, over: Partial<WeaponRt> = {}): WeaponRt => ({
-    uid, name: `arme ${uid}`, dmg: 10, interval: 0.5, mag: 30, reload: 2, crit: 0, pellets: 1, firstCrit: false, pierceEvery: 0,
+    uid, name: `arme ${uid}`, dmg: 10, interval: 0.5, mag: 30, reload: 2, crit: 0, pellets: 1, firstCrit: false,
     armorPierce: 0, doubleEvery: 0, fed: true, critStun: 0, trueDmg: 0, heatRate: 0, heatCap: 0, markBoost: 0, ...over,
   });
   const shots = (evs: DuelEvent[], uid?: number) =>
@@ -327,14 +326,14 @@ describe('bots', () => {
     }
   });
 
-  it('1er cercle : bots fraîchement largués, quelle que soit la taille de la zone (jamais forts, Communs, sac de base)', () => {
+  it('1er cercle : bots fraîchement largués, quelle que soit la taille de la zone (jamais forts, sans objet assemblé, sac de base)', () => {
     for (const danger of [0, 0.5, 1]) {
       for (let s = 0; s < 150; s++) {
         const b = generateBot(s, 0, { danger });
         expect(b.quality).not.toBe('fort');
         expect(b.usable.length).toBe(20);
         expect(b.items.length).toBeLessThanOrEqual(4);
-        expect(b.items.every((i) => i.rarity === 0)).toBe(true);
+        expect(b.items.every((i) => !ITEMS[i.defId].crafted)).toBe(true);
       }
     }
   });
