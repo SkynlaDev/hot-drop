@@ -1,8 +1,11 @@
-import { CATEGORY_NAMES, FAMILY_INFO, Family, ITEMS } from '../data/items';
+import { CATEGORY_NAMES, FAMILY_INFO, Family, ITEMS, StarEffect } from '../data/items';
 import type { OperatorId } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { ItemInst, maskOf, sharedEdge } from './grid';
+import { DRUM_RELOAD, StarFill, bagStars, starSpecs } from './stars';
 import { TIER_NAMES, tierOf } from './tier';
+
+export { DRUM_RELOAD };
 
 export const FAMILY_TIERS = [2, 4];
 export const FAMILY_ORDER: Family[] = ['rafale', 'precision', 'demolition', 'rempart', 'tactique'];
@@ -95,14 +98,13 @@ export interface SynergyLink {
 }
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
+type StarEffectKind = StarEffect['kind'];
 
 /** Feu continu (Viper) : +5 % de cadence par seconde de tir sans recharger, au plus +30 %. */
 export const FEU_RATE = 0.05;
 export const FEU_CAP = 0.3;
 /** Marque (Sentinelle) : la touche suivante d'une autre arme fait +50 %. */
 export const MARK_BONUS = 0.5;
-/** Chargeur tambour : recharge plus lente de l'arme adjacente. */
-export const DRUM_RELOAD = 0.4;
 
 /** Multiplicateur de recharge d'une arme qu'aucun chargeur de son calibre ne touche. */
 export const UNFED_RELOAD = 2;
@@ -124,7 +126,7 @@ export function familyStates(items: ItemInst[]): FamilyState[] {
 }
 
 /** Statistiques de combat d'un sac, pour un opérateur et des PV max donnés. */
-export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: number): { loadout: PlayerLoadout; links: SynergyLink[] } {
+export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: number): { loadout: PlayerLoadout; links: SynergyLink[]; stars: StarFill[] } {
   const placed = items.filter((i) => i.placed);
   const families = familyStates(items);
   const tier = (f: Family) => families.find((s) => s.family === f)?.tier ?? 0;
@@ -135,8 +137,31 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
   let armor = 0;
   let flatReduce = 0;
 
+  // Étoiles : effets génériques (objets à étoiles), cumulés par objet touché.
+  const stars = bagStars(placed);
+  const bonus = new Map<number, Record<StarEffectKind, number>>();
+  const add = (uid: number, kind: StarEffectKind, v: number) => {
+    let b = bonus.get(uid);
+    if (!b) bonus.set(uid, (b = { armor: 0, dmg: 0, cadence: 0, charges: 0, heal: 0, bleed: 0 }));
+    b[kind] += v;
+  };
+  for (const f of stars) {
+    const holder = placed.find((p) => p.uid === f.uid)!;
+    const spec = starSpecs(holder.defId)[f.spec];
+    const e = spec.effect;
+    if (!e) continue;
+    for (const uid of f.by) {
+      add(e.on === 'self' ? f.uid : uid, e.kind, e.value);
+      const other = placed.find((p) => p.uid === uid)!;
+      const edge = sharedEdge(holder, other);
+      if (edge) links.push({ a: holder.uid, b: uid, label: `★ ${spec.text}`, edge });
+    }
+  }
+  const B = (uid: number) => bonus.get(uid) ?? { armor: 0, dmg: 0, cadence: 0, charges: 0, heal: 0, bleed: 0 };
+
   for (const it of placed) {
     const d = ITEMS[it.defId];
+    const sb = B(it.uid);
 
     if (d.weapon) {
       let interval = d.weapon.interval;
@@ -201,7 +226,8 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       const fed = magCount > 0 || !!d.weapon.selfFed;
       reload *= fed ? Math.max(0.3, 1 - magBonus) : UNFED_RELOAD;
       if (drum > 0) reload *= 1 + DRUM_RELOAD;
-      interval /= 1 + grip;
+      interval /= (1 + grip) * (1 + sb.cadence);
+      dmgMult *= 1 + sb.dmg;
       weapons.push({
         uid: it.uid,
         name: d.name,
@@ -224,13 +250,14 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     }
 
     if (d.melee) {
-      melee.push({ uid: it.uid, name: d.name, dmg: d.melee.dmg, interval: d.melee.interval, bleed: d.melee.bleed ?? 0, armorPierce: d.melee.armorPierce ?? 0 });
+      melee.push({
+        uid: it.uid, name: d.name, dmg: d.melee.dmg * (1 + sb.dmg), interval: d.melee.interval / (1 + sb.cadence),
+        bleed: (d.melee.bleed ?? 0) + sb.bleed, armorPierce: d.melee.armorPierce ?? 0,
+      });
     }
 
-    if (d.armor) {
-      armor += d.armor;
-      flatReduce += d.flatReduce ?? 0;
-    }
+    if (d.armor) flatReduce += d.flatReduce ?? 0;
+    armor += (d.armor ?? 0) + sb.armor;
 
     if (d.active) {
       const cd = d.active.cooldown;
@@ -241,9 +268,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       actives.push({
         uid: it.uid,
         kind,
-        value: d.active.value,
+        value: d.active.value * (kind === 'heal' || kind === 'bandage' ? 1 + sb.heal : 1),
         cooldown: cd,
-        charges: d.active.charges + (explosive && tier('demolition') >= 1 ? 1 : 0),
+        charges: d.active.charges + (explosive && tier('demolition') >= 1 ? 1 : 0) + Math.round(sb.charges),
         duration,
         threshold: d.active.threshold ?? 0.5,
         ignoreArmor: kind === 'frag' && (tier('demolition') >= 2 || !!d.active.pierce),
@@ -268,6 +295,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       families,
     },
     links,
+    stars,
   };
 }
 
@@ -346,20 +374,8 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (a.kind === 'bandage') lines.push(`Retire ${a.cure} de saignement et soigne ${a.value} PV (saignement ≥ 8 ou PV sous 50 %)`);
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
   }
-  if (d.synergy) {
-    const v = pct(d.synergy.value);
-    if (d.synergy.kind === 'mag') lines.push(`Adjacent à une arme ${d.caliber} : −${v} de temps de recharge (max 3)`);
-    if (d.synergy.kind === 'scope') lines.push(`Adjacent à une arme longue : +${v} de critique`);
-    if (d.synergy.kind === 'silencer') lines.push('Adjacent à une arme : son 1er tir est critique');
-    if (d.synergy.kind === 'pierce') lines.push(`Adjacent à une arme : perce ${v} de l'armure`);
-    if (d.synergy.kind === 'grip') lines.push(`Adjacent à une arme : +${v} de cadence`);
-    if (d.synergy.kind === 'extmag') lines.push(`Adjacent à une arme : chargeur +${v}`);
-    if (d.synergy.kind === 'holo') lines.push(`Adjacent à une arme courte : +${v} de critique`);
-    if (d.synergy.kind === 'bipod') lines.push(`Adjacent à une arme longue : +${v} de dégâts`);
-    if (d.synergy.kind === 'drum') lines.push(`Adjacent à une arme : chargeur +${v}, recharge +${pct(DRUM_RELOAD)} (nourrit le Feu continu)`);
-    if (d.synergy.kind === 'cooler') lines.push(`Adjacent à une arme : son Feu continu monte ${v} plus vite (passif de Viper)`);
-    if (d.synergy.kind === 'tracer') lines.push(`Adjacent à une arme : quand elle consomme la Marque, +${v} de dégâts en plus (passif de Sentinelle)`);
-  }
+  // Étoiles : « ★ Ce qu'elle attend : ce qu'elle apporte ».
+  for (const sp of starSpecs(d.id)) lines.push(`★ ${sp.wantLabel} adjacent${sp.at ? ' (cases marquées)' : ''} : ${sp.text}`);
   if (d.crafted) lines.push('Objet assemblé (recette)');
   for (const r of RECIPES.filter((rc) => rc.inputs.includes(d.id))) {
     const label = `${r.inputs.map((id) => ITEMS[id].short).join(' + ')} → ${ITEMS[r.output].name}`;

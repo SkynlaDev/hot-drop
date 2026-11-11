@@ -5,6 +5,7 @@ import { RECIPES } from '../data/recipes';
 import { ItemInst, Rot, canPlace, cellKey, cellsAt, cellsOf } from './grid';
 import { Rng, hashParts, mulberry32, pick } from './rng';
 import { PlayerLoadout, computeLoadout, maxHpFor } from './stats';
+import { accessoryFits } from './stars';
 
 export type BotQuality = 'faible' | 'normal' | 'fort';
 
@@ -72,15 +73,7 @@ export function qualityOdds(round: number, danger = 0): { fort: number; faible: 
   return { fort, faible };
 }
 
-/** Accessoire compatible avec cette arme (son bonus s'applique). */
-export function accessoryFits(acc: ItemDef, w: ItemDef): boolean {
-  const k = acc.synergy?.kind;
-  const long = w.tags.includes('arme_longue');
-  if (k === 'mag') return acc.caliber === w.caliber || !!w.weapon?.feedsAny;
-  if (k === 'scope' || k === 'bipod') return long;
-  if (k === 'holo') return !long;
-  return !!k;
-}
+export { accessoryFits };
 
 const isWeapon = (id: string) => !!ITEMS[id].weapon;
 const isMag = (id: string) => ITEMS[id].synergy?.kind === 'mag';

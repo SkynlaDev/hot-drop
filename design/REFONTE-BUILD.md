@@ -44,6 +44,11 @@ attendent un type d'objet. Une étoile est **remplie** quand un objet du bon typ
 - **Quoi** : un tag (`arme`, `arme_longue`, `melee`, `explosif`, `medical`, `protection`, `munition`, `accessoire`),
   éventuellement un calibre.
 
+**Fait (étape 2, moteur)** : `src/logic/stars.ts` (`starSpecs`, `starCells` avec rotation, `bagStars`, `starsLitBy`),
+`ItemDef.stars` (cases `at`, `want`, effet `self`/`target` : armure, dégâts, cadence, charges, soin, saignement, `max`).
+`computeLoadout` applique les effets et renvoie `stars` ; la fiche affiche « ★ Ce qu'elle attend : ce qu'elle apporte ».
+Les accessoires gardent exactement leur règle d'adjacence : l'équilibre ne bouge pas.
+
 ### Lecture d'un coup d'œil
 
 - **Objet tenu** (glissé ou sélectionné) : ses étoiles s'affichent sur la grille, grises si vides, dorées si remplies

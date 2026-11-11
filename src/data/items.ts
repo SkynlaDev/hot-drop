@@ -62,6 +62,27 @@ export interface SynergyStats {
   value: number;
 }
 
+/**
+ * Effet d'une étoile, pour chaque objet distinct qui la remplit : sur l'objet porteur (`self`)
+ * ou sur l'objet posé sur l'étoile (`target`). Valeurs : armure en points, charges en nombre,
+ * saignement en points par coup, dégâts / cadence / soin en part (0,2 = +20 %).
+ */
+export interface StarEffect {
+  on: 'self' | 'target';
+  kind: 'armor' | 'dmg' | 'cadence' | 'charges' | 'heal' | 'bleed';
+  value: number;
+}
+
+/** Étoile : des cases autour de l'objet (relatives à sa forme non tournée) qui attendent un objet portant un de ces tags. */
+export interface StarDef {
+  /** Cases, en [colonne, ligne] relatives au coin haut-gauche de la forme ; absent = toutes les cases voisines. */
+  at?: [number, number][];
+  want: Tag[];
+  effect: StarEffect;
+  /** Au plus ce nombre d'objets comptent. */
+  max?: number;
+}
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -79,6 +100,8 @@ export interface ItemDef {
   price: number;
   weapon?: WeaponStats;
   melee?: MeleeStats;
+  /** Étoiles de l'objet (les accessoires ont en plus une étoile tout autour, déduite de leur synergie). */
+  stars?: StarDef[];
   /** Objet de signature : seul cet opérateur peut le trouver et l'utiliser (il nourrit son passif). */
   signature?: 'viper' | 'sentinelle';
   armor?: number;
