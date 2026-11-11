@@ -1561,7 +1561,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private setupDuel(p: DuelParams) {
     this.params = p;
-    this.bot = generateBot(p.seed, p.round, { danger: p.danger, final: p.type === 'final', goulag: p.type === 'goulag', elite: p.type === 'elite' });
+    this.bot = generateBot(p.seed, p.round, { danger: p.danger, final: p.type === 'final', goulag: p.type === 'goulag', elite: p.type === 'elite', theme: p.theme });
     this.botL = botLoadout(this.bot);
     this.phase = 'prep';
     this.post = null;

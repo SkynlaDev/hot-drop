@@ -6,6 +6,7 @@ import { ItemInst, Rot, canPlace, cellKey, cellsAt, cellsOf } from './grid';
 import { Rng, hashParts, mulberry32, pick } from './rng';
 import { PlayerLoadout, computeLoadout, maxHpFor } from './stats';
 import { accessoryFits, starCells, starSpecs } from './stars';
+import { THEME_BIAS, ZoneTheme, themeFits } from './zone';
 
 export type BotQuality = 'faible' | 'normal' | 'fort';
 
@@ -81,7 +82,7 @@ const isAccessory = (id: string) => !!ITEMS[id].synergy && !isMag(id);
 const isMelee = (id: string) => !!ITEMS[id].melee;
 
 /** Génère le sac d'un bot, déterministe pour (graine, tour, options). */
-export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean; elite?: boolean } = {}): BotBuild {
+export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean; elite?: boolean; theme?: ZoneTheme } = {}): BotBuild {
   // 1er cercle : tout le monde vient d'atterrir. Quelle que soit la zone, un bot a un sac de départ
   // (jamais fort, objets de départ, aucun objet assemblé, sac de base) : la taille de la zone ne change que les cartes.
   const landing = round === 0 && !opts.final;
@@ -152,12 +153,15 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   ids.push(craftedArmors.length && rng() < craftChance ? pick(rng, craftedArmors) : pick(rng, armors));
   if (chosenWeapons[1]) ids.push(chosenWeapons[1], ...perWeapon[1]);
   const support = pool.filter((id) => ITEMS[id].active);
+  // Thème de la zone : une fois sur deux, l'objet en plus vient du thème (c'est ce qu'on trouvera en le fouillant).
+  const themed = pool.filter((id) => !isWeapon(id) && themeFits(opts.theme, id));
   // Le reste : au plus 2 exemplaires d'un même objet.
   const room = (id: string | undefined): id is string => !!id && ids.filter((x) => x === id).length < 2;
   for (let guard = 0; ids.length < nItems && guard < 50; guard++) {
     const r = rng();
     let id: string | undefined;
-    if (r < 0.5) id = craftedSupport.length && rng() < craftChance ? pick(rng, craftedSupport) : pick(rng, support);
+    if (themed.length && rng() < THEME_BIAS) id = pick(rng, themed);
+    else if (r < 0.5) id = craftedSupport.length && rng() < craftChance ? pick(rng, craftedSupport) : pick(rng, support);
     else if (r < 0.75) {
       // Chargeur ou accessoire en plus pour une arme du sac.
       const wd = ITEMS[pick(rng, chosenWeapons)];

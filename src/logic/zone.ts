@@ -1,13 +1,38 @@
 // Carte battle royale : des zones de tailles différentes, un cercle de gaz qui se resserre manche après manche,
 // et les cartes tirées quand le joueur se largue dans une zone.
+import { ITEMS } from '../data/items';
 import { Rng, rngFor, weighted } from './rng';
 
 export type ZoneSize = 'petite' | 'moyenne' | 'grande';
+
+/**
+ * Thème d'une zone : la moitié du butin (boutique, caisses, objets en plus des bots) en vient.
+ * Le Marché noir n'oriente pas le butin mais a deux fois plus de boutiques.
+ */
+export type ZoneTheme = 'armurerie' | 'hopital' | 'chantier' | 'commissariat' | 'marche';
+/** Thèmes répartis sur les 9 zones d'une carte. */
+export const ZONE_THEMES: ZoneTheme[] = ['armurerie', 'armurerie', 'hopital', 'hopital', 'chantier', 'chantier', 'commissariat', 'commissariat', 'marche'];
+/** Part du butin tirée dans le thème de la zone. */
+export const THEME_BIAS = 0.5;
+
+/** L'objet relève du thème de la zone. */
+export function themeFits(theme: ZoneTheme | undefined, defId: string): boolean {
+  const d = ITEMS[defId];
+  switch (theme) {
+    case 'armurerie': return !!d.weapon || !!d.melee;
+    case 'hopital': return d.category === 'medical' || d.category === 'protection';
+    case 'chantier': return d.category === 'explosif' || d.family === 'demolition';
+    case 'commissariat': return d.category === 'accessoire' || d.category === 'munition';
+    default: return false;
+  }
+}
 
 export interface MapZone {
   id: number;
   name: string;
   size: ZoneSize;
+  /** Absent sur les cartes de test construites à la main. */
+  theme?: ZoneTheme;
   x: number;
   y: number;
 }
@@ -130,6 +155,9 @@ export function genMap(seed: number): GameMap {
       r: Math.round(FIRST_RADIUS + (lastR - FIRST_RADIUS) * t),
     });
   }
+  // Thèmes : tirés à part, pour ne pas changer la géométrie des cartes.
+  const themes = shuffle(rngFor(seed, 'themes'), [...ZONE_THEMES]);
+  zones.forEach((z, i) => (z.theme = themes[i % themes.length]));
   // Sécurité : au moins 2 zones dans chaque cercle (agrandit le cercle si besoin).
   for (const c of circles) {
     const ds = zones.map((z) => dist(z, c)).sort((p, q) => p - q);
@@ -160,7 +188,8 @@ export function zonesInCircle(map: GameMap, round: number): MapZone[] {
  */
 export function drawCards(seed: number, round: number, zone: MapZone): Card[] {
   const rng = rngFor(seed, 'cards', round, zone.id);
-  const w = CARD_WEIGHTS[zone.size];
+  const w = { ...CARD_WEIGHTS[zone.size] };
+  if (zone.theme === 'marche') w.shop *= 2;
   const types: CardType[] = [];
   for (let i = 0; i < CARDS_BY_SIZE[zone.size]; i++) {
     // Au plus une boutique et une caisse renforcée ; pas de caisse renforcée au 1er cercle.

@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { C, W } from '../config';
 import { RunState } from '../logic/run';
-import { CardType, ROUNDS, ZoneSize } from '../logic/zone';
+import { CardType, ROUNDS, ZoneSize, ZoneTheme } from '../logic/zone';
 import { txt } from './widgets';
 
 type Scene = Phaser.Scene;
@@ -12,6 +12,15 @@ export const SIZE_INFO: Record<ZoneSize, { name: string; color: number; hex: str
   petite: { name: 'Petite', color: 0x5fbf6a, hex: '#7ddc86', heat: 'Calme' },
   moyenne: { name: 'Moyenne', color: 0xf2c94c, hex: '#f5d46e', heat: 'Disputée' },
   grande: { name: 'Grande', color: 0xe5484d, hex: '#ff6b6b', heat: 'Chaude' },
+};
+
+/** Thème d'une zone : nom, couleur et ce qu'on y trouve. */
+export const THEME_INFO: Record<ZoneTheme, { name: string; color: number; hex: string; loot: string }> = {
+  armurerie: { name: 'Armurerie', color: 0xe5a04d, hex: '#f0b46a', loot: 'Butin : armes' },
+  hopital: { name: 'Hôpital', color: 0x5fbf6a, hex: '#7ddc86', loot: 'Butin : soins et protections' },
+  chantier: { name: 'Chantier', color: 0xe5484d, hex: '#ff8a80', loot: 'Butin : explosifs et fusils à pompe' },
+  commissariat: { name: 'Commissariat', color: 0x4fa3ff, hex: '#7dbcff', loot: 'Butin : accessoires et chargeurs' },
+  marche: { name: 'Marché noir', color: 0x9b51e0, hex: '#c08cff', loot: 'Deux fois plus de boutiques' },
 };
 
 /** Pastille arrondie avec icône optionnelle ; (x, y) = bord droit (align 'right') ou gauche, centre vertical. */

@@ -97,6 +97,11 @@ en rangeant (+40 par étoile allumée). Armes de précision assemblées −5 % p
   C'est le moment « Backpack Battles » de chaque cercle.
 - Cartes d'action : Combat (solo), **Élite** (bot fort, butin 1 parmi 4), Caisse, Boutique.
 
+**Fait (étape 5a)** : thèmes tirés à part (`rngFor(seed, 'themes')`, la géométrie des cartes ne change pas) :
+2 Armureries, 2 Hôpitaux, 2 Chantiers, 2 Commissariats, 1 Marché noir. `THEME_BIAS` = 0,5 sur la boutique, les caisses
+et les objets en plus des bots (donc le butin). Marché noir : poids de la boutique ×2. Thème affiché sur la carte,
+dans le panneau de zone et dans la zone.
+
 ## 5. Ordre d'implémentation (un commit poussé par étape, tests au vert)
 
 1. **Retours arrière** : munitions infinies, combats solo + Élite, butin 1 parmi 3, pool commun + signatures.

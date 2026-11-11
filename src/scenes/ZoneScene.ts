@@ -6,7 +6,7 @@ import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from '../logic/zone';
 import { DANGER_RAMP } from '../logic/bots';
 import { CRATES, DUEL_PICKS, ELITE_PICKS } from '../logic/run';
-import { CARD_INFO, EPIC_GOLD, SIZE_INFO, statusPills } from '../ui/hud';
+import { CARD_INFO, EPIC_GOLD, SIZE_INFO, THEME_INFO, statusPills } from '../ui/hud';
 import { Button, button, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
 
 const GRID = { x: 20, y: 344, w: 680, h: 690, gap: 14 };
@@ -143,6 +143,10 @@ export default class ZoneScene extends Phaser.Scene {
     const lvl = botBonus(zone, run.round);
     const botLabel = run.round === 0 ? 'Bots fraîchement largués' : lvl > 0 ? `Bots +${String(Math.round(lvl * 100) / 100).replace('.', ',')} niveau` : 'Bots normaux';
     txt(this, 26 + cw + 14, 236, botLabel, 18, C.quiet, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0, 0.5);
+    if (zone.theme) {
+      const ti = THEME_INFO[zone.theme];
+      txt(this, W - 24, 296, `${ti.name.toUpperCase()} · ${ti.loot}`, 18, ti.hex, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(1, 0.5);
+    }
 
     // Compteur d'actions restantes
     txt(this, 24, 296, `ACTIONS : ${run.actionsLeft}/${ACTIONS_PER_ZONE}`, 28, C.accentStr, { fontStyle: 'bold' }).setOrigin(0, 0.5);

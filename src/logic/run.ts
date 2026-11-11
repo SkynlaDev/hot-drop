@@ -8,7 +8,7 @@ import { RECIPES } from '../data/recipes';
 import { BagInst, ItemInst, canPlace, dims, findSpot, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
 import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice, maxHpFor } from './stats';
-import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, drawCards, genMap, isGassed, zonesInCircle } from './zone';
+import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, THEME_BIAS, ZoneTheme, drawCards, genMap, isGassed, themeFits, zonesInCircle } from './zone';
 
 export const RESERVE_MAX = 6;
 /** Sacoches en réserve (non posées), comptées à part des objets. */
@@ -124,6 +124,8 @@ export interface DuelParams {
   seed: number;
   round: number;
   danger: number;
+  /** Thème de la zone : oriente les objets en plus du sac du bot (donc le butin). */
+  theme?: ZoneTheme;
   /** PV du joueur au début du duel, et PV max de la manche. */
   hp: number;
   maxHp: number;
@@ -254,7 +256,7 @@ export function currentDuel(run: RunState): DuelParams | null {
     return { type: 'final', seed: hashParts(run.seed, 'final'), round: FINAL_ROUND, danger: FINAL_DANGER, hp: f.hp, maxHp: roundMaxHp(FINAL_ROUND) };
   }
   return {
-    type: f.kind, seed: duelSeed(run, f.cardIndex), round: run.round, danger: zoneDanger(run),
+    type: f.kind, seed: duelSeed(run, f.cardIndex), round: run.round, danger: zoneDanger(run), theme: zoneTheme(run),
     hp: f.hp, maxHp: roundMaxHp(run.round),
   };
 }
@@ -444,15 +446,26 @@ function pickWeighted(rng: Rng, ids: string[]): string {
 
 const drop = (defId: string): ItemInst => ({ uid: -1, defId, rot: 0, x: 0, y: 0, placed: false });
 
+/** Thème de la zone où l'on est (undefined hors zone ou sans thème). */
+function zoneTheme(run: RunState): ZoneTheme | undefined {
+  return currentZone(run)?.theme;
+}
+
+/** Tire un objet du pool, dans le thème de la zone une fois sur deux (THEME_BIAS) ; le retire du pool. */
+function pickFromPool(run: RunState, rng: Rng, pool: string[]): string {
+  const theme = zoneTheme(run);
+  const themed = pool.filter((id) => themeFits(theme, id));
+  const from = themed.length && rng() < THEME_BIAS ? themed : pool;
+  const id = pickWeighted(rng, from);
+  pool.splice(pool.indexOf(id), 1);
+  return id;
+}
+
 /** Objets tirés dans le pool de l'opérateur, tous différents, parmi ceux déjà apparus à cette manche (`minRound`). */
 function randomItems(run: RunState, rng: Rng, count: number): ItemInst[] {
   const ids = lootPool(run.operator).filter((id) => ITEMS[id].minRound <= run.round);
   const out: ItemInst[] = [];
-  for (let i = 0; i < count && ids.length; i++) {
-    const id = pickWeighted(rng, ids);
-    ids.splice(ids.indexOf(id), 1);
-    out.push(drop(id));
-  }
+  for (let i = 0; i < count && ids.length; i++) out.push(drop(pickFromPool(run, rng, ids)));
   return out;
 }
 
@@ -497,11 +510,7 @@ function crateOffers(run: RunState, crate: CrateKind, rng: Rng): ItemInst[] {
     if (crafted.length) ids.push(pick(rng, crafted));
   }
   const pool = lootPool(run.operator).filter((id) => ITEMS[id].minRound <= run.round && !ids.includes(id));
-  while (ids.length < CRATES[crate].offers && pool.length) {
-    const id = pickWeighted(rng, pool);
-    pool.splice(pool.indexOf(id), 1);
-    ids.push(id);
-  }
+  while (ids.length < CRATES[crate].offers && pool.length) ids.push(pickFromPool(run, rng, pool));
   return ids.map(drop);
 }
 

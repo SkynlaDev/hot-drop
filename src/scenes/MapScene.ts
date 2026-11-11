@@ -5,7 +5,7 @@ import { C, H, W } from '../config';
 import { rngFor } from '../logic/rng';
 import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
 import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, EPIC_CRATE_CHANCE, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
-import { CARD_INFO, EPIC_GOLD, SIZE_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
+import { CARD_INFO, EPIC_GOLD, SIZE_INFO, THEME_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
 import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate } from '../ui/widgets';
 
 const MAP = { x: 20, y: 150, w: 680, h: 680 };
@@ -240,6 +240,12 @@ export default class MapScene extends Phaser.Scene {
       name.x = Phaser.Math.Clamp(x, MAP.x + name.width / 2 + 6, MAP.x + MAP.w - name.width / 2 - 6);
       if (y + r + 28 > MAP.y + MAP.h) name.setY(y - r - 30);
       root.setData('label', name);
+      if (z.theme) {
+        const ti = THEME_INFO[z.theme];
+        const th = txt(this, name.x, name.y + (name.originY === 0 ? 22 : -16), ti.name.toUpperCase(), 14, ti.hex, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 4 }).setOrigin(0.5, 0).setDepth(7);
+        if (name.y < y) th.setY(name.y - 18);
+        root.setData('theme', th);
+      }
       const chip = this.add.graphics();
       chip.fillStyle(0x0d0f0a, 1);
       chip.fillRoundedRect(-22, -14, 44, 28, 14);
@@ -266,10 +272,11 @@ export default class MapScene extends Phaser.Scene {
     if (animate) {
       veil.setAlpha(0);
       this.tweens.add({ targets: veil, alpha: 1, duration: 400 });
-      this.tweens.add({ targets: [root, root.getData('label')], alpha: 0.5, duration: 400 });
+      this.tweens.add({ targets: [root, root.getData('label'), root.getData('theme')].filter(Boolean), alpha: 0.5, duration: 400 });
     } else {
       root.setAlpha(0.5);
       (root.getData('label') as Phaser.GameObjects.Text).setAlpha(0.5);
+      (root.getData('theme') as Phaser.GameObjects.Text | undefined)?.setAlpha(0.5);
     }
   }
 
@@ -406,7 +413,8 @@ export default class MapScene extends Phaser.Scene {
     chip.fillRoundedRect(PANEL.x + PANEL.w - 24 - cw, y0 + 4, cw, 32, 16);
     chipT.setPosition(PANEL.x + PANEL.w - 24 - 13, y0 + 20);
     I.add([chip, chipT]);
-    I.add(txt(this, x0, y0 + 50, `${CARDS_BY_SIZE[z.size]} cartes tirées · 3 à jouer`, 22, si.hex, { fontStyle: 'bold' }));
+    const ti = z.theme ? THEME_INFO[z.theme] : null;
+    I.add(txt(this, x0, y0 + 50, ti ? `${ti.name.toUpperCase()} · ${ti.loot}` : `${CARDS_BY_SIZE[z.size]} cartes tirées · 3 à jouer`, 22, ti ? ti.hex : si.hex, { fontStyle: 'bold' }));
     I.add(txt(this, x0, y0 + 84, HEAT_DESC[z.size], 20, C.quiet, { wordWrap: { width: PANEL.w - 56 }, lineSpacing: 4 }));
     // Répartition des cartes : barre empilée
     const by = y0 + 158;

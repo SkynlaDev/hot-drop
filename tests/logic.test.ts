@@ -15,7 +15,7 @@ import {
   unplaceBag,
 } from '../src/logic/run';
 import {
-  ACTIONS_PER_ZONE, CARDS_BY_SIZE, EPIC_CRATE_CHANCE, MapZone, ROUNDS, ZONE_COUNT, circle, dist, drawCards, genMap, isFight, isGassed, zonesInCircle,
+  ACTIONS_PER_ZONE, CARDS_BY_SIZE, EPIC_CRATE_CHANCE, MapZone, ROUNDS, ZONE_COUNT, circle, dist, drawCards, genMap, isFight, isGassed, zonesInCircle, ZONE_THEMES, ZoneTheme, themeFits,
 } from '../src/logic/zone';
 
 const inst = (uid: number, defId: string, x: number, y: number, rot: Rot = 0): ItemInst => ({ uid, defId, rot, x, y, placed: true });
@@ -205,6 +205,34 @@ describe('cartes', () => {
 
   it('crédits : l’Élite rapporte plus qu’un duel', () => {
     for (const r of [0, 2, 4]) expect(duelCredits('elite', r)).toBeGreaterThan(duelCredits('solo', r) + 2);
+  });
+
+  it('zones à thème : 2 de chaque, 1 marché noir ; le thème oriente la moitié du butin', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const themes = genMap(seed).zones.map((z) => z.theme).sort();
+      expect(themes).toEqual([...ZONE_THEMES].sort());
+    }
+    expect(themeFits('armurerie', 'couteau')).toBe(true);
+    expect(themeFits('hopital', 'casque')).toBe(true);
+    expect(themeFits('chantier', 'pompe')).toBe(true);
+    expect(themeFits('commissariat', 'chg_9mm')).toBe(true);
+    expect(themeFits('marche', 'pistolet')).toBe(false);
+    // Boutiques d'Hôpital : nettement plus de soins et de protections que de base.
+    const share = (theme: ZoneTheme | undefined) => {
+      let fit = 0;
+      let n = 0;
+      for (let seed = 0; seed < 150; seed++) {
+        const run = newRun('viper', seed);
+        const z = selectableZones(run)[0];
+        z.theme = theme;
+        dropInZone(run, z.id);
+        run.cards[0] = { type: 'shop', duels: 0 };
+        playCard(run, 0);
+        for (const o of run.shop!.offers) if (o.item) { n++; if (themeFits('hopital', o.item.defId)) fit++; }
+      }
+      return fit / n;
+    };
+    expect(share('hopital')).toBeGreaterThan(share(undefined) + 0.2);
   });
 
   it('les grandes zones ont plus d’Élites que les petites', () => {
