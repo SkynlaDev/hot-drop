@@ -268,7 +268,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       actives.push({
         uid: it.uid,
         kind,
-        value: d.active.value * (kind === 'heal' || kind === 'bandage' ? 1 + sb.heal : 1),
+        value: d.active.value * (kind === 'heal' || kind === 'bandage' ? 1 + sb.heal : kind === 'frag' ? 1 + sb.dmg : 1),
         cooldown: cd,
         charges: d.active.charges + (explosive && tier('demolition') >= 1 ? 1 : 0) + Math.round(sb.charges),
         duration,

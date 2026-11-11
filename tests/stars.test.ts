@@ -76,4 +76,23 @@ describe('étoiles', () => {
     const frag = { ...inst(4, 'frag', 0, 0), placed: false };
     expect(starsLitBy(items, frag, 4, 5, 0).map((f) => f.uid)).toEqual([2]);
   });
+
+  it('objets réels : casque sur une protection, lame contre une lame, grenades en chaîne', () => {
+    const L = (items: ItemInst[]) => computeLoadout(items, 'viper', 300).loadout;
+    // Casque (2×2) en (2,2) : ses étoiles sont sous lui, en (2,4) et (3,4).
+    const onPlate = L([inst(1, 'casque', 2, 2), inst(2, 'plaque', 2, 4)]).armor;
+    const besidePlate = L([inst(1, 'casque', 2, 2), inst(2, 'plaque', 5, 2)]).armor; // ni l'une ni l'autre étoile
+    expect(onPlate).toBeGreaterThan(besidePlate);
+    // Couteau (XX) en (2,2) : l'étoile est au bout de la lame, en (4,2).
+    expect(L([inst(1, 'couteau', 2, 2), inst(2, 'machette', 4, 2)]).melee.find((m) => m.uid === 1)!.bleed).toBe(2);
+    expect(L([inst(1, 'couteau', 2, 2), inst(2, 'machette', 2, 3)]).melee.find((m) => m.uid === 1)!.bleed).toBe(0);
+    // Deux frags côte à côte : chacune +20 % de dégâts.
+    const frags = L([inst(1, 'frag', 2, 2), inst(2, 'frag', 3, 2)]).actives;
+    expect(frags.map((a) => a.value)).toEqual([ITEMS.frag.active!.value * 1.2, ITEMS.frag.active!.value * 1.2]);
+    // Toutes les protections, soins, explosifs et armes de mêlée ont au moins une étoile.
+    for (const d of Object.values(ITEMS)) {
+      if (d.id.startsWith('t_') || !['protection', 'medical', 'explosif'].includes(d.category) && !d.melee) continue;
+      expect(starSpecs(d.id).length, d.id).toBeGreaterThan(0);
+    }
+  });
 });

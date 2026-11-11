@@ -5,7 +5,7 @@ import { RECIPES } from '../data/recipes';
 import { ItemInst, Rot, canPlace, cellKey, cellsAt, cellsOf } from './grid';
 import { Rng, hashParts, mulberry32, pick } from './rng';
 import { PlayerLoadout, computeLoadout, maxHpFor } from './stats';
-import { accessoryFits } from './stars';
+import { accessoryFits, starCells, starSpecs } from './stars';
 
 export type BotQuality = 'faible' | 'normal' | 'fort';
 
@@ -211,6 +211,15 @@ export function placeBot(list: string[], usable: Set<string>, rng: Rng, sloppy =
     const weapon = isWeapon(id);
     const synergy = !!d.synergy;
     const careless = synergy && rng() < sloppy;
+    // Étoiles des objets déjà posés qui attendent cet objet : cases qui les allumeraient.
+    const wantedAt = new Map<number, number>();
+    for (const p of placed) {
+      for (const sp of starSpecs(p.defId)) {
+        if (!sp.effect || !sp.wants(d)) continue;
+        for (const [cx, cy] of starCells(p.defId, p.x, p.y, p.rot, sp)) wantedAt.set(nk(cx, cy), (wantedAt.get(nk(cx, cy)) ?? 0) + 1);
+      }
+    }
+    const ownStars = starSpecs(id).filter((sp) => sp.effect);
     const cands: { x: number; y: number; rot: Rot; score: number }[] = [];
     for (const rot of [0, 1, 2, 3] as Rot[]) {
       for (let y = minY - 4; y <= maxY; y++) {
@@ -230,6 +239,13 @@ export function placeBot(list: string[], usable: Set<string>, rng: Rng, sloppy =
             }
           }
           let score = rng() * 0.5;
+          // Étoiles allumées (objets à étoiles) : celles des objets posés, puis les siennes.
+          let lit = 0;
+          for (const [cx, cy] of foot) lit += wantedAt.get(nk(cx, cy)) ?? 0;
+          for (const sp of ownStars) {
+            if (starCells(id, x, y, rot, sp).some(([cx, cy]) => { const o = owner.get(nk(cx, cy)); return !!o && sp.wants(ITEMS[o.defId]); })) lit++;
+          }
+          if (!careless) score += lit * 40;
           if (careless) score += rng() * 10;
           else if (weapon) score += around; // de la place autour pour ses chargeurs et accessoires
           else if (synergy) {

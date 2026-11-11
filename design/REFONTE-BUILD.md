@@ -81,6 +81,13 @@ Chaque archétype a des **objets clés** reconnaissables et des étoiles qui se 
 | Rempart | tous | plaques, casques, soins | armure qui se régénère, soins renforcés |
 | Lame | tous | couteaux, machette, masse, bandage | saignement qui ignore l'armure |
 
+**Fait (étape 4)** : étoiles sur toutes les protections, soins, explosifs et armes de mêlée, et sur les fusils à pompe.
+Beaucoup visent des cases précises (casque : sous lui ; plaque : sa gauche ; trousse IFAK : sa droite ; couteaux et
+machette : au bout de la lame), pour que la position compte. Rempart : protections qui s'empilent, soins renforcés
+par les protections. Démolition : grenades en chaîne, charges en plus, pompes renforcées par les explosifs.
+Lame : saignement et dégâts entre armes de mêlée, masse renforcée par une protection. Les bots allument leurs étoiles
+en rangeant (+40 par étoile allumée). Armes de précision assemblées −5 % pour garder Viper contre Sentinelle à 46-55 %.
+
 ## 4. La carte au service du build
 
 - Chaque zone a un **thème** affiché sur la carte : Armurerie (armes), Hôpital (soins et protections),
