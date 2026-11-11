@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { iconKey, isWeaponIcon } from '../art';
+import { ITEM_SPRITE_CELL, iconKey, isWeaponIcon, itemSpriteKey } from '../art';
 import { C, FONT, H, W } from '../config';
 import { CATEGORY_COLORS, FAMILY_INFO, ITEMS } from '../data/items';
 import { ItemInst, Mask, maskOf } from '../logic/grid';
@@ -164,7 +164,9 @@ export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot'>, ce
   fillMask(g, mask, cell, 3 * k, 10 * k);
   g.fillStyle(0x15170f, 1);
   fillMask(g, mask, cell, 6 * k, 7 * k);
-  g.fillStyle(CATEGORY_COLORS[d.category], 0.85);
+  const sprite = scene.textures.exists(itemSpriteKey(inst.defId));
+  // Avec un sprite, la teinte de catégorie s'efface pour laisser le dessin lisible.
+  g.fillStyle(CATEGORY_COLORS[d.category], sprite ? 0.32 : 0.85);
   fillMask(g, mask, cell, 6 * k, 7 * k);
   g.fillStyle(0xffffff, 0.06);
   mask.forEach((row, y) => row.forEach((on, x) => on && g.fillRect(x * cell + 6 * k, y * cell + 6 * k, cell - 12 * k, cell * 0.3)));
@@ -185,11 +187,16 @@ export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot'>, ce
   g.fillTriangle(fx * cell + 6 * k, fy * cell + 6 * k, fx * cell + 26 * k, fy * cell + 6 * k, fx * cell + 6 * k, fy * cell + 26 * k);
   c.add(g);
 
-  // Icône : une arme s'étire le long de sa ligne la plus longue, les autres objets se centrent.
+  if (sprite) {
+    // Sprite PixelLab dessiné dans la forme non tournée : il tourne avec l'objet, autour du centre.
+    const img = scene.add.image(pw / 2, ph / 2, itemSpriteKey(inst.defId)).setOrigin(0.5).setScale(cell / ITEM_SPRITE_CELL).setAngle(90 * inst.rot);
+    c.add(img);
+  }
+  // Icône (sans sprite) : une arme s'étire le long de sa ligne la plus longue, les autres objets se centrent.
   const cells: [number, number][] = [];
   mask.forEach((row, y) => row.forEach((on, x) => on && cells.push([x, y])));
   const key = iconKey(inst.defId);
-  const icon = scene.add.image(0, 0, key).setTint(0xece8d8).setAlpha(0.92);
+  const icon = scene.add.image(0, 0, key).setTint(0xece8d8).setAlpha(sprite ? 0 : 0.92);
   if (isWeaponIcon(inst.defId)) {
     let by = 0;
     let best = 0;

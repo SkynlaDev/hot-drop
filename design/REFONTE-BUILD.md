@@ -119,3 +119,8 @@ Parties simulées (`tests/runsim.ts 40`) : Top 1 atteint 57 à 63 %, gagné 48 �
 5. **Zones à thème** et **ravitaillement** entre les cercles.
 6. **Recalibrage** (`tests/balance.ts`, `tests/durations.ts`, `tests/runsim.ts`).
 7. **Son** et **pixel art unifié** (icônes au format des formes, cf. `design/pixellab-test/armes`).
+
+**Fait (étape 7, sprites)** : 57 sprites d'objets PixelLab dans `public/art/items` (32 px par case, forme non tournée,
+palette des personnages imposée, découpés au masque par `tools/art/clip-items.py` ; consignes dans
+`tools/art/item-sprites.json`). Armes en L ou en T : silhouette de la forme en image de départ (force 40) ; Lynx et DMR
+assemblés à partir de pièces réussies. Le sprite tourne avec l'objet ; les icônes SVG restent en secours. Reste : le son.

@@ -1,6 +1,7 @@
 // Images du jeu générées par tools/gen-art.mjs (dans public/art/) : chargement et correspondances.
 import Phaser from 'phaser';
 import manifest from './artManifest.json';
+import { ITEMS } from './data/items';
 
 export const ART = manifest;
 
@@ -19,6 +20,9 @@ const ICON_OF: Record<string, string> = {
   ifak: 'medkit', kit_trauma: 'medkit', sac_medical: 'medkit', seringue: 'syringe',
 };
 export const iconKey = (defId: string) => `ic-${ICON_OF[defId] ?? 'bolt'}`;
+/** Sprite PixelLab d'un objet (public/art/items, 32 px par case, forme non tournée). */
+export const itemSpriteKey = (defId: string) => `it-${defId}`;
+export const ITEM_SPRITE_CELL = 32;
 export const isWeaponIcon = (defId: string) => ['pistol', 'smg', 'rifle', 'shotgun', 'sniper'].includes(ICON_OF[defId] ?? '');
 
 /**
@@ -82,10 +86,11 @@ export function preloadArt(load: Phaser.Loader.LoaderPlugin) {
   for (const [k, v] of Object.entries(ART.covers)) load.svg(`cover-${k}`, `art/cover/${k}.svg`, { width: v.w * 3, height: v.h * 3 });
   for (const b of ART.backgrounds) load.svg(`bg-${b}`, `art/bg/${b}.svg`, { width: 1360, height: 576 });
   for (const id of Object.keys(PX_FIGS) as PxFigId[]) load.image(pxKey(id), `art/px/${id}.png`);
+  for (const id of Object.keys(ITEMS)) load.image(itemSpriteKey(id), `art/items/${id}.png`);
   // Pixel art : agrandi sans lissage.
   load.once(Phaser.Loader.Events.COMPLETE, () => {
-    for (const id of Object.keys(PX_FIGS) as PxFigId[]) {
-      const tex = load.scene.textures.get(pxKey(id));
+    for (const key of [...(Object.keys(PX_FIGS) as PxFigId[]).map(pxKey), ...Object.keys(ITEMS).map(itemSpriteKey)]) {
+      const tex = load.scene.textures.get(key);
       if (tex.key !== '__MISSING') tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
   });
