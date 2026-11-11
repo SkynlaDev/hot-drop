@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ITEMS } from '../src/data/items';
 import { RECIPES } from '../src/data/recipes';
-import { lootPool } from '../src/data/operators';
+import { canUse, lootPool } from '../src/data/operators';
 import { autoCraft, craft, findCraftable } from '../src/logic/recipes';
 import {
   BASE_CELLS, BagInst, COLS, ItemInst, ROWS, Rot, bagsConnected, canMoveBag, canPlace, canPlaceBag, canRemoveBag, cellsAt,
@@ -356,7 +356,7 @@ describe('run', () => {
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
     while (reserve(run).length < RESERVE_MAX) addDrops(run, [inst(-1, 'chg_9mm', 0, 0)]);
-    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'chg_556', 2, 2), inst(901, 'plaque', 3, 2), inst(902, 'chg_44', 5, 2)] });
+    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'chg_556', 2, 2), inst(901, 'plaque', 3, 2), inst(902, 'bandage', 5, 2)] });
     const credits = run.credits;
     // Le sac de base a de la place pour une case : la réserve pleine envoie le chargeur dans le sac.
     const r = lootItem(run, 900)!;
@@ -377,7 +377,7 @@ describe('run', () => {
     const n = run.items.length;
     expect(swapLoot(run, 901, small.uid)).toBeNull();
     expect(run.items.length).toBe(n);
-    // Échange possible : un chargeur de la réserve laisse une place en réserve pour le chargeur .44.
+    // Échange possible : un chargeur de la réserve laisse une place en réserve pour le bandage.
     const inReserve = reserve(run)[0];
     const before = run.credits;
     const sw = swapLoot(run, 902, inReserve.uid)!;
@@ -385,7 +385,20 @@ describe('run', () => {
     expect(sw.credits).toBeGreaterThan(0);
     expect(run.credits).toBe(before + sw.credits);
     expect(run.items.some((i) => i.uid === inReserve.uid)).toBe(false);
-    expect(run.items.some((i) => i.defId === 'chg_44')).toBe(true);
+    expect(run.items.some((i) => i.defId === 'bandage')).toBe(true);
+  });
+
+  it('chacun ses builds : on ne fouille pas les objets réservés à l’autre opérateur', () => {
+    const run = newRun('viper', 3);
+    dropInZone(run, selectableZones(run)[0].id);
+    run.cards[0] = { type: 'solo', duels: 1 };
+    playCard(run, 0);
+    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'revolver', 2, 2), inst(901, 'chg_44', 4, 2), inst(902, 'casque', 5, 2), inst(903, 'couteau', 2, 4)] });
+    expect(run.pendingLoot!.items.map((i) => i.defId).sort()).toEqual(['casque', 'couteau']);
+    expect(canUse('viper', 'taureau_jumeaux')).toBe(false);
+    expect(canUse('sentinelle', 'mamba_akimbo')).toBe(false);
+    expect(canUse('viper', 'machette')).toBe(true);
+    expect(canUse('sentinelle', 'sous_munitions')).toBe(true);
   });
 
   it('caisse épique : du cash et 2 objets à choisir sur 5, dont une arme et un objet assemblé', () => {

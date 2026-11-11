@@ -1,6 +1,6 @@
 // Zone où le joueur s'est largué : les cartes tirées sont face visible, il en joue 3, dans l'ordre qu'il veut.
 import Phaser from 'phaser';
-import { ART, zoneBg } from '../art';
+import { PX_SIZE, pxFigure, zoneBg } from '../art';
 import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from '../logic/zone';
@@ -245,12 +245,11 @@ export default class ZoneScene extends Phaser.Scene {
     disc.strokeCircle(0, iy, dr);
     root.add(disc);
     if (isFight(card)) {
-      const fi = ART.figures['mil-stand'];
       const n = card.duels;
-      const sc = (dr * 2.2) / (fi.h * 3);
+      const sc = (dr * 1.9) / PX_SIZE;
       for (let k = 0; k < n; k++) {
         const off = n === 1 ? 0 : (k - (n - 1) / 2) * dr * 0.62;
-        const f = this.add.image(off, iy + dr * 0.92, 'fig-mil-stand').setOrigin(fi.ax, fi.ay).setScale(sc * (k === Math.floor(n / 2) ? 1 : 0.88)).setFlipX(true);
+        const f = pxFigure(this, off, iy + dr * 0.92, 'soldat', sc * (k === Math.floor(n / 2) ? 1 : 0.88), true);
         f.setTint(k === Math.floor(n / 2) ? 0xffffff : 0xb0a8a0);
         root.add(f);
       }

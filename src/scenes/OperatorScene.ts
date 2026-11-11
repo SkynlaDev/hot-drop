@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { C, H, W } from '../config';
 import { FAMILY_INFO } from '../data/items';
+import { opFig, pxFigure } from '../art';
 import { NEUTRAL_FAMILIES, OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
 import { clearRun, newRun, saveRun } from '../logic/run';
@@ -60,9 +61,7 @@ export default class OperatorScene extends Phaser.Scene {
     root.add(g);
 
     // Opérateur en silhouette derrière le nom
-    const figInfo = { ax: 0.5, ay: 0.90625 };
-    const fig = this.add.image(CARD.w - 150, 118, 'fig-op-stand').setOrigin(figInfo.ax, figInfo.ay).setScale(0.36).setAlpha(0.22).setTint(fam.color);
-    if (index === 1) fig.setFlipX(true);
+    const fig = pxFigure(this, CARD.w - 150, 118, opFig(id), 2.4, index === 1).setAlpha(0.22).setTint(fam.color);
     root.add(fig);
 
     // En-tête : icône de famille, nom, famille

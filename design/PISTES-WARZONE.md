@@ -96,6 +96,25 @@ Code : `FightKind`, `CardType`, `squadDuels`, `CARD_WEIGHTS`, `drawCards` (utili
   devienne pas le perdant structurel. Vérifier Viper/Sentinelle après calibrage.
 - Interface du duel : compteur de balles par arme (« 7/15 ») + pastilles de recharges restantes par calibre.
 
+**Fait (étape 5)** — calibré par simulation (`npx vite-node tests/durations.ts`, bots de même tour) :
+
+- PV max : `maxHpFor` = **300 + 150 par tour** (avant 100 + 20). Durées médianes : 21 s (cercle 1), 13 à 18 s
+  (cercles 2 à 5), 22 s (Top 1). Le temps limite (90 s) n'est jamais atteint ; 50 à 100 % des duels voient
+  une arme à sec.
+- Constat inverse de l'hypothèse : c'est **Sentinelle** qui perdait les duels longs (Viper 58 à 66 %), faute de balles.
+  Viper vide plus de balles, mais en a 4 à 5 fois plus. Corrections :
+  - chargeurs des armes de précision doublés (sauf le revolver et le Colibri, armes du 1er cercle) ;
+  - chargeur 7.62 = **2 recharges** (`ItemDef.reloads`) ;
+  - Précision palier 4 : chargeurs des armes de précision **×1,6** (`PRECISION_MAG`) ;
+  - pistolet Mamba : chargeur 8 → **9** (sac de départ Viper contre Sentinelle : 37 % → 51 %).
+  Résultat Viper contre Sentinelle : 46 à 55 % à chaque cercle et au Top 1 (test : entre 45 et 55 %).
+- **Couteau** dans les deux sacs de départ ; chaque bot a une arme de mêlée en plus de ses objets (couteau au 1er cercle).
+- DPS estimé : moyenné sur un duel de 20 s (`DPS_WINDOW`), munitions comprises (chargeurs, puis crosse ; mêlée ×1,5 à sec).
+- Interface : pastille « CHG ×N » sur chaque arme du sac ; en duel, compteur « 7/15 » + une barre par recharge restante,
+  « CROSSE » une fois à sec ; coups de lame et de crosse, saignement, taser, bandage affichés.
+- **Chacun ses builds** : un opérateur ne fouille pas les objets réservés à l'autre (`canUse` : sa famille, le tronc commun,
+  les grenades et ce qui s'assemble avec) ; ils restent dans le sac du vaincu.
+
 ---
 
 ## 4. Mêlée, saignement, taser
@@ -219,7 +238,7 @@ le loot vient d'une **source** abstraite (sac d'un bot, table de drop).
 2. Loot intégral + échange (§ 7).
 3. Duo, escouade, PV rendus (§ 2).
 4. Caisses à choix et cash (§ 6).
-5. Munitions par duel, mêlée, saignement, taser, durée des duels (§ 3, § 4) : en bloc, avec recalibrage.
+5. ~~Munitions par duel, mêlée, saignement, taser, durée des duels (§ 3, § 4) : en bloc, avec recalibrage.~~ Fait.
 6. Poison et masque (§ 5).
 7. Déplacement sur la carte (§ 8).
 8. Sacs à effet, radar, brouilleur, drone, défibrillateur, IEM (§ 10).

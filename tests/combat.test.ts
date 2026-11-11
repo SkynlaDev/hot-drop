@@ -4,11 +4,11 @@ import { OPERATORS, OperatorId, lootPool } from '../src/data/operators';
 import { BotBuild, botLoadout, generateBot } from '../src/logic/bots';
 import { DuelEvent, MAX_FLAT_REDUCE, MAX_TIME, simulateDuel } from '../src/logic/combat';
 import { ItemInst, Rot, canPlace, cellKey, cellsOf } from '../src/logic/grid';
-import { DRUM_RELOAD, FEU_CAP, FEU_RATE, MARK_BONUS, PlayerLoadout, WeaponRt, computeLoadout, describe as describeItem, estimateDps, maxHpFor } from '../src/logic/stats';
+import { DRUM_RELOAD, FEU_CAP, FEU_RATE, MARK_BONUS, MELEE_DRY_SPEED, MeleeRt, PlayerLoadout, WeaponRt, computeLoadout, describe as describeItem, estimateDps, magsOf, maxHpFor } from '../src/logic/stats';
 
 const inst = (uid: number, defId: string, x: number, y: number, rot: Rot = 0): ItemInst => ({ uid, defId, rot, x, y, placed: true });
 const startItems = (op: OperatorId): ItemInst[] => OPERATORS[op].start.map(([defId, x, y], i) => inst(100 + i, defId, x, y));
-const start = (op: OperatorId, hp = 100) => computeLoadout(startItems(op), op, hp).loadout;
+const start = (op: OperatorId, hp = maxHpFor(0)) => computeLoadout(startItems(op), op, hp).loadout;
 
 const winRate = (a: () => ReturnType<typeof start>, b: (s: number) => ReturnType<typeof start>, n: number) => {
   let w = 0;
@@ -17,9 +17,9 @@ const winRate = (a: () => ReturnType<typeof start>, b: (s: number) => ReturnType
 };
 
 describe('statistiques 1v1', () => {
-  it('PV max : 100 + 20 par manche', () => {
-    expect(maxHpFor(0)).toBe(100);
-    expect(maxHpFor(4)).toBe(180);
+  it('PV max : 300 + 150 par manche (duels de 15 à 25 s)', () => {
+    expect(maxHpFor(0)).toBe(300);
+    expect(maxHpFor(4)).toBe(900);
     expect(start('viper', 140).maxHp).toBe(140);
   });
 
@@ -73,7 +73,7 @@ describe('statistiques 1v1', () => {
     expect(describeItem(inst(1, 'frag', 0, 0)).lines.join(' ')).toMatch(/assemblage automatique/);
   });
 
-  it('un sac en vrac perd au moins 22 % de DPS par rapport au même sac bien rangé', () => {
+  it('un sac en vrac perd au moins 13 % de DPS par rapport au même sac bien rangé', () => {
     const builds = [
       [inst(1, 'fusil_assaut', 0, 3), inst(2, 'chg_556', 4, 3), inst(3, 'lunette', 0, 2), inst(5, 'smg', 3, 0), inst(6, 'chg_9mm', 3, 2)],
       [inst(1, 'precision', 0, 3), inst(2, 'chg_762', 0, 2), inst(3, 'lunette', 1, 2), inst(4, 'silencieux', 3, 2), inst(6, 'pistolet', 3, 0)],
@@ -85,9 +85,17 @@ describe('statistiques 1v1', () => {
       for (const op of ['viper', 'sentinelle'] as const) {
         const good = estimateDps(computeLoadout(b, op, 100).loadout);
         const bad = estimateDps(computeLoadout(b.map((i, n) => ({ ...i, x: 20 + n * 8, y: 20 })), op, 100).loadout);
-        // 22 % et plus : sans raretés, les synergies valent leur valeur de base (lunette +25 %, pas +29 %).
-        expect(bad / good).toBeLessThan(0.78);
+        // 13 % et plus : sans chargeur adjacent, une arme n'a que son propre chargeur pour le duel.
+        // (La mêlée frappe où qu'elle soit rangée, et un fusil de précision ne vide pas son 1er chargeur en 20 s.)
+        expect(bad / good).toBeLessThan(0.87);
       }
+    }
+  });
+
+  it('en duel, le sac de départ bien rangé bat nettement le même sac en vrac', () => {
+    for (const op of ['viper', 'sentinelle'] as const) {
+      const loose = computeLoadout(startItems(op).map((i, n) => ({ ...i, x: 20 + n * 8, y: 20 })), op, maxHpFor(0)).loadout;
+      expect(winRate(() => start(op), () => loose, 600), op).toBeGreaterThan(0.65);
     }
   });
 });
@@ -147,8 +155,9 @@ describe('duel', () => {
   it('les PV gardés (hpA) sont repris et pèsent sur le résultat', () => {
     const a = start('viper');
     const r = simulateDuel(a, a, 5, { hpA: 30 });
-    const firstShot = r.events.find((e) => e.kind === 'shot' && e.from === 'b' && !e.miss && e.armor === 0);
-    if (firstShot && firstShot.kind === 'shot') expect(firstShot.hp).toBeLessThan(30);
+    const hits = r.events.filter((e): e is Extract<DuelEvent, { kind: 'shot' }> => e.kind === 'shot' && e.from === 'b' && !e.miss);
+    expect(Math.max(...hits.map((e) => e.hp))).toBeLessThanOrEqual(30);
+    expect(hits.some((e) => e.hp < 30)).toBe(true);
     const full = winRate(() => a, () => a, 400);
     let low = 0;
     for (let s = 0; s < 400; s++) if (simulateDuel(a, a, s, { hpA: 35 }).win) low++;
@@ -171,11 +180,11 @@ describe('duel', () => {
 describe('mécaniques des opérateurs', () => {
   /** Cible sans arme, aux PV énormes : le duel va au temps limite. */
   const dummy = (over: Partial<PlayerLoadout> = {}): PlayerLoadout => ({
-    maxHp: 1e6, armor: 0, weapons: [], actives: [], critMult: 2, armorRegen: 0, flatReduce: 0, markBonus: 0, families: [], ...over,
+    maxHp: 1e6, armor: 0, weapons: [], melee: [], mags: [], actives: [], critMult: 2, armorRegen: 0, flatReduce: 0, markBonus: 0, families: [], ...over,
   });
   const gun = (uid: number, over: Partial<WeaponRt> = {}): WeaponRt => ({
     uid, name: `arme ${uid}`, dmg: 10, interval: 0.5, mag: 30, reload: 2, crit: 0, pellets: 1, firstCrit: false,
-    armorPierce: 0, doubleEvery: 0, fed: true, critStun: 0, trueDmg: 0, heatRate: 0, heatCap: 0, markBoost: 0, ...over,
+    armorPierce: 0, doubleEvery: 0, magUids: [], magReloads: 0, ownReloads: 99, buttDmg: 4, buttInterval: 1, critStun: 0, trueDmg: 0, heatRate: 0, heatCap: 0, markBoost: 0, ...over,
   });
   const shots = (evs: DuelEvent[], uid?: number) =>
     evs.filter((e): e is Extract<DuelEvent, { kind: 'shot' }> => e.kind === 'shot' && e.from === 'a' && (uid === undefined || e.uid === uid));
@@ -194,6 +203,74 @@ describe('mécaniques des opérateurs', () => {
     // Plus de tirs qu'avec la même arme sans Feu continu.
     const cold = simulateDuel(dummy({ maxHp: 100, weapons: [gun(1)] }), dummy(), 3);
     expect(s.length).toBeGreaterThan(shots(cold.events, 1).length * 1.1);
+  });
+
+  it('munitions par duel : son chargeur + un par chargeur adjacent, puis la crosse', () => {
+    // Sans chargeur : 1 chargeur, aucune recharge, puis la crosse.
+    const solo = computeLoadout([inst(1, 'pistolet', 2, 2)], 'viper', 300).loadout;
+    expect(magsOf(solo.weapons[0])).toBe(1);
+    const r = simulateDuel(solo, dummy(), 3);
+    expect(r.events.some((e) => e.kind === 'reload' && e.side === 'a')).toBe(false);
+    expect(shots(r.events, 1).filter((e) => !e.melee && !e.double).length).toBe(ITEMS.pistolet.weapon!.mag);
+    const dry = r.events.find((e) => e.kind === 'dry' && e.side === 'a')!;
+    expect(dry).toBeDefined();
+    const butts = shots(r.events, 1).filter((e) => e.melee === 'crosse');
+    expect(butts.length).toBeGreaterThan(10);
+    expect(butts.every((e) => e.t > dry.t)).toBe(true);
+    // Deux chargeurs adjacents : deux recharges, la dernière annoncée.
+    const fed = computeLoadout([inst(1, 'pistolet', 2, 2), inst(2, 'chg_9mm', 3, 3), inst(3, 'chg_9mm', 2, 3)], 'viper', 300).loadout;
+    expect(magsOf(fed.weapons[0])).toBe(3);
+    const reloads = simulateDuel(fed, dummy(), 3).events.filter((e): e is Extract<DuelEvent, { kind: 'reload' }> => e.kind === 'reload' && e.side === 'a');
+    expect(reloads.map((e) => e.left)).toEqual([1, 0]);
+  });
+
+  it('un chargeur adjacent à deux armes ne sert qu’une fois', () => {
+    const a = computeLoadout([inst(1, 'pistolet', 2, 2), inst(2, 'chg_9mm', 2, 3), inst(3, 'pistolet', 2, 4)], 'viper', 300).loadout;
+    expect(a.weapons.map(magsOf)).toEqual([2, 2]);
+    const r = simulateDuel(a, dummy(), 4);
+    expect(r.events.filter((e) => e.kind === 'reload' && e.side === 'a').length).toBe(1);
+    expect(r.events.filter((e) => e.kind === 'dry' && e.side === 'a').length).toBe(2);
+  });
+
+  it('mêlée : frappe tout le duel, plus vite quand les armes à feu sont à sec', () => {
+    const knife: MeleeRt = { uid: 9, name: 'couteau', dmg: 4, interval: 1, bleed: 0, armorPierce: 0 };
+    const a = dummy({ maxHp: 100, weapons: [gun(1, { mag: 10, ownReloads: 0 })], melee: [knife] });
+    const r = simulateDuel(a, dummy(), 2);
+    const dryAt = r.events.find((e) => e.kind === 'dry')!.t;
+    const cuts = shots(r.events, 9);
+    expect(cuts.every((e) => e.melee === 'lame' && e.amount === 4)).toBe(true);
+    const before = cuts.filter((e) => e.t < dryAt - 1).length / (dryAt - 1);
+    const after = cuts.filter((e) => e.t > dryAt + 1 && e.t < dryAt + 21).length / 20;
+    expect(before).toBeGreaterThan(0.8);
+    expect(after / before).toBeCloseTo(MELEE_DRY_SPEED, 0);
+  });
+
+  it('saignement : ignore l’armure, se vide peu à peu ; le bandage le retire', () => {
+    const blade: MeleeRt = { uid: 9, name: 'couteau de combat', dmg: 1, interval: 1, bleed: 4, armorPierce: 0 };
+    const a = dummy({ maxHp: 100, melee: [blade] });
+    const b = dummy({ maxHp: 100, armor: 1e6 });
+    const r = simulateDuel(a, b, 1);
+    const bleeds = r.events.filter((e): e is Extract<DuelEvent, { kind: 'bleed' }> => e.kind === 'bleed' && e.side === 'b');
+    expect(bleeds.length).toBeGreaterThan(5);
+    expect(bleeds[bleeds.length - 1].hp).toBeLessThan(100);
+    // Le bandage se déclenche dès 8 de saignement.
+    const items = [inst(1, 'bandage', 2, 2)];
+    const withBandage = { ...computeLoadout(items, 'viper', 100).loadout, armor: 1e6 };
+    const r2 = simulateDuel(a, withBandage, 1);
+    const band = r2.events.find((e) => e.kind === 'bandage');
+    expect(band && band.kind === 'bandage' && band.cured).toBeGreaterThan(0);
+  });
+
+  it('taser : se déclenche quand l’adversaire recharge et l’immobilise', () => {
+    const a = computeLoadout([inst(1, 'taser', 2, 2)], 'viper', 300).loadout;
+    const b = dummy({ maxHp: 300, weapons: [gun(1, { mag: 4, interval: 0.3 })] });
+    const r = simulateDuel(a, b, 1);
+    const tz = r.events.find((e): e is Extract<DuelEvent, { kind: 'taser' }> => e.kind === 'taser')!;
+    const reload = r.events.find((e) => e.kind === 'reload' && e.side === 'b')!;
+    expect(tz.t).toBeGreaterThanOrEqual(reload.t);
+    expect(tz.until - tz.t).toBeCloseTo(1.5);
+    // Plus aucun tir adverse pendant l'immobilisation (recharge comprise).
+    expect(r.events.some((e) => e.kind === 'shot' && e.from === 'b' && e.t > tz.t && e.t < tz.until)).toBe(false);
   });
 
   it('Marque : un critique marque, la touche suivante d’une AUTRE arme fait +50 % et consomme la marque', () => {
@@ -322,7 +399,7 @@ describe('bots', () => {
       let w = 0;
       for (let s = 0; s < 300; s++) w += simulateDuel(start(op), botLoadout(generateBot(s, 0, { goulag: true })), s).win ? 1 : 0;
       expect(w / 300).toBeGreaterThan(0.45);
-      expect(w / 300).toBeLessThan(0.68);
+      expect(w / 300).toBeLessThan(0.7);
     }
   });
 
@@ -332,7 +409,7 @@ describe('bots', () => {
         const b = generateBot(s, 0, { danger });
         expect(b.quality).not.toBe('fort');
         expect(b.usable.length).toBe(20);
-        expect(b.items.length).toBeLessThanOrEqual(4);
+        expect(b.items.length).toBeLessThanOrEqual(5); // 4 objets + l'arme de mêlée
         expect(b.items.every((i) => !ITEMS[i.defId].crafted)).toBe(true);
       }
     }

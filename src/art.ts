@@ -15,18 +15,53 @@ const ICON_OF: Record<string, string> = {
   lunette: 'scope', silencieux: 'silencer', poignee: 'grip', viseur_holo: 'holo', bipied: 'bipod', refroidisseur: 'silencer',
   plaque: 'plate', armure_lourde: 'plate', casque: 'helmet', casque_lourd: 'helmet',
   frag: 'frag', thermite: 'frag', sous_munitions: 'frag', fumigene: 'smoke', flash: 'flash',
+  couteau: 'bolt', couteau_combat: 'bolt', machette: 'bolt', masse: 'hand', crosse_renforcee: 'grip', taser: 'flash', bandage: 'medkit',
   ifak: 'medkit', kit_trauma: 'medkit', sac_medical: 'medkit', seringue: 'syringe',
 };
 export const iconKey = (defId: string) => `ic-${ICON_OF[defId] ?? 'bolt'}`;
 export const isWeaponIcon = (defId: string) => ['pistol', 'smg', 'rifle', 'shotgun', 'sniper'].includes(ICON_OF[defId] ?? '');
 
-/** Personnage dessiné pour chaque type d'ennemi. */
-export function figureOf(name: string, opener?: boolean): string {
-  if (name === 'Cdt Kesh') return 'kesh-stand';
-  if (name === 'Lieutenant') return 'lt-stand';
-  if (name === 'Mitrailleur') return 'mitr-stand';
-  if (name === 'Tireur') return opener ? 'tir-prone' : 'tir-stand';
-  return 'mil-stand';
+/**
+ * Personnages PixelLab (public/art/px, 64 × 64, regard vers la droite).
+ * Points en pixels du sprite, relatifs aux pieds : bouche du canon, tête, poitrine.
+ */
+export interface PxFig {
+  feet: [number, number];
+  muzzle: [number, number];
+  head: [number, number];
+  chest: [number, number];
+}
+export const PX_FIGS = {
+  viper: { feet: [32, 62], muzzle: [21, -28], head: [0, -56], chest: [-2, -38] },
+  sentinelle: { feet: [32, 62], muzzle: [27, -21], head: [0, -56], chest: [-1, -37] },
+  soldat: { feet: [32, 62], muzzle: [14, -22], head: [-1, -55], chest: [-2, -38] },
+  tireur: { feet: [32, 62], muzzle: [6, -32], head: [-3, -53], chest: [-4, -37] },
+  lieutenant: { feet: [32, 62], muzzle: [18, -24], head: [2, -54], chest: [-2, -36] },
+  mitrailleur: { feet: [32, 62], muzzle: [26, -28], head: [1, -53], chest: [-1, -34] },
+  commandant: { feet: [32, 62], muzzle: [25, -30], head: [0, -56], chest: [-2, -37] },
+} satisfies Record<string, PxFig>;
+export type PxFigId = keyof typeof PX_FIGS;
+export const PX_SIZE = 64;
+export const pxKey = (id: PxFigId) => `px-${id}`;
+
+/** Personnage d'un opérateur (Viper ou Sentinelle). */
+export const opFig = (op: string): PxFigId => (op === 'sentinelle' ? 'sentinelle' : 'viper');
+
+/** Personnage d'un adversaire : boss final, bot fort, sinon un des trois soldats selon la graine. */
+export function foeFig(final: boolean, strong: boolean, seed: number): PxFigId {
+  if (final) return 'commandant';
+  if (strong) return 'lieutenant';
+  return (['soldat', 'tireur', 'mitrailleur'] as const)[seed % 3];
+}
+
+/** Image d'un personnage pixel, pieds en (x, y), `px` pixels d'écran par pixel du sprite. */
+export function pxFigure(scene: Phaser.Scene, x: number, y: number, id: PxFigId, px: number, flip = false) {
+  const f = PX_FIGS[id];
+  return scene.add
+    .image(x, y, pxKey(id))
+    .setOrigin(f.feet[0] / PX_SIZE, f.feet[1] / PX_SIZE)
+    .setScale(px)
+    .setFlipX(flip);
 }
 
 /** Décors illustrés (public/art/bg) : plus de biomes, ce sont de simples ambiances. */
@@ -46,4 +81,12 @@ export function preloadArt(load: Phaser.Loader.LoaderPlugin) {
   for (const [k, v] of Object.entries(ART.figures)) load.svg(`fig-${k}`, `art/fig/${k}.svg`, { width: v.w * 3, height: v.h * 3 });
   for (const [k, v] of Object.entries(ART.covers)) load.svg(`cover-${k}`, `art/cover/${k}.svg`, { width: v.w * 3, height: v.h * 3 });
   for (const b of ART.backgrounds) load.svg(`bg-${b}`, `art/bg/${b}.svg`, { width: 1360, height: 576 });
+  for (const id of Object.keys(PX_FIGS) as PxFigId[]) load.image(pxKey(id), `art/px/${id}.png`);
+  // Pixel art : agrandi sans lissage.
+  load.once(Phaser.Loader.Events.COMPLETE, () => {
+    for (const id of Object.keys(PX_FIGS) as PxFigId[]) {
+      const tex = load.scene.textures.get(pxKey(id));
+      if (tex.key !== '__MISSING') tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+  });
 }

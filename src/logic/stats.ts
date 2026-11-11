@@ -9,7 +9,7 @@ export const FAMILY_ORDER: Family[] = ['rafale', 'precision', 'demolition', 'rem
 
 /** PV max de tous les combattants (joueur et bots) à un tour donné (0 = 1er cercle). */
 export function maxHpFor(round: number): number {
-  return 100 + 20 * round;
+  return 300 + 150 * round;
 }
 
 export interface WeaponRt {
@@ -27,8 +27,15 @@ export interface WeaponRt {
   armorPierce: number;
   /** Toutes les N balles, la balle touche deux fois (Rafale palier 4). 0 = jamais. */
   doubleEvery: number;
-  /** Un chargeur de son calibre la touche ; sinon la recharge est 2 fois plus lente. */
-  fed: boolean;
+  /** Chargeurs du sac (uid) qui peuvent l'alimenter : adjacents et de son calibre. Chacun = une recharge. */
+  magUids: number[];
+  /** Recharges que donnent ces chargeurs (un gros calibre en donne 2). */
+  magReloads: number;
+  /** Recharges intégrées (armes assemblées à alimentation intégrée). */
+  ownReloads: number;
+  /** Coup de crosse, une fois à sec : dégâts et intervalle. */
+  buttDmg: number;
+  buttInterval: number;
   /** Un critique retarde les prochains tirs de l'adversaire (s). */
   critStun: number;
   /** Dégâts en plus à chaque touche, qui ignorent l'armure. */
@@ -41,9 +48,19 @@ export interface WeaponRt {
   markBoost: number;
 }
 
+/** Arme de mêlée : frappe pendant tout le duel. */
+export interface MeleeRt {
+  uid: number;
+  name: string;
+  dmg: number;
+  interval: number;
+  bleed: number;
+  armorPierce: number;
+}
+
 export interface ActiveRt {
   uid: number;
-  kind: 'frag' | 'smoke' | 'heal' | 'flash' | 'adrenaline';
+  kind: 'frag' | 'smoke' | 'heal' | 'flash' | 'adrenaline' | 'taser' | 'bandage';
   value: number;
   cooldown: number;
   charges: number;
@@ -51,6 +68,8 @@ export interface ActiveRt {
   threshold: number;
   /** Explosion qui ignore l'armure (Démolition palier 4, thermite). */
   ignoreArmor: boolean;
+  /** Bandage : saignement retiré. */
+  cure: number;
 }
 
 export interface FamilyState {
@@ -63,6 +82,9 @@ export interface PlayerLoadout {
   maxHp: number;
   armor: number;
   weapons: WeaponRt[];
+  melee: MeleeRt[];
+  /** Chargeurs posés (uid → utilisations par duel), partagés entre les armes qu'ils touchent. */
+  mags: { uid: number; uses: number }[];
   actives: ActiveRt[];
   critMult: number;
   /** Armure régénérée par seconde (Rempart palier 4). */
@@ -88,11 +110,19 @@ export const FEU_RATE = 0.05;
 export const FEU_CAP = 0.3;
 /** Marque (Sentinelle) : la touche suivante d'une autre arme fait +50 %. */
 export const MARK_BONUS = 0.5;
+/** Précision palier 4 : chargeurs des armes de précision agrandis. */
+export const PRECISION_MAG = 1.6;
 /** Chargeur tambour : recharge plus lente de l'arme adjacente. */
 export const DRUM_RELOAD = 0.4;
 
-/** Multiplicateur de recharge d'une arme qu'aucun chargeur de son calibre ne touche. */
-export const UNFED_RELOAD = 2;
+/** Recharges intégrées d'une arme à alimentation intégrée (objets assemblés). */
+export const SELF_FED_RELOADS = 2;
+/** Coup de crosse selon la classe d'arme : [dégâts, intervalle]. */
+export const BUTT: Record<string, [number, number]> = {
+  Pistolet: [4, 1.0], SMG: [4, 1.0], "Fusil d'assaut": [6, 1.2], 'Fusil à pompe': [6, 1.2], 'Fusil de précision': [7, 1.4],
+};
+/** Cadence de la mêlée quand toutes les armes à feu sont à sec. */
+export const MELEE_DRY_SPEED = 1.5;
 
 /** Familles du sac : nombre d'objets posés de chaque famille. */
 export function familyStates(items: ItemInst[]): FamilyState[] {
@@ -115,6 +145,8 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
   const tier = (f: Family) => families.find((s) => s.family === f)?.tier ?? 0;
   const links: SynergyLink[] = [];
   const weapons: WeaponRt[] = [];
+  const melee: MeleeRt[] = [];
+  const mags: { uid: number; uses: number }[] = [];
   const actives: ActiveRt[] = [];
   let armor = 0;
   let flatReduce = 0;
@@ -135,6 +167,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       let firstCrit = !!d.weapon.firstCrit;
       let magBonus = 0;
       let magCount = 0;
+      const magUids: number[] = [];
+      let magReloads = 0;
+      let butt = 1;
       let armorPierce = d.weapon.armorPierce ?? 0;
       let dmgMult = 1;
       let grip = 0;
@@ -145,10 +180,17 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         if (!od.synergy) continue;
         const edge = sharedEdge(o, it);
         if (!edge) continue;
-        if (od.synergy.kind === 'mag' && (od.caliber === d.caliber || d.weapon.feedsAny) && magCount < 3) {
-          magCount++;
-          magBonus += od.synergy.value;
-          links.push({ a: o.uid, b: it.uid, label: `−${pct(od.synergy.value)} de recharge`, edge });
+        if (od.synergy.kind === 'mag' && (od.caliber === d.caliber || d.weapon.feedsAny)) {
+          magUids.push(o.uid);
+          magReloads += od.reloads ?? 1;
+          if (magCount < 3) {
+            magCount++;
+            magBonus += od.synergy.value;
+          }
+          links.push({ a: o.uid, b: it.uid, label: `+${od.reloads ?? 1} chargeur${(od.reloads ?? 1) > 1 ? 's' : ''}, −${pct(od.synergy.value)} de recharge`, edge });
+        } else if (od.synergy.kind === 'butt') {
+          butt = Math.max(butt, 1 + od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `crosse ×${1 + od.synergy.value}`, edge });
         } else if (od.synergy.kind === 'scope' && d.tags.includes('arme_longue')) {
           crit += od.synergy.value;
           links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value)} de critique`, edge });
@@ -182,8 +224,8 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         }
       }
       if (d.wclass === 'Fusil à pompe' && tier('demolition') >= 2) armorPierce = 1;
-      const fed = magCount > 0 || !!d.weapon.selfFed;
-      reload *= fed ? Math.max(0.3, 1 - magBonus) : UNFED_RELOAD;
+      reload *= Math.max(0.3, 1 - magBonus);
+      const [bd, bi] = BUTT[d.wclass ?? 'Pistolet'] ?? BUTT.Pistolet;
       if (drum > 0) reload *= 1 + DRUM_RELOAD;
       interval /= 1 + grip;
       weapons.push({
@@ -191,14 +233,18 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         name: d.name,
         dmg: d.weapon.dmg * dmgMult,
         interval,
-        mag: Math.round(d.weapon.mag * (1 + extMag) * (1 + drum)),
+        mag: Math.round(d.weapon.mag * (1 + extMag) * (1 + drum) * (d.family === 'precision' && tier('precision') >= 2 ? PRECISION_MAG : 1)),
         reload,
         crit: Math.min(crit, 0.9),
         pellets: d.weapon.targets ?? 1,
         firstCrit,
         armorPierce,
         doubleEvery: d.family === 'rafale' && tier('rafale') >= 2 ? 3 : 0,
-        fed,
+        magUids,
+        magReloads,
+        ownReloads: d.weapon.selfFed ? SELF_FED_RELOADS : 0,
+        buttDmg: bd * butt,
+        buttInterval: bi,
         critStun: d.weapon.critStun ?? 0,
         trueDmg: d.weapon.trueDmg ?? 0,
         heatRate: FEU_RATE * (1 + cooler),
@@ -206,6 +252,11 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         markBoost,
       });
     }
+
+    if (d.melee) {
+      melee.push({ uid: it.uid, name: d.name, dmg: d.melee.dmg, interval: d.melee.interval, bleed: d.melee.bleed ?? 0, armorPierce: d.melee.armorPierce ?? 0 });
+    }
+    if (d.synergy?.kind === 'mag') mags.push({ uid: it.uid, uses: d.reloads ?? 1 });
 
     if (d.armor) {
       armor += d.armor;
@@ -227,6 +278,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         duration,
         threshold: d.active.threshold ?? 0.5,
         ignoreArmor: kind === 'frag' && (tier('demolition') >= 2 || !!d.active.pierce),
+        cure: d.active.cure ?? 0,
       });
     }
   }
@@ -238,6 +290,8 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       maxHp,
       armor: Math.round(armor),
       weapons,
+      melee,
+      mags,
       actives,
       critMult: tier('precision') >= 2 ? 2.25 : 2,
       armorRegen: tier('rempart') >= 2 ? 2 : 0,
@@ -250,18 +304,46 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
 }
 
 /** Estimation grossière des dégâts par seconde, pour l'écran de préparation. */
+/** Fenêtre (s) sur laquelle le DPS estimé est moyenné : la durée d'un duel ordinaire. */
+export const DPS_WINDOW = 20;
+
+/**
+ * DPS moyen sur un duel de DPS_WINDOW secondes, munitions comprises : chaque arme vide ses chargeurs
+ * (le sien, les intégrés, les adjacents), puis frappe à la crosse. La mêlée frappe tout du long.
+ */
 export function estimateDps(l: PlayerLoadout): number {
-  let dps = 0;
+  let dmg = 0;
+  let allDryAt = 0;
   for (const w of l.weapons) {
     // Feu continu : bonus moyen de cadence sur un chargeur (montée linéaire jusqu'au plafond).
     const burst = w.mag * w.interval;
     const ramp = w.heatRate > 0 ? w.heatCap / w.heatRate : 0;
     const heat = w.heatCap <= 0 ? 0 : burst <= ramp ? (w.heatRate * burst) / 2 : w.heatCap - (w.heatCap * ramp) / (2 * burst);
-    const cycle = burst / (1 + heat) + w.reload;
     const hits = w.pellets * (1 + (w.doubleEvery > 0 ? 1 / w.doubleEvery : 0));
-    dps += ((w.dmg * (1 + w.crit * (l.critMult - 1)) + w.trueDmg) * 0.85 * w.mag * hits) / cycle;
+    const perMag = (w.dmg * (1 + w.crit * (l.critMult - 1)) + w.trueDmg) * 0.85 * w.mag * hits;
+    const fire = burst / (1 + heat);
+    const mags = magsOf(w);
+    // Temps pour vider tous ses chargeurs (recharges comprises), borné par la fenêtre.
+    const emptyAt = mags * fire + (mags - 1) * w.reload;
+    if (emptyAt >= DPS_WINDOW) {
+      dmg += (perMag * DPS_WINDOW) / (fire + w.reload);
+      allDryAt = DPS_WINDOW;
+    } else {
+      dmg += perMag * mags + (w.buttDmg / w.buttInterval) * (DPS_WINDOW - emptyAt);
+      allDryAt = Math.max(allDryAt, emptyAt);
+    }
   }
-  return dps;
+  if (!l.weapons.length) allDryAt = 0;
+  for (const m of l.melee) {
+    const rate = (m.dmg + m.bleed) / m.interval;
+    dmg += rate * allDryAt + rate * MELEE_DRY_SPEED * (DPS_WINDOW - allDryAt);
+  }
+  return dmg / DPS_WINDOW;
+}
+
+/** Chargeurs pleins d'une arme pour un duel : le sien + recharges intégrées + chargeurs adjacents (partagés). */
+export function magsOf(w: WeaponRt): number {
+  return 1 + w.ownReloads + w.magReloads;
 }
 
 export function itemPrice(defId: string): number {
@@ -285,10 +367,10 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
   if (d.weapon) {
     const wp = d.weapon;
     lines.push(`Dégâts ${r1(wp.dmg)} toutes les ${r1(wp.interval)} s`);
-    lines.push(`Chargeur ${wp.mag} · recharge ${r1(wp.reload)} s`);
-    if (wp.selfFed) lines.push('Alimentation intégrée : jamais à sec');
-    else if (wp.feedsAny) lines.push(`Alimentation : n'importe quel chargeur adjacent, sinon recharge ×${UNFED_RELOAD}`);
-    else lines.push(`Alimentation : un chargeur ${d.caliber} adjacent, sinon recharge ×${UNFED_RELOAD}`);
+    lines.push(`Chargeur ${wp.mag} balles · recharge ${r1(wp.reload)} s`);
+    if (wp.selfFed) lines.push(`Alimentation intégrée : ${SELF_FED_RELOADS} chargeurs de plus par duel`);
+    else if (wp.feedsAny) lines.push("Munitions : son chargeur, +1 par chargeur adjacent (tout calibre). À sec : crosse");
+    else lines.push(`Munitions : son chargeur, +1 par chargeur ${d.caliber} adjacent. À sec : crosse`);
     if (wp.firstCrit) lines.push('Son 1er tir est toujours critique');
     if (wp.armorPierce) lines.push(`Ignore ${pct(wp.armorPierce)} de l'armure`);
     if (wp.critStun) lines.push(`Ses critiques retardent les tirs adverses de ${r1(wp.critStun)} s`);
@@ -297,6 +379,13 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (wp.critBonus) lines.push(`+${pct(wp.critBonus)} de critique`);
     if (wp.heatBonus) lines.push(`Viper : Feu continu jusqu'à +${pct(FEU_CAP + wp.heatBonus)} au lieu de +${pct(FEU_CAP)}`);
     if (wp.markBoost) lines.push(`Sentinelle : quand elle consomme la Marque, +${pct(wp.markBoost)} de dégâts en plus`);
+  }
+  if (d.melee) {
+    const ml = d.melee;
+    lines.push(`Mêlée : ${r1(ml.dmg)} dégâts toutes les ${r1(ml.interval)} s, pendant tout le duel`);
+    if (ml.bleed) lines.push(`Saignement +${ml.bleed} par coup (ignore l'armure)`);
+    if (ml.armorPierce) lines.push(`Ignore ${pct(ml.armorPierce)} de l'armure`);
+    lines.push(`Frappe ${MELEE_DRY_SPEED} fois plus vite quand tes armes à feu sont à sec`);
   }
   if (d.armor) {
     lines.push(`Armure +${d.armor}`);
@@ -311,11 +400,14 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (a.kind === 'heal') lines.push(`Soigne ${Math.round(a.value)} PV quand les PV passent sous 50 %`);
     if (a.kind === 'flash') lines.push(`Étourdit les armes adverses ${r1(a.value)} s`);
     if (a.kind === 'adrenaline') lines.push(`+${pct(a.value)} de cadence pendant ${r1(a.duration ?? 0)} s sous 30 % PV`);
+    if (a.kind === 'taser') lines.push(`${a.value} dégâts, immobilise l'adversaire ${r1(a.duration ?? 0)} s (quand il recharge, sinon à 6 s)`);
+    if (a.kind === 'bandage') lines.push(`Retire ${a.cure} de saignement et soigne ${a.value} PV (saignement ≥ 8 ou PV sous 50 %)`);
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
   }
   if (d.synergy) {
     const v = pct(d.synergy.value);
-    if (d.synergy.kind === 'mag') lines.push(`Adjacent à une arme ${d.caliber} : −${v} de temps de recharge (max 3)`);
+    if (d.synergy.kind === 'mag') lines.push(`Adjacent à une arme ${d.caliber} : ${(d.reloads ?? 1) > 1 ? `${d.reloads} recharges` : 'une recharge'} de plus par duel, et −${v} de temps de recharge (max 3)`);
+    if (d.synergy.kind === 'butt') lines.push('Adjacent à une arme : ses coups de crosse font 2 fois plus mal');
     if (d.synergy.kind === 'scope') lines.push(`Adjacent à une arme longue : +${v} de critique`);
     if (d.synergy.kind === 'silencer') lines.push('Adjacent à une arme : son 1er tir est critique');
     if (d.synergy.kind === 'pierce') lines.push(`Adjacent à une arme : perce ${v} de l'armure`);

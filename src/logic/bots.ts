@@ -85,6 +85,7 @@ export function accessoryFits(acc: ItemDef, w: ItemDef): boolean {
 const isWeapon = (id: string) => !!ITEMS[id].weapon;
 const isMag = (id: string) => ITEMS[id].synergy?.kind === 'mag';
 const isAccessory = (id: string) => !!ITEMS[id].synergy && !isMag(id);
+const isMelee = (id: string) => !!ITEMS[id].melee;
 
 /** Génère le sac d'un bot, déterministe pour (graine, tour, options). */
 export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean } = {}): BotBuild {
@@ -150,6 +151,10 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
     return out;
   });
   ids.push(chosenWeapons[0], ...perWeapon[0]);
+  // Arme de mêlée, en plus du compte d'objets : un couteau au 1er cercle (comme le sac de départ), puis au choix.
+  const melees = pool.filter(isMelee);
+  const craftedMelee = crafted.filter(isMelee);
+  const melee = landing ? 'couteau' : craftedMelee.length && rng() < craftChance ? pick(rng, craftedMelee) : pick(rng, melees);
   const armors = pool.filter((id) => ITEMS[id].armor);
   ids.push(craftedArmors.length && rng() < craftChance ? pick(rng, craftedArmors) : pick(rng, armors));
   if (chosenWeapons[1]) ids.push(chosenWeapons[1], ...perWeapon[1]);
@@ -168,6 +173,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
     if (room(id)) ids.push(id);
   }
   ids.length = Math.min(ids.length, nItems);
+  ids.push(melee);
 
   // Rangement bâclé (chargeur ou accessoire posé n'importe où) : fréquent chez les faibles, rare ensuite.
   const sloppy = quality === 'faible' ? 0.5 : quality === 'normal' ? Math.max(0.05, 0.3 - 0.06 * round) : 0;

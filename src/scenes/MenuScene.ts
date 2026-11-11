@@ -3,7 +3,7 @@ import { C, FONT, W } from '../config';
 import { ROUNDS } from '../logic/zone';
 import { clearRun, loadRun } from '../logic/run';
 import { button, fadeIn, txt } from '../ui/widgets';
-import { ART } from '../art';
+import { pxFigure } from '../art';
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
@@ -20,8 +20,7 @@ export default class MenuScene extends Phaser.Scene {
     // Bandeau illustré : décor du Port au crépuscule, opérateur en premier plan, fondu vers le fond.
     const hero = this.add.image(W / 2, 0, 'bg-port').setOrigin(0.5, 0);
     hero.setScale(560 / hero.height);
-    const op = ART.figures['op-stand'];
-    this.add.image(W / 2 + 170, 520, 'fig-op-stand').setOrigin(op.ax, op.ay).setScale(3.4 / 3);
+    pxFigure(this, W / 2 + 170, 520, 'viper', 6);
     const fade = this.add.graphics();
     for (let i = 0; i < 24; i++) {
       fade.fillStyle(C.bg, i / 24);

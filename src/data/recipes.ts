@@ -24,4 +24,5 @@ export const RECIPES: Recipe[] = [
   { id: 'casque_lourd', inputs: ['casque', 'casque'], output: 'casque_lourd' },
   { id: 'sous_munitions', inputs: ['frag', 'frag'], output: 'sous_munitions' },
   { id: 'sac_medical', inputs: ['ifak', 'ifak'], output: 'sac_medical' },
+  { id: 'machette', inputs: ['couteau', 'couteau'], output: 'machette' },
 ];

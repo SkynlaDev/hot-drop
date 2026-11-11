@@ -5,7 +5,7 @@ import { OPERATORS } from '../data/operators';
 import { RunState, clearRun } from '../logic/run';
 import { ROUNDS } from '../logic/zone';
 import { button, fadeIn, txt } from '../ui/widgets';
-import { ART } from '../art';
+import { opFig, pxFigure } from '../art';
 
 export default class EndScene extends Phaser.Scene {
   constructor() {
@@ -26,9 +26,9 @@ export default class EndScene extends Phaser.Scene {
 
     const hero = this.add.image(W / 2, 0, win ? 'bg-port' : 'bg-industrie').setOrigin(0.5, 0);
     hero.setScale(620 / hero.height).setTint(win ? 0xffffff : 0x8a6a6a);
-    const op = ART.figures['op-stand'];
-    const fig = this.add.image(W / 2, 600, win ? 'fig-op-stand' : 'fig-op-kneel').setOrigin(op.ax, op.ay).setScale(3.2 / 3);
-    if (!win) fig.setTint(0x6a5a5a);
+    const fig = pxFigure(this, W / 2, 600, opFig(run.operator), 3.6);
+    // Défaite : l'opérateur est à terre.
+    if (!win) fig.setTint(0x6a5a5a).setAngle(-82).setY(584);
     const fade = this.add.graphics();
     for (let i = 0; i < 24; i++) {
       fade.fillStyle(C.bg, (i / 24) * 0.95);

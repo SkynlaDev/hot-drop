@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>HOT DROP - test sprites PixelLab</title>
+<style>
+  body { margin: 0; background: #14161b; color: #e8e2d4; font-family: "Courier New", monospace; }
+  h1 { text-align: center; font-size: 22px; letter-spacing: 3px; color: #f0a030; margin: 24px 0 4px; }
+  p.sub { text-align: center; color: #8a8f99; margin: 0 0 24px; font-size: 13px; }
+  h2 { font-size: 14px; letter-spacing: 2px; color: #8a8f99; margin: 24px 32px 8px; border-bottom: 1px solid #2a2e36; padding-bottom: 4px; }
+  .row { display: flex; flex-wrap: wrap; gap: 20px; padding: 0 32px; }
+  .card { background: linear-gradient(#1d2028, #23262e); border: 2px solid #2a2e36; border-radius: 6px; padding: 12px 12px 8px; text-align: center; }
+  .card.op { border-color: #5a4320; }
+  .card.boss { border-color: #6a2020; }
+  .card img { width: 256px; height: 256px; image-rendering: pixelated; display: block; background: repeating-conic-gradient(#1a1c22 0 25%, #20232a 0 50%) 0 0 / 32px 32px; }
+  .card img.flip { transform: scaleX(-1); }
+  .name { margin-top: 8px; font-weight: bold; letter-spacing: 2px; }
+  .role { font-size: 12px; color: #8a8f99; }
+  .arena { margin: 32px; padding: 24px; background: linear-gradient(#2b2f3a 0 70%, #3a3328 70%); border-radius: 6px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .arena img { width: 256px; height: 256px; image-rendering: pixelated; }
+  .gif { padding: 0 32px 32px; }
+  .gif img { width: 256px; height: 256px; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<h1>HOT DROP</h1>
+<p class="sub">Test PixelLab : sprites 64x64 agrandis x4 (image-rendering: pixelated)</p>
+
+<h2>OPERATEURS (regardent a droite)</h2>
+<div class="row">
+  <div class="card op"><img src="viper.png" alt="Viper"><div class="name">VIPER</div><div class="role">Assaut</div></div>
+  <div class="card op"><img src="sentinelle.png" alt="Sentinelle"><div class="name">SENTINELLE</div><div class="role">Precision</div></div>
+</div>
+
+<h2>ENNEMIS (regardent a gauche)</h2>
+<div class="row">
+  <div class="card"><img src="soldat.png" alt="Soldat"><div class="name">SOLDAT</div><div class="role">Bot ordinaire</div></div>
+  <div class="card"><img src="tireur.png" alt="Tireur"><div class="name">TIREUR</div><div class="role">Sniper ennemi</div></div>
+  <div class="card"><img src="lieutenant.png" alt="Lieutenant"><div class="name">LIEUTENANT</div><div class="role">Bot fort</div></div>
+  <div class="card"><img src="mitrailleur.png" alt="Mitrailleur"><div class="name">MITRAILLEUR</div><div class="role">Mitrailleuse lourde</div></div>
+  <div class="card boss"><img src="commandant.png" alt="Commandant"><div class="name">COMMANDANT</div><div class="role">Boss final (Top 1)</div></div>
+</div>
+
+<h2>DUEL (apercu)</h2>
+<div class="arena">
+  <img src="viper.png" alt="Viper">
+  <img src="commandant.png" alt="Commandant">
+</div>
+<!--ANIM-->
+</body>
+</html>

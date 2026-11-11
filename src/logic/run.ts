@@ -3,11 +3,11 @@
 // Ce module ne dépend ni des bots ni du combat : il renvoie les paramètres des duels, l'UI les simule.
 import { Category, ITEMS } from '../data/items';
 import { BAGS, BAG_IDS, BagId } from '../data/bags';
-import { OPERATORS, OperatorId, lootPool } from '../data/operators';
+import { OPERATORS, OperatorId, canUse, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { BagInst, ItemInst, canPlace, dims, findSpot, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
 import { Rng, hashParts, pick, rngFor } from './rng';
-import { itemPrice } from './stats';
+import { itemPrice, maxHpFor } from './stats';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, drawCards, genMap, isGassed, zonesInCircle } from './zone';
 
 export const RESERVE_MAX = 6;
@@ -44,9 +44,9 @@ export const GOULAG_DANGER = 0;
 export const SELL_RATIO = 0.5;
 const SAVE_KEY = 'hotdrop.run.v7';
 
-/** PV max de tout le monde (joueur et bots) à une manche donnée. */
+/** PV max de tout le monde (joueur et bots) à une manche donnée : la même formule que les bots (maxHpFor). */
 export function roundMaxHp(round: number): number {
-  return 100 + 20 * round;
+  return maxHpFor(round);
 }
 
 export interface ShopOffer {
@@ -329,8 +329,8 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const reward = duelCredits(f.kind, run.round, last);
   run.credits += reward;
   const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
-  // Le sac du bot, tel quel : le joueur le fouille.
-  const choices = out.botItems.map((it) => ({ ...it, placed: true }));
+  // Le sac du bot : le joueur le fouille, sauf les objets réservés à l'autre opérateur (chacun ses builds).
+  const choices = out.botItems.filter((it) => canUse(run.operator, it.defId)).map((it) => ({ ...it, placed: true }));
   if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], picked: 0 };
   const res: DuelResolution = { loot, lootChoices: choices, actionDone: last, goulag: false };
   if (!last) {
