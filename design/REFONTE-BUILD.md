@@ -106,6 +106,10 @@ dans le panneau de zone et dans la zone.
 boutique « Ravitaillement » (clé `ravitaillement:<cercle>`), `closeResupply` rend la main à la carte ou au Top 1.
 On ne peut pas se larguer tant qu'il est ouvert. (Le verrou d'une offre reste à faire.)
 
+**Étape 6 (mesures, novembre 2026)** : duels entre bots de 12 à 20 s, Viper contre Sentinelle 46 à 55 % à chaque cercle.
+Parties simulées (`tests/runsim.ts 40`) : Top 1 atteint 57 à 63 %, gagné 48 à 63 % ; 10 à 13 objets au 5e cercle.
+À surveiller : en jeu prudent, Viper gagne moins souvent le Top 1 que Sentinelle (35 % contre 60 %, ~20 parties chacun).
+
 ## 5. Ordre d'implémentation (un commit poussé par étape, tests au vert)
 
 1. **Retours arrière** : munitions infinies, combats solo + Élite, butin 1 parmi 3, pool commun + signatures.
