@@ -15,8 +15,8 @@ import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
-  finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag, takeLoot,
-  sellItem, shopOffers, unplaceBag, usable,
+  finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
+  finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
 import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
@@ -2175,8 +2175,9 @@ export default class LoadoutScene extends Phaser.Scene {
 
   /**
    * Fouille du sac adverse (« comme quand on loot vraiment un gars ») : son sac en grand, tel qu'il était rangé.
-   * Touche un objet pour sa fiche, puis « Prendre ». Dernier duel d'une squad : 2 objets, l'un après l'autre.
-   * Le choix est en attente dans la run (pendingLoot) : un rechargement le reprend ici.
+   * On prend tout ce qu'on veut : l'objet va en réserve, ou directement dans le sac si la réserve est pleine ;
+   * si tout est plein, on choisit un objet à revendre en échange. « Terminer » laisse le reste.
+   * La fouille est en attente dans la run (pendingLoot) : un rechargement la reprend ici.
    */
   private openLootChoice(botName?: string) {
     const pl = this.run.pendingLoot;
@@ -2187,7 +2188,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.phase = 'result';
     this.updateButtons();
     const top = 96;
-    const pnl = panel(this, 24, top, W - 48, 1130, 0x7a3a32);
+    const PH = 1130;
+    const pnl = panel(this, 24, top, W - 48, PH, 0x7a3a32);
     m.add(pnl);
     m.add(txt(this, 54, top + 26, botName ? `SAC DE ${botName.toUpperCase()}` : 'SAC DU VAINCU', 34, '#ffb4a8', { fontStyle: 'bold' }));
     const counter = txt(this, 54, top + 76, '', 24, GOLD, { fontStyle: 'bold' });
@@ -2210,52 +2212,126 @@ export default class LoadoutScene extends Phaser.Scene {
     for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 5, gy + (cy - y0) * cell + 5, cell - 10, cell - 10, 6);
     m.add(bg);
     const infoY = gy + bhc * cell + 26;
-    const title = txt(this, 54, infoY, 'Touche un objet pour voir sa fiche.', 24, C.text, { fontStyle: 'bold', wordWrap: { width: W - 108 } });
+    const title = txt(this, 54, infoY, '', 24, C.text, { fontStyle: 'bold', wordWrap: { width: W - 108 } });
     const info = txt(this, 54, infoY + 40, '', 19, C.quiet, { wordWrap: { width: W - 108 }, lineSpacing: 4 });
     m.add([title, info]);
     const sel = this.add.graphics();
     const views = new Map<number, Container>();
-    const chosen: number[] = [];
+    /** Objets pris (uid dans la run) et d'où ils partent, pour l'animation vers la réserve à la fin. */
+    const flown: { item: ItemInst; from: { x: number; y: number } }[] = [];
     let current: ItemInst | null = null;
-    const full = () => reserve(this.run).length >= RESERVE_MAX;
-    const take = button(this, 54, top + 1130 - 120, W - 108, 96, 'Choisis un objet', () => {
-      if (!current) return;
-      chosen.push(current.uid);
-      const v = views.get(current.uid)!;
+    let swapLayer: Container | null = null;
+
+    const centerOf = (uid: number) => {
+      const vv = views.get(uid)!;
+      return { x: vv.x + (vv.width * vv.scaleX) / 2, y: vv.y + (vv.height * vv.scaleY) / 2 };
+    };
+    /** L'objet a quitté le sac du vaincu : il s'efface, la fiche se vide. */
+    const taken = (srcUid: number, item: ItemInst, to: 'reserve' | 'sac') => {
+      const v = views.get(srcUid)!;
       flashItem(this, v, 0xf2c94c);
-      this.tweens.add({ targets: v, alpha: 0.25, duration: 250 });
+      this.tweens.add({ targets: v, alpha: 0.15, duration: 250 });
+      flown.push({ item, from: centerOf(srcUid) });
       vibrate(15);
+      toast(this, to === 'reserve' ? `${ITEMS[item.defId].short} → réserve` : `Réserve pleine : ${ITEMS[item.defId].short} rangé dans le sac`, C.goodStr, top + 110);
       current = null;
       sel.clear();
-      if (chosen.length < pl.picks) return update();
-      // Tout est choisi : le butin file en réserve depuis le sac adverse.
-      const got = takeLoot(this.run, chosen);
-      if (!got) return;
-      const sources = chosen.map((u) => {
-        const vv = views.get(u)!;
-        return { x: vv.x + (vv.width * vv.scaleX) / 2, y: vv.y + (vv.height * vv.scaleY) / 2 };
-      });
+      saveRun(this.run);
+      update();
+    };
+
+    const take = button(this, 54, top + PH - 120, 360, 96, 'Prendre', () => {
+      if (!current || swapLayer) return;
+      const src = current;
+      const r = lootItem(this.run, src.uid);
+      if (!r) return;
+      if (r.to === 'plein') return openSwap(src);
+      taken(src.uid, r.item, r.to);
+    }, { primary: true, size: 26 });
+    const finish = button(this, 54 + 376, top + PH - 120, W - 108 - 376, 96, 'Terminer', () => {
+      if (swapLayer) return;
+      finishLoot(this.run);
       this.closeModal();
-      if (got.taken.length) this.flyToReserve(got.taken, sources, 0);
-      if (got.credits) toast(this, `Réserve pleine : revendu +${got.credits} cr`, C.accentStr, GRID_Y + 320);
+      // Ce qui est allé en réserve s'y envole ; ce qui est dans le sac y apparaît (et peut s'assembler).
+      const still = flown.filter((f) => this.run.items.some((i) => i.uid === f.item.uid && !i.placed));
+      if (still.length) this.flyToReserve(still.map((f) => f.item), still.map((f) => f.from), 0);
+      this.craftNow();
       this.afterLoot();
-    }, { primary: true, size: 28 });
-    m.add(take.root);
+    }, { size: 24 });
+    m.add([take.root, finish.root]);
+
     const update = () => {
-      counter.setText(pl.picks > 1 ? `Choisis ${pl.picks} objets · ${chosen.length + 1}/${pl.picks}` : 'Choisis 1 objet');
+      const left = this.run.pendingLoot?.items.length ?? 0;
+      counter.setText(`Réserve ${reserve(this.run).length}/${RESERVE_MAX} · ${left ? `${left} objet${left > 1 ? 's' : ''} à prendre` : 'sac vidé'}`);
       if (current) {
         const d = describe(current);
         title.setText(`${d.title} · ${d.subtitle}`).setColor(TIER_HEX[tierOf(current.defId)]);
-        info.setText(d.lines.slice(0, 5).join('\n') + (full() ? '\nRéserve pleine : il sera revendu.' : ''));
-        take.setLabel(`Prendre · ${ITEMS[current.defId].short} ▸`);
+        info.setText(d.lines.slice(0, 5).join('\n'));
+        take.setLabel(`Prendre · ${ITEMS[current.defId].short}`);
         take.setEnabled(true);
       } else {
-        title.setText(chosen.length ? 'Encore un : touche un autre objet.' : 'Touche un objet pour voir sa fiche.').setColor(C.text);
-        info.setText(full() ? 'Réserve pleine : ce que tu prends sera revendu.' : '');
-        take.setLabel('Choisis un objet');
+        title.setText(left ? 'Touche un objet pour voir sa fiche, puis prends-le.' : 'Plus rien à prendre.').setColor(C.text);
+        info.setText('Prends tout ce que tu veux : la réserve, puis le sac. Ce qui reste est perdu.');
+        take.setLabel('Prendre');
         take.setEnabled(false);
       }
+      finish.setLabel(left ? 'Terminer' : 'Terminer ▸');
     };
+
+    /** Tout est plein : choisir un objet du joueur à revendre pour faire de la place. */
+    const openSwap = (src: ItemInst) => {
+      const layer = this.add.container(0, 0);
+      swapLayer = layer;
+      m.add(layer);
+      layer.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.75).setOrigin(0).setInteractive());
+      layer.add(panel(this, 24, top, W - 48, PH, 0xd8a25e));
+      layer.add(txt(this, 54, top + 26, 'TOUT EST PLEIN', 34, GOLD, { fontStyle: 'bold' }));
+      layer.add(txt(this, 54, top + 76, `Revends un objet pour prendre : ${ITEMS[src.defId].name}`, 22, C.text, { wordWrap: { width: W - 108 } }));
+      const close = () => {
+        layer.destroy();
+        swapLayer = null;
+      };
+      const mine = [...this.run.items].sort((a, b) => Number(a.placed) - Number(b.placed));
+      const TW = 150;
+      const TH = 150;
+      const cols = 4;
+      const ox = (W - cols * TW - (cols - 1) * 10) / 2;
+      mine.forEach((it, i) => {
+        const tx = ox + (i % cols) * (TW + 10);
+        const ty = top + 140 + Math.floor(i / cols) * (TH + 10);
+        const g = this.add.graphics();
+        g.fillStyle(C.panel, 1);
+        g.fillRoundedRect(tx, ty, TW, TH, 12);
+        g.lineStyle(2, TIER_COLORS[tierOf(it.defId)], 0.9);
+        g.strokeRoundedRect(tx, ty, TW, TH, 12);
+        layer.add(g);
+        const d = dims(it);
+        const sc = Math.min((TW - 20) / (d.w * CELL), 80 / (d.h * CELL), 0.5);
+        layer.add(itemView(this, { defId: it.defId, rot: 0 }, CELL).setScale(sc).setPosition(tx + (TW - d.w * CELL * sc) / 2, ty + 10 + (80 - d.h * CELL * sc) / 2));
+        layer.add(txt(this, tx + TW / 2, ty + 96, ITEMS[it.defId].short, 17, C.text, { fontStyle: 'bold' }).setOrigin(0.5, 0));
+        layer.add(txt(this, tx + TW / 2, ty + 120, `${it.placed ? 'sac' : 'réserve'} · +${itemSellValue(it.defId)} cr`, 15, C.quiet).setOrigin(0.5, 0));
+        const z = this.add.zone(tx + TW / 2, ty + TH / 2, TW, TH).setInteractive({ useHandCursor: true });
+        z.on('pointerup', () => {
+          const r = swapLoot(this.run, src.uid, it.uid);
+          if (!r) {
+            toast(this, `${ITEMS[src.defId].short} ne rentre pas, même à la place de ${ITEMS[it.defId].short}`, C.dangerStr, top + 110);
+            vibrate([10, 30, 10]);
+            return;
+          }
+          close();
+          this.coinBurst(W / 2, top + 140);
+          toast(this, `${ITEMS[it.defId].short} revendu +${r.credits} cr`, C.accentStr, top + 160);
+          // L'objet revendu n'existe plus : il ne s'envole pas vers la réserve.
+          for (let k = flown.length - 1; k >= 0; k--) if (flown[k].item.uid === it.uid) flown.splice(k, 1);
+          this.refresh();
+          taken(src.uid, r.take.item, r.take.to);
+        });
+        layer.add(z);
+      });
+      const cancel = button(this, 54, top + PH - 120, W - 108, 96, 'Annuler', close, { size: 26 });
+      layer.add(cancel.root);
+    };
+
     for (const it of pl.items) {
       const v = itemView(this, it, cell).setPosition(gx + (it.x - x0) * cell, gy + (it.y - y0) * cell);
       m.add(v);
@@ -2265,7 +2341,7 @@ export default class LoadoutScene extends Phaser.Scene {
       for (const [cx, cy] of cellsAt(it, it.x, it.y)) {
         const z = this.add.zone(gx + (cx - x0 + 0.5) * cell, gy + (cy - y0 + 0.5) * cell, cell, cell).setInteractive({ useHandCursor: true });
         z.on('pointerup', () => {
-          if (chosen.includes(it.uid)) return;
+          if (swapLayer || !this.run.pendingLoot?.items.some((i) => i.uid === it.uid)) return;
           current = it;
           vibrate(8);
           sel.clear();

@@ -11,8 +11,8 @@ import { rngFor } from '../src/logic/rng';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
-  LOOT_PICKS, craftedPool, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
-  takeLoot, unplaceBag,
+  craftedPool, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
+  unplaceBag,
 } from '../src/logic/run';
 import {
   ACTIONS_PER_ZONE, CARDS_BY_SIZE, EPIC_CRATE_CHANCE, MapZone, ROUNDS, ZONE_COUNT, circle, dist, drawCards, genMap, isFight, isGassed, zonesInCircle,
@@ -29,10 +29,10 @@ function playThrough(run: RunState, index: number, win = true): void {
   expect(r).not.toBeNull();
   if (r!.kind === 'duel') {
     let res = resolveDuel(run, { win, hpEnd: 50, botItems: botItems() });
-    if (res.picks) takeLoot(run, [botItems()[0].uid]);
+    if (run.pendingLoot) finishLoot(run);
     while (res.next) {
       res = resolveDuel(run, { win, hpEnd: 50, botItems: botItems() });
-      if (res.picks) takeLoot(run, [botItems()[0].uid]);
+      if (run.pendingLoot) finishLoot(run);
     }
     if (res.actionDone && !run.over) endAction(run);
   } else {
@@ -272,7 +272,7 @@ describe('run', () => {
     expect(playCard(run, j)).toBeNull();
   });
 
-  it('squad : PV reportés entre les duels, un objet choisi par bot vaincu, bonus à la fin', () => {
+  it('squad : PV reportés entre les duels, chaque bot vaincu se fouille, bonus à la fin', () => {
     const run = newRun('viper', 1);
     run.round = 2;
     const z = selectableZones(run)[0];
@@ -288,62 +288,89 @@ describe('run', () => {
     expect(r1.next!.hp).toBe(77);
     expect(r1.next!.squad.duel).toBe(1);
     expect(r1.next!.seed).not.toBe(p.seed);
-    expect(r1.picks).toBe(1);
     expect(r1.lootChoices!.map((i) => i.defId)).toEqual(botItems().map((i) => i.defId));
     // Le duel suivant attend le choix du butin.
     expect(resolveDuel(run, { win: true, hpEnd: 40, botItems: botItems() }).loot.credits).toBe(0);
-    expect(takeLoot(run, [901])!.taken.map((i) => i.defId)).toEqual(['chg_9mm']);
+    expect((lootItem(run, 901) as { item: ItemInst }).item.defId).toBe('chg_9mm');
+    finishLoot(run);
     const r2 = resolveDuel(run, { win: true, hpEnd: 40, botItems: botItems() });
-    expect(r2.picks).toBe(1);
-    takeLoot(run, [900]);
+    expect(r2.next).toBeDefined();
+    finishLoot(run);
     const before = reserve(run).length;
     const r3 = resolveDuel(run, { win: true, hpEnd: 5, botItems: botItems() });
     expect(r3.actionDone).toBe(true);
-    expect(r3.picks).toBe(LOOT_PICKS);
     expect(r3.loot.credits).toBeGreaterThan(r1.loot.credits); // bonus de fin de squad
-    expect(endAction(run)).toBeNull(); // butin d'abord
-    expect(takeLoot(run, [902])).not.toBeNull();
-    expect(reserve(run).length - before).toBe(1);
+    expect(endAction(run)).toBeNull(); // fouille d'abord
+    expect(lootItem(run, 902)).not.toBeNull();
+    expect(lootItem(run, 900)).not.toBeNull();
+    finishLoot(run);
+    expect(reserve(run).length - before).toBe(2);
     expect(endAction(run)).toEqual({ nextRound: false, final: false });
   });
 
-  it('le butin d’un duel se choisit dans le sac du bot : un objet, rien d’autre', () => {
+  it('fouille : on prend tout ce qu’on veut dans le sac du bot, puis on termine', () => {
     const run = newRun('viper', 2);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
-    const bot = [inst(900, 'smg_ours', 2, 2), inst(901, 'casque', 5, 2)];
+    const bot = [inst(900, 'smg_ours', 2, 2), inst(901, 'casque', 5, 2), inst(902, 'frag', 6, 2)];
     const res = resolveDuel(run, { win: true, hpEnd: 50, botItems: bot, botUsable: ['2,2', '3,2'] });
     expect(res.loot.items).toEqual([]);
     expect(res.loot.credits).toBe(6);
-    expect(res.picks).toBe(1);
-    expect(run.pendingLoot!.items.map((i) => [i.uid, i.defId, i.x, i.y])).toEqual([[900, 'smg_ours', 2, 2], [901, 'casque', 5, 2]]);
+    expect(run.pendingLoot!.items.map((i) => [i.uid, i.defId, i.x, i.y])).toEqual([[900, 'smg_ours', 2, 2], [901, 'casque', 5, 2], [902, 'frag', 6, 2]]);
     expect(run.pendingLoot!.usable).toEqual(['2,2', '3,2']);
-    // Refusé : objet absent du sac du bot, trop d'objets, doublon ; pas de carte ni de fin d'action en attendant.
-    expect(takeLoot(run, [999])).toBeNull();
-    expect(takeLoot(run, [900, 901])).toBeNull();
-    expect(takeLoot(run, [])).toBeNull();
+    // Refusé : objet absent du sac du bot ; pas de carte ni de fin d'action pendant la fouille.
+    expect(lootItem(run, 999)).toBeNull();
     expect(endAction(run)).toBeNull();
     expect(playCard(run, 1)).toBeNull();
-    const got = takeLoot(run, [900])!;
-    expect(got.taken.map((i) => [i.defId, i.placed])).toEqual([['smg_ours', false]]);
+    const a = lootItem(run, 900)!;
+    const b = lootItem(run, 901)!;
+    expect([a.to, b.to]).toEqual(['reserve', 'reserve']);
+    expect(lootItem(run, 900)).toBeNull(); // déjà pris
+    expect(run.pendingLoot!.items.map((i) => i.uid)).toEqual([902]);
+    expect(reserve(run).map((i) => i.defId).slice(-2)).toEqual(['smg_ours', 'casque']);
+    finishLoot(run); // la frag reste dans le sac du vaincu
     expect(run.pendingLoot).toBeUndefined();
-    expect(takeLoot(run, [901])).toBeNull(); // déjà choisi
+    expect(run.items.some((i) => i.defId === 'frag')).toBe(false);
     expect(endAction(run)).not.toBeNull();
   });
 
-  it('butin choisi avec la réserve pleine : revendu', () => {
+  it('réserve pleine : l’objet va directement dans le sac ; tout plein : échange contre un objet revendu', () => {
     const run = newRun('viper', 2);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
     while (reserve(run).length < RESERVE_MAX) addDrops(run, [inst(-1, 'chg_9mm', 0, 0)]);
-    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'smg_ours', 2, 2)] });
+    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'chg_556', 2, 2), inst(901, 'plaque', 3, 2), inst(902, 'chg_44', 5, 2)] });
     const credits = run.credits;
-    const got = takeLoot(run, [900])!;
-    expect(got.taken).toEqual([]);
-    expect(got.credits).toBeGreaterThan(0);
-    expect(run.credits).toBe(credits + got.credits);
+    // Le sac de base a de la place pour une case : la réserve pleine envoie le chargeur dans le sac.
+    const r = lootItem(run, 900)!;
+    expect(r.to).toBe('sac');
+    const placed = (r as { item: ItemInst }).item;
+    expect(placed.placed).toBe(true);
+    expect(canPlace(run.items.filter((i) => i !== placed), placed, placed.x, placed.y, placed.rot, usableCells(run.bags))).toBe(true);
+    expect(run.credits).toBe(credits); // plus de revente automatique
+    // Remplit le sac : la plaque (2×3) n'a plus de place nulle part.
+    for (let k = 0; k < 40; k++) {
+      const extra = { uid: 5000 + k, defId: 'chg_9mm', rot: 0 as Rot, x: 0, y: 0, placed: false };
+      run.pendingLoot!.items.push(extra);
+      if (lootItem(run, extra.uid)!.to === 'plein') break;
+    }
+    expect(lootItem(run, 901)!.to).toBe('plein');
+    // Échange impossible : revendre un chargeur d'une case ne fait pas de place pour une plaque 2×3.
+    const small = run.items.find((i) => i.placed && i.defId === 'chg_9mm')!;
+    const n = run.items.length;
+    expect(swapLoot(run, 901, small.uid)).toBeNull();
+    expect(run.items.length).toBe(n);
+    // Échange possible : un chargeur de la réserve laisse une place en réserve pour le chargeur .44.
+    const inReserve = reserve(run)[0];
+    const before = run.credits;
+    const sw = swapLoot(run, 902, inReserve.uid)!;
+    expect(sw.take.to).toBe('reserve');
+    expect(sw.credits).toBeGreaterThan(0);
+    expect(run.credits).toBe(before + sw.credits);
+    expect(run.items.some((i) => i.uid === inReserve.uid)).toBe(false);
+    expect(run.items.some((i) => i.defId === 'chg_44')).toBe(true);
   });
 
   it('caisse épique : un objet assemblé de l’opérateur garanti, sans combat', () => {
@@ -544,7 +571,7 @@ describe('sauvegarde', () => {
     expect(loadRun()).toBeNull();
   });
 
-  it('un butin à choisir survit à la sauvegarde', () => {
+  it('une fouille en cours survit à la sauvegarde', () => {
     const run = newRun('viper', 78);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
@@ -553,9 +580,11 @@ describe('sauvegarde', () => {
     saveRun(run);
     const back = loadRun()!;
     expect(back.pendingLoot).toEqual(run.pendingLoot);
-    expect(back.pendingLoot!.picks).toBe(1);
     expect(endAction(back)).toBeNull();
-    expect(takeLoot(back, [902])!.taken[0].defId).toBe('casque');
+    expect((lootItem(back, 902) as { item: ItemInst }).item.defId).toBe('casque');
+    saveRun(back);
+    expect(loadRun()!.pendingLoot!.items.map((i) => i.uid)).toEqual([900, 901]);
+    finishLoot(back);
     expect(endAction(back)).not.toBeNull();
   });
 

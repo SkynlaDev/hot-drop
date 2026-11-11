@@ -11,7 +11,7 @@ import { BagInst, ItemInst, Rot, canPlaceBag, cellKey, cellsOf, usableCells } fr
 import { autoCraft } from '../src/logic/recipes';
 import {
   DuelParams, RESERVE_MAX, REROLL_COST, RunState, buyOffer, dropInZone, endAction, finalDuelParams,
-  goulagParams, newRun, playCard, reserve, rerollShop, resolveDuel, resolveGoulag, selectableZones, sellItem, shopOffers, takeLoot,
+  goulagParams, newRun, playCard, reserve, rerollShop, resolveDuel, resolveGoulag, selectableZones, sellItem, shopOffers, finishLoot, lootItem, swapLoot,
 } from '../src/logic/run';
 import { Rng, mulberry32, hashParts } from '../src/logic/rng';
 import { PlayerLoadout, computeLoadout, itemPrice } from '../src/logic/stats';
@@ -169,23 +169,21 @@ function shop(run: RunState, rng: Rng) {
 let randomLoot = false;
 
 /**
- * Choix du butin dans le sac du bot : l'objet le plus cher, en ne comptant qu'au tiers
- * un chargeur ou un accessoire qui ne va sur aucune arme du joueur (ni sur l'arme choisie avec).
+ * Fouille du sac du bot : prend les objets du plus cher au moins cher (au tiers pour un chargeur ou un
+ * accessoire qui ne va sur aucune arme du joueur) ; tout plein : échange contre l'objet le moins cher
+ * s'il vaut nettement moins. Avec --random-loot, ordre au hasard et pas d'échange.
  */
-function chooseLoot(run: RunState, choices: ItemInst[], picks: number, rng: Rng): number[] {
-  if (randomLoot) {
-    const pool = [...choices];
-    return Array.from({ length: picks }, () => pool.splice(Math.floor(rng() * pool.length), 1)[0].uid);
+function lootAll(run: RunState, choices: ItemInst[], rng: Rng): void {
+  const weapons = () => run.items.filter((i) => isWeapon(i.defId)).map((i) => ITEMS[i.defId]);
+  const score = (it: ItemInst) => value(it) * (isSyn(it.defId) && !weapons().some((w) => accessoryFits(ITEMS[it.defId], w)) ? 0.33 : 1);
+  const order = randomLoot ? [...choices].sort(() => rng() - 0.5) : [...choices].sort((a, b) => score(b) - score(a));
+  for (const it of order) {
+    const r = lootItem(run, it.uid);
+    if (!r || r.to !== 'plein' || randomLoot) continue;
+    const cheapest = [...run.items].sort((a, b) => score(a) - score(b))[0];
+    if (cheapest && score(cheapest) * 1.5 < score(it)) swapLoot(run, it.uid, cheapest.uid);
   }
-  const mine = run.items.filter((i) => isWeapon(i.defId)).map((i) => ITEMS[i.defId]);
-  const out: ItemInst[] = [];
-  for (let k = 0; k < picks; k++) {
-    const weapons = [...mine, ...out.filter((i) => isWeapon(i.defId)).map((i) => ITEMS[i.defId])];
-    const score = (it: ItemInst) => value(it) * (isSyn(it.defId) && !weapons.some((w) => accessoryFits(ITEMS[it.defId], w)) ? 0.33 : 1);
-    const best = choices.filter((c) => !out.includes(c)).sort((a, b) => score(b) - score(a))[0];
-    out.push(best);
-  }
-  return out.map((i) => i.uid);
+  finishLoot(run);
 }
 
 // ---------------------------------------------------------------- politique
@@ -278,7 +276,7 @@ export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunSt
           st.duels[run.round][1]++;
           if (r.win) st.duels[run.round][0]++;
           const out = resolveDuel(run, { win: r.win, hpEnd: r.hpEnd, botItems: r.bot.items, botUsable: r.bot.usable });
-          if (out.picks) takeLoot(run, chooseLoot(run, out.lootChoices!, out.picks, rng));
+          if (run.pendingLoot) lootAll(run, out.lootChoices!, rng);
           repack(run, rng);
           p = out.next;
           if (out.goulag) {

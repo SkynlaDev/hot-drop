@@ -122,6 +122,21 @@ export function canPlace(items: ItemInst[], self: ItemInst, x: number, y: number
   return inBounds(self, x, y, rot, usable) && overlapping(items, self, x, y, rot).length === 0;
 }
 
+/**
+ * Première place libre pour cet objet dans les cases utilisables (lignes de haut en bas, puis colonnes,
+ * rotations 0 à 3), ou null si le sac est plein pour lui.
+ */
+export function findSpot(items: ItemInst[], self: ItemInst, usable: Set<string>): { x: number; y: number; rot: Rot } | null {
+  for (const rot of [0, 1, 2, 3] as Rot[]) {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (canPlace(items, self, x, y, rot, usable)) return { x, y, rot };
+      }
+    }
+  }
+  return null;
+}
+
 /** Bord partagé entre deux objets posés : une cellule de `a` et la direction vers `b`. */
 export function sharedEdge(a: ItemInst, b: ItemInst): { cx: number; cy: number; dx: number; dy: number } | null {
   if (!a.placed || !b.placed) return null;

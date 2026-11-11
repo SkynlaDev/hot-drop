@@ -5,7 +5,7 @@ import { Category, ITEMS } from '../data/items';
 import { BAGS, BAG_IDS, BagId } from '../data/bags';
 import { OPERATORS, OperatorId, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
-import { BagInst, ItemInst, canPlace, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
+import { BagInst, ItemInst, canPlace, findSpot, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
 import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice } from './stats';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, drawCards, genMap, isGassed, zonesInCircle } from './zone';
@@ -23,8 +23,6 @@ export const CRATE_BAG_CHANCE = 0.3;
 /** Caisse épique (grandes zones) : 1 objet assemblé garanti (recette de l'opérateur)… */
 /** … plus ce nombre d'objets ordinaires de la manche. */
 export const EPIC_EXTRA_ITEMS = 1;
-/** Objets à choisir dans le sac de chaque bot vaincu (squad ou solo : un par duel gagné). */
-export const LOOT_PICKS = 1;
 /** Chance qu'une squad terminée donne aussi une sacoche. */
 export const SQUAD_BAG_CHANCE = 0.5;
 /** Manche du duel final « Top 1 ». */
@@ -65,17 +63,19 @@ export interface Fight {
 }
 
 /**
- * Butin à choisir après un duel gagné : le sac du bot vaincu tel qu'il était rangé.
- * Tant qu'il est là, ni carte, ni fin d'action, ni duel suivant de la squad.
+ * Fouille après un duel gagné : le sac du bot vaincu tel qu'il était rangé. On y prend tout ce qu'on veut
+ * (lootItem / swapLoot), seule la place fait le tri, puis on termine (finishLoot).
+ * Tant qu'elle est en cours, ni carte, ni fin d'action, ni duel suivant de la squad.
  */
 export interface PendingLoot {
-  /** Objets du sac du bot (uid du bot, positions d'origine). */
+  /** Objets encore dans le sac du bot (uid du bot, positions d'origine). */
   items: ItemInst[];
   /** Cases utilisables du sac du bot, pour l'afficher en entier. */
   usable: string[];
-  /** Nombre d'objets à prendre (LOOT_PICKS, jamais plus que le sac n'en contient). */
-  picks: number;
 }
+
+/** Où est allé un objet pris dans le sac du vaincu ; `plein` = ni réserve ni sac, rien n'a bougé. */
+export type LootTake = { to: 'reserve' | 'sac'; item: ItemInst } | { to: 'plein' };
 
 export interface RunState {
   version: 7;
@@ -261,15 +261,13 @@ export interface DuelOutcome {
 }
 
 export interface DuelResolution {
-  /** Gagné tout de suite : crédits et sacoche éventuelle. Les objets se choisissent avec takeLoot. */
+  /** Gagné tout de suite : crédits et sacoche éventuelle. Les objets se prennent pendant la fouille. */
   loot: Loot;
-  /** Victoire : objets du sac du bot parmi lesquels choisir (aussi dans run.pendingLoot). */
+  /** Victoire : objets du sac du bot à fouiller (aussi dans run.pendingLoot). */
   lootChoices?: ItemInst[];
-  /** Nombre d'objets à choisir. */
-  picks?: number;
-  /** Duel suivant de la squad (PV reportés), si elle continue : à lancer après takeLoot. */
+  /** Duel suivant de la squad (PV reportés), si elle continue : à lancer après finishLoot. */
   next?: DuelParams;
-  /** L'action est terminée : l'UI appelle endAction (après takeLoot). */
+  /** L'action est terminée : l'UI appelle endAction (après finishLoot). */
   actionDone: boolean;
   /** Défaite avec le Goulag disponible : l'UI lance goulagParams puis resolveGoulag. */
   goulag: boolean;
@@ -285,7 +283,7 @@ export function duelCredits(kind: FightKind, round: number, last: boolean): numb
 
 /**
  * Résout le duel en cours. Victoire : crédits (et sacoche de fin de squad) tout de suite ; les objets du bot
- * attendent le choix du joueur (run.pendingLoot, puis takeLoot).
+ * attendent la fouille du joueur (run.pendingLoot, lootItem, puis finishLoot).
  */
 export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const empty: Loot = { items: [], bags: [], credits: 0 };
@@ -313,11 +311,10 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const reward = duelCredits(f.kind, run.round, last);
   run.credits += reward;
   const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
-  // Le sac du bot, tel quel : le joueur y choisit son butin.
+  // Le sac du bot, tel quel : le joueur le fouille.
   const choices = out.botItems.map((it) => ({ ...it, placed: true }));
-  const picks = Math.min(LOOT_PICKS, choices.length);
-  if (picks > 0) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], picks };
-  const res: DuelResolution = { loot, lootChoices: choices, picks, actionDone: last, goulag: false };
+  if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [] };
+  const res: DuelResolution = { loot, lootChoices: choices, actionDone: last, goulag: false };
   if (!last) {
     f.duel++;
     f.hp = Math.max(1, Math.round(out.hpEnd));
@@ -328,17 +325,51 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   return res;
 }
 
+/** Destination d'un nouvel objet : la réserve si elle a de la place, sinon une place libre dans le sac. */
+function stowSpot(items: ItemInst[], defId: string, cells: Set<string>): { to: 'reserve' } | { to: 'sac'; x: number; y: number; rot: ItemInst['rot'] } | null {
+  if (items.filter((i) => !i.placed).length < RESERVE_MAX) return { to: 'reserve' };
+  const spot = findSpot(items, { uid: -1, defId, rot: 0, x: 0, y: 0, placed: false }, cells);
+  return spot ? { to: 'sac', ...spot } : null;
+}
+
+function takeFromLoot(run: RunState, src: ItemInst, dest: NonNullable<ReturnType<typeof stowSpot>>): LootTake & { to: 'reserve' | 'sac' } {
+  const p = run.pendingLoot!;
+  p.items = p.items.filter((i) => i.uid !== src.uid);
+  const item = makeItem(run, src.defId);
+  if (dest.to === 'sac') Object.assign(item, { x: dest.x, y: dest.y, rot: dest.rot, placed: true });
+  run.items.push(item);
+  return { to: dest.to, item };
+}
+
 /**
- * Prend le butin choisi dans le sac du bot vaincu : exactement `picks` objets différents de ce sac (uids du bot).
- * Ils vont en réserve ; ce qui n'y tient pas est revendu (comme addDrops). Renvoie null si le choix est invalide.
+ * Prend un objet (uid du bot) dans le sac du vaincu : en réserve, ou directement dans le sac si la réserve
+ * est pleine. `plein` si ni l'un ni l'autre n'a de place (l'UI propose alors un échange). Null si invalide.
  */
-export function takeLoot(run: RunState, uids: number[]): { taken: ItemInst[]; credits: number } | null {
-  const p = run.pendingLoot;
-  if (!p || uids.length !== p.picks || new Set(uids).size !== uids.length) return null;
-  const chosen = uids.map((u) => p.items.find((it) => it.uid === u));
-  if (chosen.some((c) => !c)) return null;
+export function lootItem(run: RunState, uid: number): LootTake | null {
+  const src = run.pendingLoot?.items.find((i) => i.uid === uid);
+  if (!src) return null;
+  const dest = stowSpot(run.items, src.defId, usable(run));
+  return dest ? takeFromLoot(run, src, dest) : { to: 'plein' };
+}
+
+/**
+ * Échange : revend un objet du joueur (réserve ou sac) pour faire de la place, puis prend l'objet du vaincu.
+ * Null (et rien ne change) si l'objet ne rentre toujours pas, même sans celui qu'on donne.
+ */
+export function swapLoot(run: RunState, uid: number, giveUid: number): { take: LootTake & { to: 'reserve' | 'sac' }; credits: number } | null {
+  const src = run.pendingLoot?.items.find((i) => i.uid === uid);
+  const give = run.items.find((i) => i.uid === giveUid);
+  if (!src || !give) return null;
+  const rest = run.items.filter((i) => i.uid !== giveUid);
+  const dest = stowSpot(rest, src.defId, usable(run));
+  if (!dest) return null;
+  const credits = sellItem(run, giveUid);
+  return { take: takeFromLoot(run, src, dest), credits };
+}
+
+/** Termine la fouille : ce qui reste dans le sac du vaincu est perdu. */
+export function finishLoot(run: RunState): void {
   run.pendingLoot = undefined;
-  return addDrops(run, chosen.map((c) => ({ uid: -1, defId: c!.defId, rot: 0, x: 0, y: 0, placed: false })));
 }
 
 /** Paramètres du Goulag : un duel équitable au niveau de la manche, PV pleins. */

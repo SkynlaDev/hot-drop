@@ -151,12 +151,12 @@ Même écran que le loot d'un ennemi (§ 7).
 **Décidé** : après un duel gagné, on peut prendre **tout** ce qu'on veut dans le sac de l'ennemi. Seule la place fait le tri.
 
 - Toucher un objet le prend. Placement : **réserve** d'abord ; réserve pleine et sac non plein → placé **automatiquement dans le sac**
-  (nouvelle fonction `findSpot`, mêmes règles que `sanitizeLayout`) ; tout plein → écran **« Échanger avec… »**
-  (on choisit un objet à jeter ou à revendre 50 %).
+  (`findSpot`, première place libre) ; tout plein → écran **« Tout est plein »** : on choisit un objet (réserve ou sac)
+  qui est **revendu** (50 %) pour faire la place ; refusé si l'objet ne rentre toujours pas.
 - Bouton « Terminer » : ce qui reste est perdu. Plus de revente automatique.
-- Les sacoches du bot vont dans la réserve de sacoches (3 max).
-- Code : `PendingLoot.picks` disparaît, `takeLoot` accepte n'importe quel nombre d'objets, `addDrops` renvoie le surplus au lieu
-  de le vendre. Sauvegarde `v7`.
+- Les sacoches du bot iront dans la réserve de sacoches (3 max) quand les bots en auront (§ 10).
+- Code : `lootItem`, `swapLoot`, `finishLoot` (run.ts) remplacent `takeLoot` ; `PendingLoot.items` = ce qui reste dans le sac du vaincu.
+  Les caisses gardent `addDrops` jusqu'à l'étape 4.
 
 ---
 
