@@ -3,6 +3,7 @@ import { C, FONT, W } from '../config';
 import { ROUNDS } from '../logic/zone';
 import { clearRun, loadRun } from '../logic/run';
 import { button, fadeIn, txt } from '../ui/widgets';
+import { openSettings } from '../ui/settings';
 import { pxFigure } from '../art';
 
 export default class MenuScene extends Phaser.Scene {
@@ -48,6 +49,7 @@ export default class MenuScene extends Phaser.Scene {
       this.registry.remove('run');
       this.scene.start('operator');
     }, { primary: !saved });
+    button(this, 160, y + 120, 400, 80, 'Paramètres', () => openSettings(this), { size: 24 });
 
     const help = [
       `${ROUNDS} cercles de gaz, puis le duel Top 1`,
@@ -55,6 +57,6 @@ export default class MenuScene extends Phaser.Scene {
       'Chaque combat : ton sac contre le sien',
       'Les objets voisins créent des synergies',
     ];
-    help.forEach((s, i) => txt(this, W / 2, 990 + i * 42, s, 24, C.quiet).setOrigin(0.5));
+    help.forEach((s, i) => txt(this, W / 2, Math.max(990, y + 240) + i * 42, s, 24, C.quiet).setOrigin(0.5));
   }
 }

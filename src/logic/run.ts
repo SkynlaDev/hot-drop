@@ -113,7 +113,6 @@ export interface RunState {
   bags: BagInst[];
   nextUid: number;
   shop?: { key: string; rerolls: number; offers: ShopOffer[] };
-  speed: number;
   over?: 'win' | 'lose';
 }
 
@@ -159,7 +158,6 @@ export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1
     items: [],
     bags: [],
     nextUid: 1,
-    speed: 1,
   };
   for (const [id, x, y] of OPERATORS[operator].start) {
     const it = makeItem(run, id);

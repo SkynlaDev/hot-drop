@@ -3,6 +3,7 @@ import { iconKey, isWeaponIcon } from '../art';
 import { C, FONT, H, W } from '../config';
 import { CATEGORY_COLORS, FAMILY_INFO, ITEMS } from '../data/items';
 import { ItemInst, Mask, maskOf } from '../logic/grid';
+import { getSettings } from '../logic/settings';
 import { TIER_COLORS, tierOf } from '../logic/tier';
 
 type Scene = Phaser.Scene;
@@ -290,6 +291,7 @@ export function panel(scene: Scene, x: number, y: number, w: number, h: number, 
 }
 
 export function vibrate(ms: number | number[]) {
+  if (!getSettings().vibration) return;
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try {
       navigator.vibrate(ms);

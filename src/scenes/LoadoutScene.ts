@@ -12,6 +12,7 @@ import {
   cellsOf, dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
 } from '../logic/grid';
 import { bagStars, completesRecipe, starAffinity, starSpecs, starsLitBy } from '../logic/stars';
+import { getSettings, nextSpeed, setSettings } from '../logic/settings';
 import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
@@ -99,7 +100,6 @@ interface DuelPlay {
   t: number;
 }
 
-const SPEEDS = [1, 2, 4];
 const LONG_PRESS_MS = 450;
 const DRAG_THRESHOLD = 12;
 const QUALITY: Record<BotBuild['quality'], { label: string; color: number; hex: string }> = {
@@ -612,7 +612,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.speedBtn.root.setVisible(fighting);
     this.skipBtn.root.setVisible(fighting);
     this.mainBtn.root.setVisible(!fighting);
-    this.speedBtn.setLabel(`×${this.run.speed}`);
+    this.speedBtn.setLabel(`×${this.speed}`);
     let alt = '';
     if (p === 'prep' || p === 'result') alt = 'Son sac';
     else if (p === 'edit' && this.mode === 'shop') alt = 'Boutique';
@@ -1509,9 +1509,13 @@ export default class LoadoutScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(target));
   }
 
+  /** Vitesse des combats : réglage du joueur, gardé d'une partie à l'autre. */
+  private get speed(): number {
+    return getSettings().speed;
+  }
+
   private cycleSpeed() {
-    this.run.speed = SPEEDS[(SPEEDS.indexOf(this.run.speed) + 1) % SPEEDS.length] ?? 1;
-    saveRun(this.run);
+    setSettings({ speed: nextSpeed(this.speed) });
     this.updateButtons();
   }
 
@@ -1927,7 +1931,7 @@ export default class LoadoutScene extends Phaser.Scene {
       v.setPosition(bx - ((st.k - 1) * w) / 2, by - ((st.k - 1) * h) / 2);
     };
     apply();
-    v.setData('pt', this.tweens.add({ targets: st, k: 1, duration: 200 / this.run.speed, ease: 'Quad.Out', onUpdate: apply, onComplete: apply }));
+    v.setData('pt', this.tweens.add({ targets: st, k: 1, duration: 200 / this.speed, ease: 'Quad.Out', onUpdate: apply, onComplete: apply }));
   }
 
   /** Remet à leur taille les objets encore en pulsation (fin de combat, combat passé). */
@@ -1978,7 +1982,7 @@ export default class LoadoutScene extends Phaser.Scene {
       delete this.markers[a.side];
       this.tweens.killTweensOf(old);
       this.tweens.killTweensOf(old.getData('ring'));
-      this.tweens.add({ targets: old, scale: 1.8, alpha: 0, duration: 200 / this.run.speed, onComplete: () => old.destroy() });
+      this.tweens.add({ targets: old, scale: 1.8, alpha: 0, duration: 200 / this.speed, onComplete: () => old.destroy() });
     }
     if (!on) return;
     const m = this.add.container(a.chest.x, a.chest.y - 10).setDepth(26);
@@ -1993,7 +1997,7 @@ export default class LoadoutScene extends Phaser.Scene {
     m.add([ring, label]);
     m.setData('ring', ring);
     m.setScale(1.8).setAlpha(0);
-    this.tweens.add({ targets: m, scale: 1, alpha: 1, duration: 180 / this.run.speed, ease: 'Back.Out' });
+    this.tweens.add({ targets: m, scale: 1, alpha: 1, duration: 180 / this.speed, ease: 'Back.Out' });
     this.tweens.add({ targets: ring, angle: 360, duration: 2400, repeat: -1 });
     this.arenaLayer.add(m);
     this.markers[a.side] = m;
@@ -2049,11 +2053,11 @@ export default class LoadoutScene extends Phaser.Scene {
     g.arc(-18 * d, 0, 30, -0.9, 0.9);
     g.strokePath();
     g.setScale(d, 1);
-    this.tweens.add({ targets: g, alpha: 0, duration: 200 / this.run.speed, onComplete: () => g.destroy() });
+    this.tweens.add({ targets: g, alpha: 0, duration: 200 / this.speed, onComplete: () => g.destroy() });
   }
 
   private floatText(a: Actor, s: string, color: string, size = 26, dy = 0) {
-    const sp = this.run.speed;
+    const sp = this.speed;
     const t = txt(this, a.chest.x + Phaser.Math.Between(-18, 18), a.chest.y - 30 + dy, s, size, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 5 })
       .setOrigin(0.5)
       .setDepth(30)
@@ -2074,8 +2078,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.tweens.killTweensOf(a.fig);
     a.fig.x = a.x + 9 * dir;
     a.fig.alpha = a.fig.alpha < 0.5 ? a.fig.alpha : 0.55;
-    this.tweens.add({ targets: a.fig, x: a.x, duration: 120 / this.run.speed, ease: 'Quad.Out' });
-    if (a.hp > 0) this.tweens.add({ targets: a.fig, alpha: 1, duration: 120 / this.run.speed });
+    this.tweens.add({ targets: a.fig, x: a.x, duration: 120 / this.speed, ease: 'Quad.Out' });
+    if (a.hp > 0) this.tweens.add({ targets: a.fig, alpha: 1, duration: 120 / this.speed });
   }
 
   /** Traçante du canon à la poitrine de la cible ; l'éclair de bouche seulement pour la 1re balle d'un tir. */
@@ -2101,7 +2105,7 @@ export default class LoadoutScene extends Phaser.Scene {
       g.fillStyle(0xffe7a8, 1);
       for (let i = 0; i < 4; i++) g.fillRect(tx + Phaser.Math.Between(-7, 7), ty + Phaser.Math.Between(-7, 7), 2, 2);
     }
-    this.tweens.add({ targets: g, alpha: 0, duration: 160 / this.run.speed, onComplete: () => g.destroy() });
+    this.tweens.add({ targets: g, alpha: 0, duration: 160 / this.speed, onComplete: () => g.destroy() });
   }
 
   private boom(a: Actor, color = C.accent) {
@@ -2111,7 +2115,7 @@ export default class LoadoutScene extends Phaser.Scene {
     g.lineStyle(4, color, 1);
     g.strokeCircle(0, 0, 52);
     g.setScale(0.3);
-    this.tweens.add({ targets: g, scale: 1.2, alpha: 0, duration: 380 / this.run.speed, ease: 'Quad.Out', onComplete: () => g.destroy() });
+    this.tweens.add({ targets: g, scale: 1.2, alpha: 0, duration: 380 / this.speed, ease: 'Quad.Out', onComplete: () => g.destroy() });
   }
 
   private applyEvent(e: DuelEvent, animate: boolean) {
@@ -2236,8 +2240,8 @@ export default class LoadoutScene extends Phaser.Scene {
           const sx = a.x + (e.side === 'a' ? 50 : -50);
           for (let i = 0; i < 5; i++) g.fillCircle(sx + Phaser.Math.Between(-30, 30), a.feet - 40 - Phaser.Math.Between(0, 70), Phaser.Math.Between(26, 40));
           g.setScale(0.4);
-          this.tweens.add({ targets: g, scale: 1, duration: 300 / this.run.speed, ease: 'Quad.Out' });
-          this.tweens.add({ targets: g, alpha: 0, delay: 200, duration: Math.max(200, ((e.until - e.t) * 1000) / this.run.speed), onComplete: () => g.destroy() });
+          this.tweens.add({ targets: g, scale: 1, duration: 300 / this.speed, ease: 'Quad.Out' });
+          this.tweens.add({ targets: g, alpha: 0, delay: 200, duration: Math.max(200, ((e.until - e.t) * 1000) / this.speed), onComplete: () => g.destroy() });
           this.floatText(a, 'FUMIGÈNE', '#dddddd', 18);
         }
         break;
@@ -2274,7 +2278,7 @@ export default class LoadoutScene extends Phaser.Scene {
         const ang = e.side === 'a' ? 82 : -82;
         if (animate) {
           this.tweens.killTweensOf(a.fig);
-          this.tweens.add({ targets: a.fig, alpha: 0.3, angle: ang, y: a.feet - 16, duration: 340 / this.run.speed, ease: 'Quad.In' });
+          this.tweens.add({ targets: a.fig, alpha: 0.3, angle: ang, y: a.feet - 16, duration: 340 / this.speed, ease: 'Quad.In' });
           this.impact('large');
           this.boom(a, e.side === 'a' ? C.danger : 0xffffff);
           this.cameras.main.flash(200, e.side === 'a' ? 160 : 255, e.side === 'a' ? 20 : 240, e.side === 'a' ? 20 : 200);
@@ -2292,7 +2296,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.freeze -= delta / 1000;
       return;
     }
-    P.t += (delta / 1000) * this.run.speed;
+    P.t += (delta / 1000) * this.speed;
     const ev = P.result.events;
     while (P.idx < ev.length && ev[P.idx].t <= P.t) this.applyEvent(ev[P.idx++], true);
     if (P.idx >= ev.length && P.t >= P.result.duration + 0.8) this.finishFight();
