@@ -32,7 +32,7 @@ export const OPERATORS: Record<OperatorId, OperatorDef> = {
     family: 'precision',
     pitch: 'Fusils de précision et revolvers : une arme marque, l’autre achève.',
     passive: 'Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +50\u00a0%',
-    start: [['casque', 2, 2], ['revolver', 4, 2], ['chg_44', 5, 3], ['viseur_holo', 6, 3], ['couteau', 2, 4]],
+    start: [['casque', 2, 2], ['revolver', 4, 2], ['chg_44', 5, 3], ['poignee', 6, 3], ['couteau', 2, 4]],
   },
 };
 
@@ -43,15 +43,15 @@ export const NEUTRAL_FAMILIES: Family[] = ['rempart', 'tactique'];
 /** Objets d'autres familles versés au tronc commun (les grenades). */
 export const NEUTRAL_IDS = ['frag', 'flash'];
 
-/** Objet de base utilisable par cet opérateur : sa famille, le tronc commun, les grenades. */
+/** Objet de base utilisable par cet opérateur : tout, sauf les objets de signature de l'autre opérateur. */
 function baseUsable(op: OperatorId, id: string): boolean {
-  const f = ITEMS[id].family;
-  return f === OPERATORS[op].family || NEUTRAL_FAMILIES.includes(f) || NEUTRAL_IDS.includes(id);
+  const sig = ITEMS[id].signature;
+  return !sig || sig === op;
 }
 
 /**
- * Objet que cet opérateur peut prendre et utiliser : objets de base de son pool, et objets assemblés
- * à partir de ces objets. Les armes de l'autre opérateur (Précision pour Viper, Rafale pour Sentinelle) n'en font pas partie.
+ * Objet que cet opérateur peut prendre et utiliser : le pool est commun, sauf les objets de signature de l'autre
+ * opérateur et ce qui s'assemble avec eux.
  */
 export function canUse(op: OperatorId, id: string): boolean {
   if (!ITEMS[id]) return false;
@@ -62,4 +62,16 @@ export function canUse(op: OperatorId, id: string): boolean {
 /** Objets que cet opérateur peut trouver (butin, caisses, boutique), hors objets assemblés. */
 export function lootPool(op: OperatorId): string[] {
   return LOOT_IDS.filter((id) => baseUsable(op, id));
+}
+
+/**
+ * Pool « cœur » d'un opérateur, pour composer des bots cohérents : sa famille, le tronc commun, les grenades,
+ * sans les signatures adverses.
+ */
+export function corePool(op: OperatorId): string[] {
+  const fam = OPERATORS[op].family;
+  return lootPool(op).filter((id) => {
+    const f = ITEMS[id].family;
+    return f === fam || NEUTRAL_FAMILIES.includes(f) || NEUTRAL_IDS.includes(id);
+  });
 }

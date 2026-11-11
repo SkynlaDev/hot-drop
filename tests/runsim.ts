@@ -200,7 +200,7 @@ function chooseZone(run: RunState, policy: Policy, rng: Rng): number {
 
 /**
  * Priorité d'une carte. Prudent : caisses et boutique d'abord, un duel solo quand il le faut.
- * Agressif : la caisse épique, puis une squad par zone (le gros butin) tant qu'il a son Goulag,
+ * Agressif : la caisse épique, puis une Élite par zone (le gros butin) tant qu'il a son Goulag,
  * puis boutique / caisse / solo.
  */
 function cardScore(card: Card, run: RunState, policy: Policy): number {
@@ -211,13 +211,11 @@ function cardScore(card: Card, run: RunState, policy: Policy): number {
     if (t === 'caisse') return 50;
     if (t === 'solo') return 40;
     if (t === 'shop') return run.credits >= 8 ? 45 : 5;
-    if (t === 'duo') return 15;
-    return 10; // escouade
+    return 12; // élite
   }
-  // Une squad par zone tant que le Goulag est disponible ; ensuite il joue plus serré (mais reste au chaud).
-  const squads = run.played.filter((i) => run.cards[i].type === 'squad').length;
-  if (t === 'squad') return squads === 0 && !run.goulagUsed ? 60 : 8;
-  if (t === 'duo') return squads === 0 && !run.goulagUsed ? 55 : 20;
+  // Une Élite par zone tant que le Goulag est disponible ; ensuite il joue plus serré (mais reste au chaud).
+  const elites = run.played.filter((i) => run.cards[i].type === 'elite').length;
+  if (t === 'elite') return elites === 0 && !run.goulagUsed ? 60 : 12;
   if (t === 'shop') return run.credits >= 10 ? 50 : 5;
   if (t === 'caisse_renforcee') return 58;
   if (t === 'caisse') return 45;
@@ -276,15 +274,14 @@ export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunSt
         lootAll(run, [...run.pendingLoot!.items], rng);
         repack(run, rng);
       } else {
-        let p: DuelParams | undefined = res;
-        while (p) {
+        {
+          const p: DuelParams = res;
           const r = duel(run, p);
           st.duels[run.round][1]++;
           if (r.win) st.duels[run.round][0]++;
           const out = resolveDuel(run, { win: r.win, hpEnd: r.hpEnd, botItems: r.bot.items, botUsable: r.bot.usable });
           if (run.pendingLoot) lootAll(run, out.lootChoices!, rng);
           repack(run, rng);
-          p = out.next;
           if (out.goulag) {
             const g = goulagParams(run)!;
             const gr = duel(run, g);

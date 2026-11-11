@@ -5,7 +5,7 @@ import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from '../logic/zone';
 import { DANGER_RAMP } from '../logic/bots';
-import { CRATES } from '../logic/run';
+import { CRATES, DUEL_PICKS, ELITE_PICKS } from '../logic/run';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, statusPills } from '../ui/hud';
 import { Button, button, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
 
@@ -23,12 +23,10 @@ interface CardView {
 /** Description d'une carte, affichée quand elle est sélectionnée. */
 function cardDesc(card: Card): string {
   switch (card.type) {
-    case 'squad':
-      return `Escouade : ${card.duels} duels d'affilée, tu récupères la moitié des PV perdus entre deux. Tu fouilles chaque sac, gros bonus de crédits, souvent une sacoche.`;
-    case 'duo':
-      return `Duo : ${card.duels} duels d'affilée, tu récupères la moitié des PV perdus entre les deux. Tu fouilles chaque sac, bonus de crédits, parfois une sacoche.`;
+    case 'elite':
+      return `Élite : un duel contre un bot fort. Tu prends ${ELITE_PICKS} objets dans son sac, gros bonus de crédits, parfois une sacoche.`;
     case 'solo':
-      return 'Un duel, sac contre sac. Tu fouilles le sac adverse et tu gagnes des crédits.';
+      return `Un duel, sac contre sac. Tu prends ${DUEL_PICKS} objet dans le sac du vaincu et tu gagnes des crédits.`;
     case 'caisse':
       return `Pas de combat : du cash, et ${CRATES.caisse.picks} objet à choisir parmi ${CRATES.caisse.offers} (toujours une arme). Parfois une sacoche.`;
     case 'caisse_renforcee':
@@ -47,7 +45,7 @@ function botBonus(zone: MapZone, round: number): number {
 
 /** Risque d'une carte de combat, sur RISK_PIPS : nombre de duels + chaleur de la zone. */
 function riskOf(card: Card, zone: MapZone, round: number): number {
-  return Math.min(RISK_PIPS, card.duels + Math.round(botBonus(zone, round) * 2));
+  return Math.min(RISK_PIPS, (card.type === 'elite' ? 3 : 1) + Math.round(botBonus(zone, round) * 2));
 }
 
 export default class ZoneScene extends Phaser.Scene {
@@ -272,9 +270,9 @@ export default class ZoneScene extends Phaser.Scene {
     let dy = t + h * 0.66;
     const fs = small ? 18 : 22;
     if (isFight(card)) {
-      root.add(txt(this, 0, dy, card.duels > 1 ? `${card.duels} COMBATS` : '1 COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
+      root.add(txt(this, 0, dy, card.type === 'elite' ? 'BOT FORT' : '1 COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
-      root.add(txt(this, 0, dy, card.type === 'squad' ? 'Gros butin' : card.type === 'duo' ? 'Bon butin' : 'Butin normal', fs - 2, C.quiet).setOrigin(0.5));
+      root.add(txt(this, 0, dy, card.type === 'elite' ? `${ELITE_PICKS} objets à prendre` : `${DUEL_PICKS} objet à prendre`, fs - 2, C.quiet).setOrigin(0.5));
       dy += fs + 10;
       const risk = riskOf(card, zone, this.run.round);
       const pw = small ? 18 : 24;

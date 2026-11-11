@@ -1,6 +1,6 @@
 // Bots adverses : un vrai sac généré comme celui d'un joueur (mêmes objets, mêmes règles, même computeLoadout).
 import { ITEMS, ItemDef } from '../data/items';
-import { OPERATOR_IDS, OperatorId, lootPool } from '../data/operators';
+import { OPERATOR_IDS, OperatorId, corePool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { ItemInst, Rot, canPlace, cellKey, cellsAt, cellsOf } from './grid';
 import { Rng, hashParts, mulberry32, pick } from './rng';
@@ -88,7 +88,7 @@ const isAccessory = (id: string) => !!ITEMS[id].synergy && !isMag(id);
 const isMelee = (id: string) => !!ITEMS[id].melee;
 
 /** Génère le sac d'un bot, déterministe pour (graine, tour, options). */
-export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean } = {}): BotBuild {
+export function generateBot(seed: number, round: number, opts: { danger?: number; final?: boolean; goulag?: boolean; elite?: boolean } = {}): BotBuild {
   // 1er cercle : tout le monde vient d'atterrir. Quelle que soit la zone, un bot a un sac de départ
   // (jamais fort, objets de départ, aucun objet assemblé, sac de base) : la taille de la zone ne change que les cartes.
   const landing = round === 0 && !opts.final;
@@ -98,7 +98,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const name = rng() < 0.4 ? `${pick(rng, CALLSIGNS)}-${1 + Math.floor(rng() * 9)}` : pick(rng, CALLSIGNS);
 
   let quality: BotQuality = 'normal';
-  if (opts.final) quality = 'fort';
+  if (opts.final || opts.elite) quality = 'fort';
   else if (!opts.goulag) {
     const q = qualityOdds(round, danger);
     const r = rng();
@@ -118,8 +118,8 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const cap = minRoundCap(lvl);
   // Aux premiers niveaux, pas d'objets chers (plaque céramique…) hors armes.
   const itemCap = [5, 7][lvl] ?? Infinity;
-  const pool = lootPool(operator).filter((id) => ITEMS[id].minRound <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap));
-  const crafted = RECIPES.filter((r) => r.inputs.every((id) => lootPool(operator).includes(id))).map((r) => r.output);
+  const pool = corePool(operator).filter((id) => ITEMS[id].minRound <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap));
+  const crafted = RECIPES.filter((r) => r.inputs.every((id) => corePool(operator).includes(id))).map((r) => r.output);
   const craftChance = landing ? 0 : Math.min(0.95, CRAFTED_ODDS[lvl] + (quality === 'fort' ? FORT_CRAFTED_BONUS : 0));
 
   // Composition : armes, chargeurs et accessoires assortis, protection, puis le reste.
@@ -176,7 +176,8 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   ids.push(melee);
 
   // Rangement bâclé (chargeur ou accessoire posé n'importe où) : fréquent chez les faibles, rare ensuite.
-  const sloppy = quality === 'faible' ? 0.5 : quality === 'normal' ? Math.max(0.05, 0.3 - 0.06 * round) : 0;
+  // Le Goulag est un duel équitable : un bot qui range bien son sac.
+  const sloppy = opts.goulag ? 0 : quality === 'faible' ? 0.5 : quality === 'normal' ? Math.max(0.05, 0.3 - 0.06 * round) : 0;
   const items = placeBot(ids, new Set(usable), rng, sloppy);
   return { name, operator, items, usable, maxHp: maxHpFor(round), quality };
 }

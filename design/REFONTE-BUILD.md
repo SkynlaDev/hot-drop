@@ -19,8 +19,18 @@ en gardant ce qui distingue HOT DROP : la carte, les zones, les cercles de gaz, 
 |---|---|
 | Munitions finies, crosse, « CHG ×N » | Les armes rechargent sans fin. Un chargeur adjacent de son calibre accélère la recharge (−25 %, max 3) ; sans chargeur, recharge ×2 (règle d'avant l'étape 5). On garde la mêlée, le saignement, le taser, le bandage. |
 | Duo et escouade | Un combat = un duel. Le risque passe par la carte **Élite** (bot fort, meilleur butin). |
-| Fouille intégrale | **Butin : 1 objet au choix parmi 3**, tirés du sac du vaincu et du thème de la zone, + crédits. |
+| Fouille intégrale | On fouille toujours le sac du vaincu, mais on n'y prend qu'**1 objet** (2 après une Élite), + crédits. Le thème de la zone orientera le contenu des sacs (étape 5). |
 | Opérateurs exclusifs | **Pool commun** : tout le monde peut prendre toutes les armes. Chaque opérateur a quelques **objets de signature** (exclusifs) et son passif. Les familles et leurs paliers restent : se spécialiser reste récompensé. |
+
+**Fait (étape 1)** :
+- Munitions infinies, règle « sans chargeur, recharge ×2 » rétablie, crosse et crosse renforcée retirées. La mêlée frappe
+  ×1,5 dans un sac sans arme à feu (build Lame).
+- Cartes Solo et **Élite** (bot fort, 2 objets, 10 + 3r crédits, sacoche 40 %). Sauvegarde passée en `v8`.
+- Pool commun ; signatures : chargeur tambour et refroidisseur (Viper), traçantes (Sentinelle), et ce qui s'assemble
+  avec. Les bots gardent un pool « cœur » (`corePool`) pour rester cohérents.
+- Recalibrage : chargeurs des armes remis à leur valeur d'avant l'étape 5 ; armes de précision (hors revolver et
+  Colibri) +28 à +36 % de dégâts ; sac de départ de Sentinelle : poignée verticale au lieu du viseur holo ; bot du
+  Goulag bien rangé. Durées médianes 12 à 19 s ; Viper contre Sentinelle 45 à 54 % à chaque cercle.
 
 ## 2. Les étoiles (le cœur de la refonte)
 

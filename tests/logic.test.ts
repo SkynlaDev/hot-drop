@@ -11,7 +11,7 @@ import { rngFor } from '../src/logic/rng';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
-  CRATES, HEAL_BETWEEN_DUELS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
+  CRATES, ELITE_PICKS, DUEL_PICKS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
   unplaceBag,
 } from '../src/logic/run';
 import {
@@ -28,12 +28,8 @@ function playThrough(run: RunState, index: number, win = true): void {
   const r = playCard(run, index);
   expect(r).not.toBeNull();
   if (r!.kind === 'duel') {
-    let res = resolveDuel(run, { win, hpEnd: 50, botItems: botItems() });
+    const res = resolveDuel(run, { win, hpEnd: 50, botItems: botItems() });
     if (run.pendingLoot) finishLoot(run);
-    while (res.next) {
-      res = resolveDuel(run, { win, hpEnd: 50, botItems: botItems() });
-      if (run.pendingLoot) finishLoot(run);
-    }
     if (res.actionDone && !run.over) endAction(run);
   } else {
     if (run.pendingLoot) finishLoot(run); // caisse : choix laissé vide
@@ -181,20 +177,10 @@ describe('cartes', () => {
     }
   });
 
-  it('duo à 2 duels ; escouade à 3, 4 à partir du 4e cercle ; déterministe', () => {
-    const duels = (type: 'duo' | 'squad', round: number) => {
-      for (let seed = 0; seed < 100; seed++) {
-        const c = drawCards(seed, round, zone('grande')).find((x) => x.type === type);
-        if (c) return c.duels;
-      }
-      return -1;
-    };
-    expect(duels('duo', 0)).toBe(2);
-    expect(duels('duo', 4)).toBe(2);
-    expect(duels('squad', 0)).toBe(3);
-    expect(duels('squad', 2)).toBe(3);
-    expect(duels('squad', 3)).toBe(4);
-    expect(duels('squad', 4)).toBe(4);
+  it('un combat = un duel (solo ou élite) ; déterministe', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      for (const c of drawCards(seed, seed % ROUNDS, zone('grande'))) expect(c.duels).toBe(isFight(c) ? 1 : 0);
+    }
     expect(drawCards(7, 1, zone('moyenne'))).toEqual(drawCards(7, 1, zone('moyenne')));
   });
 
@@ -217,22 +203,17 @@ describe('cartes', () => {
     }
   });
 
-  it('crédits : solo < duo < escouade, bonus de fin plus gros pour l’escouade', () => {
-    for (const r of [0, 2, 4]) {
-      const total = (kind: 'solo' | 'duo' | 'squad', n: number) =>
-        Array.from({ length: n }, (_, k) => duelCredits(kind, r, k === n - 1)).reduce((a, b) => a + b, 0);
-      expect(total('duo', 2)).toBeGreaterThan(2 * total('solo', 1) - 2);
-      expect(total('squad', 3)).toBeGreaterThan(total('duo', 2) + total('solo', 1));
-    }
+  it('crédits : l’Élite rapporte plus qu’un duel', () => {
+    for (const r of [0, 2, 4]) expect(duelCredits('elite', r)).toBeGreaterThan(duelCredits('solo', r) + 2);
   });
 
-  it('les grandes zones ont plus de squads que les petites', () => {
+  it('les grandes zones ont plus d’Élites que les petites', () => {
     const count = (size: MapZone['size']) => {
       let n = 0;
       let total = 0;
       for (let seed = 0; seed < 400; seed++) {
         const cards = drawCards(seed, 1, zone(size));
-        n += cards.filter((c) => c.type === 'squad').length;
+        n += cards.filter((c) => c.type === 'elite').length;
         total += cards.length;
       }
       return n / total;
@@ -281,49 +262,39 @@ describe('run', () => {
     const gassed = run.map.zones.find((z) => isGassed(run.map, z, run.round))!;
     expect(dropInZone(run, gassed.id)).toBe(false);
     dropInZone(run, selectableZones(run)[0].id);
-    const i = firstCard(run, (t) => t !== 'squad' && t !== 'solo');
+    const i = firstCard(run, (t) => t !== 'elite' && t !== 'solo');
     const j = i >= 0 ? i : 0;
     playThrough(run, j);
     expect(playCard(run, j)).toBeNull();
   });
 
-  it('escouade : PV reportés et à moitié soignés entre les duels, chaque bot vaincu se fouille, bonus à la fin', () => {
+  it('Élite : un bot fort, 2 objets à prendre dans son sac, plus de crédits ; un duel : 1 objet', () => {
     const run = newRun('viper', 1);
     run.round = 2;
-    const z = selectableZones(run)[0];
-    dropInZone(run, z.id);
-    run.cards[0] = { type: 'squad', duels: 3 };
+    dropInZone(run, selectableZones(run)[0].id);
+    run.cards[0] = { type: 'elite', duels: 1 };
+    run.cards[1] = { type: 'solo', duels: 1 };
     const p = playCard(run, 0) as { kind: 'duel' } & DuelParams;
     expect(p.kind).toBe('duel');
-    expect(p.squad).toEqual({ duel: 0, total: 3 });
+    expect(p.type).toBe('elite');
     expect(p.hp).toBe(roundMaxHp(2));
     expect(endAction(run)).toBeNull(); // combat en cours
     const r1 = resolveDuel(run, { win: true, hpEnd: 77, botItems: botItems() });
-    expect(r1.actionDone).toBe(false);
-    expect(r1.next!.hp).toBe(Math.round(77 + (roundMaxHp(2) - 77) * HEAL_BETWEEN_DUELS));
-    expect(r1.next!.squad.duel).toBe(1);
-    expect(r1.next!.seed).not.toBe(p.seed);
-    expect(r1.lootChoices!.map((i) => i.defId)).toEqual(botItems().map((i) => i.defId));
-    // Le duel suivant attend le choix du butin.
-    expect(resolveDuel(run, { win: true, hpEnd: 40, botItems: botItems() }).loot.credits).toBe(0);
-    expect((lootItem(run, 901) as { item: ItemInst }).item.defId).toBe('chg_9mm');
-    finishLoot(run);
-    const r2 = resolveDuel(run, { win: true, hpEnd: 40, botItems: botItems() });
-    expect(r2.next).toBeDefined();
-    finishLoot(run);
-    const before = reserve(run).length;
-    const r3 = resolveDuel(run, { win: true, hpEnd: 5, botItems: botItems() });
-    expect(r3.actionDone).toBe(true);
-    expect(r3.loot.credits).toBeGreaterThan(r1.loot.credits); // bonus de fin de squad
+    expect(r1.actionDone).toBe(true);
+    expect(r1.loot.credits).toBe(duelCredits('elite', 2));
+    expect(run.pendingLoot!.maxPicks).toBe(ELITE_PICKS);
     expect(endAction(run)).toBeNull(); // fouille d'abord
+    expect(lootItem(run, 901)).not.toBeNull();
     expect(lootItem(run, 902)).not.toBeNull();
-    expect(lootItem(run, 900)).not.toBeNull();
+    expect(lootItem(run, 900)).toBeNull(); // quota atteint
     finishLoot(run);
-    expect(reserve(run).length - before).toBe(2);
-    expect(endAction(run)).toEqual({ nextRound: false, final: false });
+    expect(endAction(run)).not.toBeNull();
+    playCard(run, 1);
+    resolveDuel(run, { win: true, hpEnd: 50, botItems: botItems() });
+    expect(run.pendingLoot!.maxPicks).toBe(DUEL_PICKS);
   });
 
-  it('fouille : on prend tout ce qu’on veut dans le sac du bot, puis on termine', () => {
+  it('fouille : on prend 1 objet dans le sac du vaincu, puis on termine', () => {
     const run = newRun('viper', 2);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
@@ -338,13 +309,13 @@ describe('run', () => {
     expect(lootItem(run, 999)).toBeNull();
     expect(endAction(run)).toBeNull();
     expect(playCard(run, 1)).toBeNull();
-    const a = lootItem(run, 900)!;
-    const b = lootItem(run, 901)!;
-    expect([a.to, b.to]).toEqual(['reserve', 'reserve']);
+    expect(run.pendingLoot!.maxPicks).toBe(1);
+    expect(lootItem(run, 900)!.to).toBe('reserve');
     expect(lootItem(run, 900)).toBeNull(); // déjà pris
-    expect(run.pendingLoot!.items.map((i) => i.uid)).toEqual([902]);
-    expect(reserve(run).map((i) => i.defId).slice(-2)).toEqual(['smg_ours', 'casque']);
-    finishLoot(run); // la frag reste dans le sac du vaincu
+    expect(lootItem(run, 901)).toBeNull(); // quota atteint
+    expect(run.pendingLoot!.items.map((i) => i.uid)).toEqual([901, 902]);
+    expect(reserve(run).map((i) => i.defId).slice(-1)).toEqual(['smg_ours']);
+    finishLoot(run); // le casque et la frag restent dans le sac du vaincu
     expect(run.pendingLoot).toBeUndefined();
     expect(run.items.some((i) => i.defId === 'frag')).toBe(false);
     expect(endAction(run)).not.toBeNull();
@@ -357,6 +328,7 @@ describe('run', () => {
     playCard(run, 0);
     while (reserve(run).length < RESERVE_MAX) addDrops(run, [inst(-1, 'chg_9mm', 0, 0)]);
     resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'chg_556', 2, 2), inst(901, 'plaque', 3, 2), inst(902, 'bandage', 5, 2)] });
+    run.pendingLoot!.maxPicks = undefined; // on teste le rangement, pas le quota
     const credits = run.credits;
     // Le sac de base a de la place pour une case : la réserve pleine envoie le chargeur dans le sac.
     const r = lootItem(run, 900)!;
@@ -388,17 +360,17 @@ describe('run', () => {
     expect(run.items.some((i) => i.defId === 'bandage')).toBe(true);
   });
 
-  it('chacun ses builds : on ne fouille pas les objets réservés à l’autre opérateur', () => {
+  it('pool commun : on fouille tout sauf les objets de signature de l’autre opérateur', () => {
     const run = newRun('viper', 3);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
-    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'revolver', 2, 2), inst(901, 'chg_44', 4, 2), inst(902, 'casque', 5, 2), inst(903, 'couteau', 2, 4)] });
-    expect(run.pendingLoot!.items.map((i) => i.defId).sort()).toEqual(['casque', 'couteau']);
-    expect(canUse('viper', 'taureau_jumeaux')).toBe(false);
-    expect(canUse('sentinelle', 'mamba_akimbo')).toBe(false);
-    expect(canUse('viper', 'machette')).toBe(true);
-    expect(canUse('sentinelle', 'sous_munitions')).toBe(true);
+    resolveDuel(run, { win: true, hpEnd: 50, botItems: [inst(900, 'revolver', 2, 2), inst(901, 'tracantes', 4, 2), inst(902, 'casque', 5, 2), inst(903, 'couteau', 2, 4)] });
+    expect(run.pendingLoot!.items.map((i) => i.defId).sort()).toEqual(['casque', 'couteau', 'revolver']);
+    expect(canUse('viper', 'taureau_jumeaux')).toBe(true);
+    expect(canUse('viper', 'faucon_traqueur')).toBe(false); // assemblé avec les traçantes de Sentinelle
+    expect(canUse('sentinelle', 'ours_deluge')).toBe(false); // assemblé avec le tambour de Viper
+    expect(canUse('sentinelle', 'mamba_akimbo')).toBe(true);
   });
 
   it('caisse épique : du cash et 2 objets à choisir sur 5, dont une arme et un objet assemblé', () => {
@@ -428,13 +400,13 @@ describe('run', () => {
   it('Goulag : 1re défaite → Goulag ; gagné → on continue ; 2e défaite → fin', () => {
     const run = newRun('sentinelle', 3);
     dropInZone(run, selectableZones(run)[0].id);
-    run.cards[0] = { type: 'squad', duels: 2 };
+    run.cards[0] = { type: 'elite', duels: 1 };
     run.cards[1] = { type: 'solo', duels: 1 };
     playCard(run, 0);
     const lost = resolveDuel(run, { win: false, hpEnd: 0, botItems: botItems() });
     expect(lost.goulag).toBe(true);
     expect(run.pendingGoulag).toBe(true);
-    expect(run.fight).toBeUndefined(); // reste de la squad annulé
+    expect(run.fight).toBeUndefined();
     expect(endAction(run)).toBeNull(); // Goulag d'abord
     const g = goulagParams(run)!;
     expect(g.type).toBe('goulag');
@@ -626,13 +598,13 @@ describe('sauvegarde', () => {
     };
   });
 
-  it('aller-retour, clé v7', () => {
+  it('aller-retour, clé v8', () => {
     const run = newRun('viper', 77);
     placeBag(run, run.bags[0].uid, 7, 2, 0);
     dropInZone(run, selectableZones(run)[0].id);
     playThrough(run, firstCard(run));
     saveRun(run);
-    expect(store.has('hotdrop.run.v7')).toBe(true);
+    expect(store.has('hotdrop.run.v8')).toBe(true);
     expect(loadRun()).toEqual(run);
     clearRun();
     expect(loadRun()).toBeNull();

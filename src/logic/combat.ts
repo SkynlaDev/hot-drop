@@ -1,6 +1,6 @@
 // Duel 1v1 sac contre sac : simulation symétrique et déterministe (même graine = même duel).
 import { hashParts, mulberry32 } from './rng';
-import { MELEE_DRY_SPEED } from './stats';
+import { MELEE_ONLY_SPEED } from './stats';
 import type { MeleeRt, PlayerLoadout, WeaponRt } from './stats';
 
 /** 'a' = le joueur, 'b' = le bot. */
@@ -14,9 +14,8 @@ export type Side = 'a' | 'b';
  *   `heat` (Feu continu de Viper) : bonus de cadence de l'arme au moment du tir (0,18 = +18 %), absent si nul.
  *   `mark` (Marque de Sentinelle) : ce critique marque l'adversaire.
  *   `marked` : cette touche consomme la marque (dégâts majorés, déjà comptés dans `amount`).
- *   `melee` : coup de crosse (arme à sec) ou d'arme de mêlée, sans balle ; `bleed` : saignement ajouté à la cible.
- * - reload : `side` recharge l'arme `uid` ; `left` = recharges qui lui restent ensuite (0 = dernier chargeur).
- * - dry : l'arme `uid` de `side` n'a plus de munitions pour ce duel : elle frappe à la crosse.
+ *   `melee` : coup d'arme de mêlée, sans balle ; `bleed` : saignement ajouté à la cible.
+ * - reload : `side` recharge l'arme `uid` (sans fin : un chargeur adjacent accélère la recharge).
  * - bleed : `side` perd `amount` PV de saignement (cumulés sur une demi-seconde), hp = après.
  * - taser : `side` immobilise l'adversaire jusqu'à `until` et lui inflige `amount` ; hp/armor = ceux de l'adversaire.
  * - bandage : `side` retire `cured` de saignement et soigne `amount`.
@@ -27,9 +26,8 @@ export type Side = 'a' | 'b';
  * - death : `side` est mort.
  */
 export type DuelEvent =
-  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; heat?: number; mark?: boolean; marked?: boolean; melee?: 'crosse' | 'lame'; bleed?: number; hp: number; armor: number }
-  | { t: number; kind: 'reload'; side: Side; uid: number; left: number }
-  | { t: number; kind: 'dry'; side: Side; uid: number }
+  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; heat?: number; mark?: boolean; marked?: boolean; melee?: 'lame'; bleed?: number; hp: number; armor: number }
+  | { t: number; kind: 'reload'; side: Side; uid: number }
   | { t: number; kind: 'bleed'; side: Side; amount: number; hp: number }
   | { t: number; kind: 'taser'; side: Side; uid: number; amount: number; until: number; hp: number; armor: number }
   | { t: number; kind: 'bandage'; side: Side; uid: number; amount: number; cured: number; hp: number }
@@ -73,13 +71,10 @@ interface Fighter {
   armor: number;
   /**
    * `fireStart` : début de la salve en cours (depuis la dernière recharge), pour le Feu continu.
-   * `own` : recharges intégrées restantes ; `dry` : plus de munitions, l'arme frappe à la crosse ;
    * `reloadUntil` : fin de la recharge en cours (le taser adverse s'en sert).
    */
-  ws: { w: WeaponRt; ammo: number; next: number; shots: number; fireStart: number; own: number; dry: boolean; reloadUntil: number }[];
+  ws: { w: WeaponRt; ammo: number; next: number; shots: number; fireStart: number; reloadUntil: number }[];
   ml: { m: MeleeRt; next: number }[];
-  /** Utilisations restantes de chaque chargeur du sac (partagées entre les armes qu'il touche). */
-  magUses: Map<number, number>;
   /** Réserve de saignement, et saignement versé pas encore annoncé (événement toutes les 0,5 s). */
   bleed: number;
   bleedAcc: number;
@@ -115,9 +110,8 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     hp,
     armor: l.armor,
     // Léger décalage aléatoire du 1er tir pour que deux sacs identiques ne tirent pas en miroir parfait.
-    ws: l.weapons.map((w) => ({ w, ammo: w.mag, next: w.interval * (0.4 + 0.2 * rng()), shots: 0, fireStart: -1, own: w.ownReloads, dry: false, reloadUntil: -1 })),
+    ws: l.weapons.map((w) => ({ w, ammo: w.mag, next: w.interval * (0.4 + 0.2 * rng()), shots: 0, fireStart: -1, reloadUntil: -1 })),
     ml: l.melee.map((m) => ({ m, next: m.interval * (0.5 + 0.2 * rng()) })),
-    magUses: new Map(l.mags.map((g) => [g.uid, g.uses])),
     bleed: 0,
     bleedAcc: 0,
     bleedNext: 0.5,
@@ -136,20 +130,20 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     events, win, timeout, duration: t, hpEndA: Math.round(A.hp), hpEndB: Math.round(B.hp),
   });
 
-  /** Étourdit `f` : ses armes (à sec comprises) et sa mêlée frappent `d` secondes plus tard. */
+  /** Étourdit `f` : ses armes et sa mêlée frappent `d` secondes plus tard. */
   const stun = (f: Fighter, t: number, d: number) => {
     for (const fw of f.ws) fw.next = Math.max(fw.next, t) + d;
     for (const fm of f.ml) fm.next = Math.max(fm.next, t) + d;
   };
 
-  /** Coup sans balle (crosse ou mêlée) : toujours au but, pas de critique. Renvoie le camp mort, s'il y en a un. */
-  const strike = (me: Fighter, foe: Fighter, t: number, uid: number, dmg: number, pierce: number, bleed: number, melee: 'crosse' | 'lame'): Side | null => {
+  /** Coup de mêlée : toujours au but, pas de critique. Renvoie le camp mort, s'il y en a un. */
+  const strike = (me: Fighter, foe: Fighter, t: number, uid: number, dmg: number, pierce: number, bleed: number): Side | null => {
     const amount = Math.max(1, Math.round(dmg - Math.min(foe.l.flatReduce, dmg * MAX_FLAT_REDUCE)));
     applyDamage(foe, amount, pierce);
     me.dealt += amount;
     if (bleed > 0) foe.bleed += bleed;
     events.push({
-      t, kind: 'shot', from: me.side, uid, amount, crit: false, miss: false, pierce: pierce > 0, melee,
+      t, kind: 'shot', from: me.side, uid, amount, crit: false, miss: false, pierce: pierce > 0, melee: 'lame',
       ...(bleed > 0 ? { bleed } : {}), hp: round1(foe.hp), armor: round1(foe.armor),
     });
     if (foe.hp <= 0) {
@@ -184,38 +178,12 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     // Armes
     for (const s of me.ws) {
       if (t < s.next) continue;
-      if (s.dry) {
-        // À sec : coup de crosse.
-        const dead = strike(me, foe, t, s.w.uid, s.w.buttDmg, 0, 0, 'crosse');
-        s.next = t + s.w.buttInterval * cadence;
-        if (dead) return dead;
-        continue;
-      }
       if (s.ammo <= 0) {
-        // Recharge : d'abord ses recharges intégrées, puis un chargeur adjacent de son calibre ; sinon, à sec.
-        let ok = false;
-        if (s.own > 0) {
-          s.own--;
-          ok = true;
-        } else {
-          const u = s.w.magUids.find((id) => (me.magUses.get(id) ?? 0) > 0);
-          if (u !== undefined) {
-            me.magUses.set(u, me.magUses.get(u)! - 1);
-            ok = true;
-          }
-        }
-        s.fireStart = -1; // la recharge (ou la crosse) éteint le Feu continu
-        if (!ok) {
-          s.dry = true;
-          s.next = t + s.w.buttInterval * 0.5;
-          events.push({ t, kind: 'dry', side: me.side, uid: s.w.uid });
-          continue;
-        }
         s.ammo = s.w.mag;
         s.next = t + s.w.reload;
         s.reloadUntil = s.next;
-        const left = s.own + s.w.magUids.reduce((n, id) => n + (me.magUses.get(id) ?? 0), 0);
-        events.push({ t, kind: 'reload', side: me.side, uid: s.w.uid, left });
+        s.fireStart = -1; // la recharge éteint le Feu continu
+        events.push({ t, kind: 'reload', side: me.side, uid: s.w.uid });
         continue;
       }
       const shotNo = s.shots + 1;
@@ -269,12 +237,12 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
       s.next = t + (s.w.interval * cadence) / (1 + heat);
     }
 
-    // Mêlée : frappe tout le duel, plus vite quand toutes les armes à feu sont à sec.
-    const allDry = me.ws.every((w) => w.dry);
+    // Mêlée : frappe tout le duel, plus vite dans un sac sans arme à feu (build Lame).
+    const bladeOnly = me.ws.length === 0;
     for (const s of me.ml) {
       if (t < s.next) continue;
-      const dead = strike(me, foe, t, s.m.uid, s.m.dmg, s.m.armorPierce, s.m.bleed, 'lame');
-      s.next = t + (s.m.interval * cadence) / (allDry ? MELEE_DRY_SPEED : 1);
+      const dead = strike(me, foe, t, s.m.uid, s.m.dmg, s.m.armorPierce, s.m.bleed);
+      s.next = t + (s.m.interval * cadence) / (bladeOnly ? MELEE_ONLY_SPEED : 1);
       if (dead) return dead;
     }
 

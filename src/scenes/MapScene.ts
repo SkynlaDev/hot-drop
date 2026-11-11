@@ -14,9 +14,9 @@ const PANEL = { x: 20, y: 846, w: 680, h: 414 };
 const GAS = 0x9bbf3a;
 
 const HEAT_DESC: Record<MapZone['size'], string> = {
-  petite: 'Zone calme : peu de duos et d’escouades, des bots sans bonus. Plus de caisses et de boutiques.',
+  petite: 'Zone calme : peu d’Élites, des bots sans bonus. Plus de caisses et de boutiques.',
   moyenne: 'Zone disputée : un peu de tout. Bots un peu plus forts à partir du 2e cercle.',
-  grande: 'Zone chaude : beaucoup de duos et d’escouades, bots plus forts à partir du 2e cercle. Parfois une caisse épique !',
+  grande: 'Zone chaude : beaucoup d’Élites, bots plus forts à partir du 2e cercle. Parfois une caisse épique !',
 };
 
 interface ZoneView {

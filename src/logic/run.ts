@@ -30,11 +30,11 @@ export const CRATES: Record<CrateKind, { offers: number; picks: number; cash: (r
   caisse_renforcee: { offers: 4, picks: 2, cash: (r) => 6 + 2 * r, bag: 0.6 },
   caisse_epique: { offers: 5, picks: 2, cash: (r) => 10 + 3 * r, bag: 0.5 },
 };
-/** Chance qu'un duo ou une escouade terminés donnent aussi une sacoche. */
-export const DUO_BAG_CHANCE = 0.3;
-export const SQUAD_BAG_CHANCE = 0.6;
-/** Entre deux duels d'un duo ou d'une escouade, on récupère cette part des PV perdus. */
-export const HEAL_BETWEEN_DUELS = 0.5;
+/** Chance qu'une Élite vaincue donne aussi une sacoche. */
+export const ELITE_BAG_CHANCE = 0.4;
+/** Objets qu'on emporte du sac du vaincu : 1 après un duel, 2 après une Élite. */
+export const DUEL_PICKS = 1;
+export const ELITE_PICKS = 2;
 /** Manche du duel final « Top 1 ». */
 export const FINAL_ROUND = ROUNDS;
 /** Bonus de difficulté du duel final, et du Goulag (duel équitable). */
@@ -42,7 +42,7 @@ export const FINAL_DANGER = 2;
 export const GOULAG_DANGER = 0;
 /** Revente : moitié du prix. */
 export const SELL_RATIO = 0.5;
-const SAVE_KEY = 'hotdrop.run.v7';
+const SAVE_KEY = 'hotdrop.run.v8';
 
 /** PV max de tout le monde (joueur et bots) à une manche donnée : la même formule que les bots (maxHpFor). */
 export function roundMaxHp(round: number): number {
@@ -58,20 +58,14 @@ export interface ShopOffer {
   sold: boolean;
 }
 
-export type FightKind = 'solo' | 'duo' | 'squad' | 'final';
+export type FightKind = 'solo' | 'elite' | 'final';
 
-/**
- * Combat en cours (solo, duo, escouade ou final). Entre les duels d'un duo ou d'une escouade, les PV sont reportés
- * et on récupère HEAL_BETWEEN_DUELS des PV perdus.
- */
+/** Combat en cours (duel, Élite ou final) : toujours un seul duel. */
 export interface Fight {
   kind: FightKind;
   /** Index de la carte jouée (-1 pour le final). */
   cardIndex: number;
-  /** Duel en cours (index 0). */
-  duel: number;
-  total: number;
-  /** PV au début du duel en cours. */
+  /** PV au début du duel. */
   hp: number;
 }
 
@@ -130,8 +124,6 @@ export interface DuelParams {
   seed: number;
   round: number;
   danger: number;
-  /** Duel en cours / nombre de duels (squad), 0/1 sinon. */
-  squad: { duel: number; total: number };
   /** PV du joueur au début du duel, et PV max de la manche. */
   hp: number;
   maxHp: number;
@@ -220,8 +212,8 @@ function zoneDanger(run: RunState): number {
   return z ? DANGER_BY_SIZE[z.size] : 0;
 }
 
-export function duelSeed(run: RunState, cardIndex: number, duel: number): number {
-  return hashParts(run.seed, 'duel', run.round, run.zoneId ?? -1, cardIndex, duel);
+export function duelSeed(run: RunState, cardIndex: number): number {
+  return hashParts(run.seed, 'duel', run.round, run.zoneId ?? -1, cardIndex, 0);
 }
 
 /**
@@ -250,7 +242,7 @@ export function playCard(run: RunState, index: number): PlayResult | null {
     run.pendingLoot = { items: offers, usable: [], crate, maxPicks: Math.min(def.picks, offers.length), picked: 0 };
     return { kind: 'caisse', crate, loot: { items: [], bags: bags.taken, credits: cash + bags.credits } };
   }
-  run.fight = { kind: card.type, cardIndex: index, duel: 0, total: card.duels, hp: roundMaxHp(run.round) };
+  run.fight = { kind: card.type, cardIndex: index, hp: roundMaxHp(run.round) };
   return { kind: 'duel', ...currentDuel(run)! };
 }
 
@@ -259,11 +251,11 @@ export function currentDuel(run: RunState): DuelParams | null {
   const f = run.fight;
   if (!f) return null;
   if (f.kind === 'final') {
-    return { type: 'final', seed: hashParts(run.seed, 'final'), round: FINAL_ROUND, danger: FINAL_DANGER, squad: { duel: 0, total: 1 }, hp: f.hp, maxHp: roundMaxHp(FINAL_ROUND) };
+    return { type: 'final', seed: hashParts(run.seed, 'final'), round: FINAL_ROUND, danger: FINAL_DANGER, hp: f.hp, maxHp: roundMaxHp(FINAL_ROUND) };
   }
   return {
-    type: f.kind, seed: duelSeed(run, f.cardIndex, f.duel), round: run.round, danger: zoneDanger(run),
-    squad: { duel: f.duel, total: f.total }, hp: f.hp, maxHp: roundMaxHp(run.round),
+    type: f.kind, seed: duelSeed(run, f.cardIndex), round: run.round, danger: zoneDanger(run),
+    hp: f.hp, maxHp: roundMaxHp(run.round),
   };
 }
 
@@ -282,8 +274,6 @@ export interface DuelResolution {
   loot: Loot;
   /** Victoire : objets du sac du bot à fouiller (aussi dans run.pendingLoot). */
   lootChoices?: ItemInst[];
-  /** Duel suivant du duo ou de l'escouade (PV reportés, en partie soignés), à lancer après finishLoot. */
-  next?: DuelParams;
   /** L'action est terminée : l'UI appelle endAction (après finishLoot). */
   actionDone: boolean;
   /** Défaite avec le Goulag disponible : l'UI lance goulagParams puis resolveGoulag. */
@@ -292,16 +282,15 @@ export interface DuelResolution {
 }
 
 /** Crédits d'un duel gagné. */
-export function duelCredits(kind: FightKind, round: number, last: boolean): number {
+export function duelCredits(kind: FightKind, round: number): number {
   if (kind === 'final') return 0;
-  if (kind === 'solo') return 6 + 2 * round;
-  if (kind === 'duo') return 5 + 2 * round + (last ? 6 + 2 * round : 0);
-  return 5 + 2 * round + (last ? 10 + 3 * round : 0);
+  if (kind === 'elite') return 10 + 3 * round;
+  return 6 + 2 * round;
 }
 
 /**
- * Résout le duel en cours. Victoire : crédits (et sacoche de fin de squad) tout de suite ; les objets du bot
- * attendent la fouille du joueur (run.pendingLoot, lootItem, puis finishLoot).
+ * Résout le duel en cours. Victoire : crédits (et sacoche après une Élite) tout de suite ; on fouille ensuite le sac
+ * du vaincu pour y prendre 1 objet (2 après une Élite) : run.pendingLoot, lootItem, puis finishLoot.
  */
 export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const empty: Loot = { items: [], bags: [], credits: 0 };
@@ -313,7 +302,7 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
     return { loot: empty, actionDone: true, goulag: false, over: run.over };
   }
   if (!out.win) {
-    run.fight = undefined; // le reste de la squad est annulé
+    run.fight = undefined;
     if (!run.goulagUsed) {
       run.goulagUsed = true;
       run.pendingGoulag = true;
@@ -322,26 +311,17 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
     run.over = 'lose';
     return { loot: empty, actionDone: true, goulag: false, over: 'lose' };
   }
-  const last = f.duel + 1 >= f.total;
-  const bagChance = !last ? 0 : f.kind === 'squad' ? SQUAD_BAG_CHANCE : f.kind === 'duo' ? DUO_BAG_CHANCE : 0;
-  const rng = rngFor(run.seed, 'loot', run.round, run.zoneId ?? -1, f.cardIndex, f.duel);
+  const bagChance = f.kind === 'elite' ? ELITE_BAG_CHANCE : 0;
+  const rng = rngFor(run.seed, 'loot', run.round, run.zoneId ?? -1, f.cardIndex);
   const bags = rng() < bagChance ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
-  const reward = duelCredits(f.kind, run.round, last);
+  const reward = duelCredits(f.kind, run.round);
   run.credits += reward;
   const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
-  // Le sac du bot : le joueur le fouille, sauf les objets réservés à l'autre opérateur (chacun ses builds).
+  // Le sac du vaincu, tel qu'il était rangé : on y choisit son butin (sauf les objets de signature de l'autre opérateur).
   const choices = out.botItems.filter((it) => canUse(run.operator, it.defId)).map((it) => ({ ...it, placed: true }));
-  if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], picked: 0 };
-  const res: DuelResolution = { loot, lootChoices: choices, actionDone: last, goulag: false };
-  if (!last) {
-    f.duel++;
-    // Souffle entre deux duels : on récupère une partie des PV perdus.
-    const max = roundMaxHp(run.round);
-    const hpEnd = Math.max(1, Math.round(out.hpEnd));
-    f.hp = Math.min(max, Math.round(hpEnd + (max - hpEnd) * HEAL_BETWEEN_DUELS));
-    res.next = currentDuel(run)!;
-    return res;
-  }
+  const picks = f.kind === 'elite' ? ELITE_PICKS : DUEL_PICKS;
+  if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], maxPicks: Math.min(picks, choices.length), picked: 0 };
+  const res: DuelResolution = { loot, lootChoices: choices, actionDone: true, goulag: false };
   run.fight = undefined;
   return res;
 }
@@ -403,7 +383,7 @@ export function finishLoot(run: RunState): void {
 export function goulagParams(run: RunState): DuelParams | null {
   if (!run.pendingGoulag) return null;
   const round = Math.min(run.round, FINAL_ROUND);
-  return { type: 'goulag', seed: hashParts(run.seed, 'goulag'), round, danger: GOULAG_DANGER, squad: { duel: 0, total: 1 }, hp: roundMaxHp(round), maxHp: roundMaxHp(round) };
+  return { type: 'goulag', seed: hashParts(run.seed, 'goulag'), round, danger: GOULAG_DANGER, hp: roundMaxHp(round), maxHp: roundMaxHp(round) };
 }
 
 /** Résultat du Goulag. Victoire : retour en jeu, l'action est consommée (l'UI appelle endAction). Défaite : fin de run. */
@@ -433,7 +413,7 @@ export function endAction(run: RunState): { nextRound: boolean; final: boolean }
 /** Lance le duel final « Top 1 » (après la 5e manche). */
 export function finalDuelParams(run: RunState): DuelParams | null {
   if (run.over || run.round < FINAL_ROUND || run.pendingGoulag) return null;
-  if (!run.fight) run.fight = { kind: 'final', cardIndex: -1, duel: 0, total: 1, hp: roundMaxHp(FINAL_ROUND) };
+  if (!run.fight) run.fight = { kind: 'final', cardIndex: -1, hp: roundMaxHp(FINAL_ROUND) };
   return currentDuel(run);
 }
 

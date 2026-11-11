@@ -26,14 +26,14 @@ export interface GameMap {
   final: { x: number; y: number };
 }
 
-/** `squad` = escouade (3 ou 4 duels), `duo` = 2 duels, `solo` = 1 duel. */
-export type CardType = 'squad' | 'duo' | 'solo' | 'caisse' | 'caisse_renforcee' | 'shop' | 'caisse_epique';
+/** `solo` = un duel, `elite` = un duel contre un bot fort (meilleur butin). */
+export type CardType = 'elite' | 'solo' | 'caisse' | 'caisse_renforcee' | 'shop' | 'caisse_epique';
 /** Types tirés au poids (la caisse épique est tirée à part, au plus une par zone). */
 export type WeightedCardType = Exclude<CardType, 'caisse_epique'>;
 
 export interface Card {
   type: CardType;
-  /** Nombre de duels : 1 (solo), 2 (duo), 3 ou 4 (escouade), 0 (caisses, boutique). */
+  /** Nombre de duels : 1 (solo, élite), 0 (caisses, boutique). */
   duels: number;
 }
 
@@ -50,9 +50,9 @@ export const DANGER_BY_SIZE: Record<ZoneSize, number> = { petite: 0, moyenne: 0.
 export const ZONE_RADIUS: Record<ZoneSize, number> = { petite: 48, moyenne: 68, grande: 92 };
 /** Poids de tirage des cartes selon la taille de la zone. */
 export const CARD_WEIGHTS: Record<ZoneSize, Record<WeightedCardType, number>> = {
-  petite: { squad: 3, duo: 8, solo: 33, caisse: 28, caisse_renforcee: 4, shop: 20 },
-  moyenne: { squad: 12, duo: 16, solo: 28, caisse: 14, caisse_renforcee: 6, shop: 20 },
-  grande: { squad: 22, duo: 20, solo: 29, caisse: 8, caisse_renforcee: 4, shop: 13 },
+  petite: { elite: 6, solo: 38, caisse: 30, caisse_renforcee: 6, shop: 20 },
+  moyenne: { elite: 16, solo: 36, caisse: 20, caisse_renforcee: 8, shop: 20 },
+  grande: { elite: 28, solo: 34, caisse: 12, caisse_renforcee: 6, shop: 13 },
 };
 /**
  * Chance qu'une zone contienne une caisse épique (au plus une par largage) : elle remplace une des cartes tirées.
@@ -61,10 +61,6 @@ export const CARD_WEIGHTS: Record<ZoneSize, Record<WeightedCardType, number>> = 
 export const EPIC_CRATE_CHANCE: Record<ZoneSize, number> = { petite: 0, moyenne: 0, grande: 0.5 };
 /** Manche (index 0) à partir de laquelle la caisse renforcée et la caisse épique apparaissent (2e cercle). */
 export const RICH_CRATES_FROM_ROUND = 1;
-/** Duels d'un duo. */
-export const DUO_DUELS = 2;
-/** Manche (index 0) à partir de laquelle une escouade enchaîne 4 duels au lieu de 3 (4e cercle). */
-export const SQUAD4_FROM_ROUND = 3;
 /** Rayon du premier cercle : couvre toute la carte. */
 const FIRST_RADIUS = 760;
 const MIN_SPACING = 175;
@@ -88,14 +84,9 @@ function shuffle<T>(rng: Rng, arr: T[]): T[] {
   return arr;
 }
 
-/** Duels d'une carte escouade selon la manche (index 0). */
-export function squadDuels(round: number): number {
-  return round >= SQUAD4_FROM_ROUND ? 4 : 3;
-}
-
-/** Carte de combat (solo, duo ou escouade). */
-export function isFightType(t: CardType): t is 'solo' | 'duo' | 'squad' {
-  return t === 'solo' || t === 'duo' || t === 'squad';
+/** Carte de combat (solo ou élite). */
+export function isFightType(t: CardType): t is 'solo' | 'elite' {
+  return t === 'solo' || t === 'elite';
 }
 
 export function genMap(seed: number): GameMap {
@@ -187,7 +178,7 @@ export function drawCards(seed: number, round: number, zone: MapZone): Card[] {
     const spots = types.map((_, i) => i).filter((i) => fights > 1 || !isFightType(types[i]));
     types[spots[Math.floor(rng() * spots.length)]] = 'caisse_epique';
   }
-  return types.map((type) => ({ type, duels: type === 'squad' ? squadDuels(round) : type === 'duo' ? DUO_DUELS : type === 'solo' ? 1 : 0 }));
+  return types.map((type) => ({ type, duels: isFightType(type) ? 1 : 0 }));
 }
 
 export function isFight(card: Card): boolean {

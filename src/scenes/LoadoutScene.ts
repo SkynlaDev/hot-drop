@@ -18,7 +18,7 @@ import {
   finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
   finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
-import { PlayerLoadout, computeLoadout, describe, estimateDps, magsOf } from '../logic/stats';
+import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
 import { Button, bagView, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
 
@@ -121,8 +121,8 @@ export default class LoadoutScene extends Phaser.Scene {
   private play: DuelPlay | null = null;
   /** Marque (Sentinelle) : viseur posé sur le combattant marqué, par camp. */
   private markers: Partial<Record<Side, Container>> = {};
-  /** Munitions de chaque arme pendant le duel (clé `côté:uid`) : balles, capacité, recharges restantes, à sec. */
-  private ammo = new Map<string, { ammo: number; mag: number; left: number; dry: boolean }>();
+  /** Munitions de chaque arme pendant le duel (clé `côté:uid`) : balles dans le chargeur, capacité. */
+  private ammo = new Map<string, { ammo: number; mag: number }>();
   /** Sacs des deux camps pendant le duel (bonus de Marque affiché). */
   private fightL: Record<Side, PlayerLoadout> | null = null;
   private me: Actor | null = null;
@@ -397,19 +397,19 @@ export default class LoadoutScene extends Phaser.Scene {
       if (dx !== 0) this.linkG.fillRoundedRect(ex - 4, ey - 19, 8, 38, 4);
       else this.linkG.fillRoundedRect(ex - 19, ey - 4, 38, 8, 4);
     }
-    // Munitions du duel : nombre de chargeurs pleins de chaque arme (rouge = aucun chargeur adjacent).
+    // Armes sans chargeur de leur calibre : pastille « recharge ×2 ».
     this.unfedLayer.removeAll(true);
     for (const w of loadout.weapons) {
+      if (w.fed) continue;
       const inst = this.run.items.find((i) => i.uid === w.uid);
       if (!inst || this.drag?.item?.uid === inst.uid || this.hidden.has(inst.uid)) continue;
-      const n = magsOf(w);
       const [cx, cy] = cellsAt(inst, inst.x, inst.y)[0];
       const bx = GRID_X + cx * CELL + 5;
       const by = GRID_Y + cy * CELL + CELL - 26;
       const g = this.add.graphics();
-      g.fillStyle(n > 1 ? 0x2f6fd0 : C.danger, 1);
+      g.fillStyle(C.danger, 1);
       g.fillRoundedRect(bx, by, 58, 20, 6);
-      this.unfedLayer.add([g, txt(this, bx + 29, by + 10, `CHG ×${n}`, 12, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
+      this.unfedLayer.add([g, txt(this, bx + 29, by + 10, 'RECH ×2', 12, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
     }
 
     this.drawTray();
@@ -508,14 +508,12 @@ export default class LoadoutScene extends Phaser.Scene {
     L.add(txt(this, x0, y, op.name.toUpperCase(), 22, C.accentStr, { fontStyle: 'bold' }));
     L.add(txt(this, x0, y + 28, op.passive, 14, C.quiet, { wordWrap: { width: 290 } }));
     y += 62;
-    // Chargeurs pleins du duel ; un chargeur partagé entre deux armes ne compte qu'une fois.
-    const fed = new Set(loadout.weapons.flatMap((w) => w.magUids));
-    const chg = loadout.weapons.reduce((n, w) => n + 1 + w.ownReloads, 0) + loadout.mags.reduce((n, g) => n + (fed.has(g.uid) ? g.uses : 0), 0);
+    const fed = loadout.weapons.filter((w) => w.fed).length;
     const rows: [string, string, string?][] = [
       ['PV', `${loadout.maxHp}`, C.goodStr],
       ['Armure', `${loadout.armor}`],
       ['DPS estimé', `${Math.round(estimateDps(loadout))}`, C.accentStr],
-      ['Chargeurs', `${chg}`, loadout.weapons.some((w) => magsOf(w) <= 1) ? C.dangerStr : C.goodStr],
+      ['Armes alimentées', `${fed}/${loadout.weapons.length}`, loadout.weapons.some((w) => !w.fed) ? C.dangerStr : C.goodStr],
       ['Synergies', `${nLinks}`, nLinks ? C.accentStr : undefined],
     ];
     for (const [k, v, col] of rows) {
@@ -1464,7 +1462,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private setupDuel(p: DuelParams) {
     this.params = p;
-    this.bot = generateBot(p.seed, p.round, { danger: p.danger, final: p.type === 'final', goulag: p.type === 'goulag' });
+    this.bot = generateBot(p.seed, p.round, { danger: p.danger, final: p.type === 'final', goulag: p.type === 'goulag', elite: p.type === 'elite' });
     this.botL = botLoadout(this.bot);
     this.phase = 'prep';
     this.post = null;
@@ -1476,7 +1474,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.refresh();
     saveRun(this.run);
     // Annonce du duel
-    const title = p.type === 'goulag' ? 'GOULAG' : p.type === 'final' ? 'TOP 1' : p.type === 'squad' ? `SQUAD ${p.squad.duel + 1}/${p.squad.total}` : 'DUEL SOLO';
+    const title = p.type === 'goulag' ? 'GOULAG' : p.type === 'final' ? 'TOP 1' : p.type === 'elite' ? 'ÉLITE' : 'DUEL SOLO';
     const col = p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text;
     this.slam(title, col, GRID_Y + 140);
     this.time.delayedCall(1300, () => toast(this, 'Range ton sac, puis « Combat ! »', C.text, GRID_Y + 300));
@@ -1549,17 +1547,8 @@ export default class LoadoutScene extends Phaser.Scene {
     L.add(shade);
     const p = this.params!;
     const head = p.type === 'goulag' ? 'GOULAG · DERNIÈRE CHANCE' : p.type === 'final' ? 'DERNIER CERCLE · TOP 1'
-      : p.type === 'squad' ? `ESCOUADE · COMBAT ${p.squad.duel + 1}/${p.squad.total}`
-      : p.type === 'duo' ? `DUO · COMBAT ${p.squad.duel + 1}/${p.squad.total}` : 'DUEL SOLO';
+      : p.type === 'elite' ? 'ÉLITE · BOT FORT' : 'DUEL SOLO';
     L.add(txt(this, A.x + 14, A.y + 18, head, 18, p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5));
-    if (p.squad.total > 1) {
-      // Pastilles de progression du duo ou de l'escouade
-      for (let i = 0; i < p.squad.total; i++) {
-        const done = i < p.squad.duel;
-        const cur = i === p.squad.duel;
-        L.add(this.add.circle(A.x + A.w - 20 - (p.squad.total - 1 - i) * 22, A.y + 18, 7, done ? C.good : cur ? C.accent : 0x555a4a).setStrokeStyle(2, 0x000000));
-      }
-    }
     const feet = A.y + A.h - 50;
     const { loadout } = this.loadout();
     const meFig = opFig(this.run.operator);
@@ -1786,7 +1775,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.ammo.clear();
     for (const side of ['a', 'b'] as Side[]) {
       for (const w of this.fightL[side].weapons) {
-        this.ammo.set(`${side}:${w.uid}`, { ammo: w.mag, mag: w.mag, left: magsOf(w) - 1, dry: false });
+        this.ammo.set(`${side}:${w.uid}`, { ammo: w.mag, mag: w.mag });
         this.showAmmo(side, w.uid);
       }
     }
@@ -1925,13 +1914,12 @@ export default class LoadoutScene extends Phaser.Scene {
     for (const v of [...this.views.values(), ...this.enemyViews.values()]) {
       (v.getData('heat') as Phaser.GameObjects.Text | undefined)?.setVisible(false);
       (v.getData('ammo') as Phaser.GameObjects.Text | undefined)?.setVisible(false);
-      v.setAlpha(1);
     }
     this.ammo.clear();
     this.unfedLayer.setVisible(true);
   }
 
-  /** Compteur de munitions sur l'arme : « 7/15 » + une barre par recharge restante, « CROSSE » une fois à sec. */
+  /** Compteur de munitions sur l'arme : « 7/15 », orange quand le chargeur est vide. */
   private showAmmo(side: Side, uid: number) {
     const st = this.ammo.get(`${side}:${uid}`);
     const v = this.viewOf(side, uid);
@@ -1947,17 +1935,11 @@ export default class LoadoutScene extends Phaser.Scene {
       v.add(t);
       v.setData('ammo', t);
     }
-    if (st.dry) {
-      t.setText('CROSSE').setColor(C.dangerStr);
-      v.setAlpha(0.6);
-    } else {
-      t.setText(`${st.ammo}/${st.mag}${st.left > 0 ? ' ' + '▮'.repeat(Math.min(st.left, 6)) : ''}`).setColor(st.ammo === 0 || st.left === 0 ? '#ffb36b' : '#ffffff');
-      v.setAlpha(1);
-    }
+    t.setText(`${st.ammo}/${st.mag}`).setColor(st.ammo === 0 ? '#ffb36b' : '#ffffff');
     t.setVisible(true);
   }
 
-  /** Coup de lame ou de crosse : entaille sur la cible. */
+  /** Coup de lame : entaille sur la cible. */
   private slash(to: Actor, color = 0xffffff) {
     const g = this.add.graphics().setDepth(25).setPosition(to.chest.x, to.chest.y);
     const d = to.side === 'b' ? 1 : -1;
@@ -2048,9 +2030,9 @@ export default class LoadoutScene extends Phaser.Scene {
         }
         if (e.melee) {
           if (!animate) break;
-          this.trigger(e.from, e.uid, e.melee === 'lame' ? 0xffffff : 0xb0b0b0);
-          this.slash(to, e.melee === 'lame' ? 0xffffff : 0xd0c0a0);
-          this.floatText(to, `${e.amount}${e.melee === 'crosse' ? ' ✊' : ''}`, to.side === 'a' ? C.dangerStr : C.text, 24);
+          this.trigger(e.from, e.uid, 0xffffff);
+          this.slash(to);
+          this.floatText(to, `${e.amount}`, to.side === 'a' ? C.dangerStr : C.text, 24);
           if (e.bleed) this.floatText(to, `+${e.bleed} saignement`, BLEED_COLOR, 16, 30);
           this.hitReact(to);
           if (to.side === 'a') vibrate(5);
@@ -2085,28 +2067,12 @@ export default class LoadoutScene extends Phaser.Scene {
         const st = this.ammo.get(`${e.side}:${e.uid}`);
         if (st) {
           st.ammo = st.mag;
-          st.left = e.left;
           this.showAmmo(e.side, e.uid);
         }
         if (animate) {
           const v = this.viewOf(e.side, e.uid);
           if (v) flashItem(this, v, 0x4f9bff);
           this.setHeat(e.side, e.uid, 0); // la recharge éteint le Feu continu
-          if (e.left === 0) this.floatText(this.actor(e.side), 'DERNIER CHARGEUR', '#ffb36b', 15);
-        }
-        break;
-      }
-      case 'dry': {
-        const st = this.ammo.get(`${e.side}:${e.uid}`);
-        if (st) {
-          st.ammo = 0;
-          st.left = 0;
-          st.dry = true;
-          this.showAmmo(e.side, e.uid);
-        }
-        if (animate) {
-          this.setHeat(e.side, e.uid, 0);
-          this.floatText(this.actor(e.side), 'À SEC', C.quiet, 18);
         }
         break;
       }
@@ -2278,7 +2244,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.refresh();
       return;
     }
-    // Victoire : crédits (et sacoche de fin de squad) tout de suite, puis on fouille le sac du vaincu.
+    // Victoire : crédits (et sacoche après une Élite) tout de suite, puis on fouille le sac du vaincu.
     banner(this, 'VICTOIRE', C.goodStr, GRID_Y + 160);
     vibrate([30, 30, 60]);
     this.post = null;
@@ -2300,17 +2266,10 @@ export default class LoadoutScene extends Phaser.Scene {
     });
   }
 
-  /** Suite après le butin : duel suivant de la squad, ou fin de l'action. */
+  /** Suite après le butin : fin de l'action. */
   private afterLoot() {
-    const r = this.run;
-    const next = currentDuel(r);
-    if (next && next.type !== 'final' && next.type !== 'goulag') {
-      this.post = { label: `Combat ${next.squad.duel + 1}/${next.squad.total} →`, go: () => this.setupDuel(next) };
-      this.time.delayedCall(400, () => toast(this, `Souffle : prochain combat avec ${next.hp}/${next.maxHp} PV`, C.text, GRID_Y + 390));
-    } else {
-      const e = endAction(r);
-      this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
-    }
+    const e = endAction(this.run);
+    this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
     this.refresh();
   }
 
@@ -2431,7 +2390,7 @@ export default class LoadoutScene extends Phaser.Scene {
       } else {
         title.setText(left ? 'Touche un objet pour voir sa fiche, puis prends-le.' : 'Plus rien à prendre.').setColor(C.text);
         info.setText(crate ? 'Ce que tu prends va en réserve, puis dans le sac. Le reste reste dans la caisse.'
-          : 'Prends tout ce que tu veux : la réserve, puis le sac. Ce qui reste est perdu.');
+          : 'Choisis ce que tu emportes : la réserve, puis le sac. Le reste est perdu.');
         take.setLabel('Prendre');
         take.setEnabled(false);
       }

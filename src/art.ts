@@ -15,7 +15,7 @@ const ICON_OF: Record<string, string> = {
   lunette: 'scope', silencieux: 'silencer', poignee: 'grip', viseur_holo: 'holo', bipied: 'bipod', refroidisseur: 'silencer',
   plaque: 'plate', armure_lourde: 'plate', casque: 'helmet', casque_lourd: 'helmet',
   frag: 'frag', thermite: 'frag', sous_munitions: 'frag', fumigene: 'smoke', flash: 'flash',
-  couteau: 'bolt', couteau_combat: 'bolt', machette: 'bolt', masse: 'hand', crosse_renforcee: 'grip', taser: 'flash', bandage: 'medkit',
+  couteau: 'bolt', couteau_combat: 'bolt', machette: 'bolt', masse: 'hand', taser: 'flash', bandage: 'medkit',
   ifak: 'medkit', kit_trauma: 'medkit', sac_medical: 'medkit', seringue: 'syringe',
 };
 export const iconKey = (defId: string) => `ic-${ICON_OF[defId] ?? 'bolt'}`;

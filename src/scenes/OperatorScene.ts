@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { C, H, W } from '../config';
 import { FAMILY_INFO } from '../data/items';
 import { opFig, pxFigure } from '../art';
-import { NEUTRAL_FAMILIES, OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
+import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
 import { clearRun, newRun, saveRun } from '../logic/run';
 import { Button, button, fadeIn, itemView, pop, txt, vibrate } from '../ui/widgets';
@@ -87,11 +87,11 @@ export default class OperatorScene extends Phaser.Scene {
     const pas = txt(this, tx, ty, op.passive, 21, C.accentStr, { fontStyle: 'bold', wordWrap: { width: tw } });
     root.add(pas);
     ty += pas.height + 18;
-    root.add(txt(this, tx, ty, 'BUTIN', 16, C.quiet, { fontStyle: 'bold' }));
+    root.add(txt(this, tx, ty, 'SPÉCIALITÉ', 16, C.quiet, { fontStyle: 'bold' }));
     ty += 26;
     let cx = tx;
     let cy = ty;
-    for (const f of [op.family, ...NEUTRAL_FAMILIES]) {
+    for (const f of [op.family]) {
       const fi = FAMILY_INFO[f];
       const t = txt(this, 0, 0, fi.name, 17, fi.hex, { fontStyle: 'bold' });
       const w = t.width + 22;
@@ -108,7 +108,7 @@ export default class OperatorScene extends Phaser.Scene {
       root.add([chip, t]);
       cx += w + 8;
     }
-    const gr = txt(this, cx, cy + 15, '+ grenades', 17, C.quiet).setOrigin(0, 0.5);
+    const gr = txt(this, cx, cy + 15, '+ ses objets de signature, et tout le reste', 17, C.quiet).setOrigin(0, 0.5);
     if (cx + gr.width > tx + tw) gr.setPosition(tx, cy + 38 + 15);
     root.add(gr);
 

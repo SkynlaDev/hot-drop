@@ -13,7 +13,7 @@ export interface WeaponStats {
   reload: number; // secondes
   /** Impacts par tir sur l'adversaire (plombs) : 2 = chaque tir touche deux fois. */
   targets?: number;
-  /** Alimentation intégrée (objets assemblés) : 2 chargeurs de plus, sans objet chargeur. */
+  /** Toujours alimentée : ses munitions font partie de l'arme (objets assemblés). */
   selfFed?: boolean;
   /** N'importe quel chargeur adjacent l'alimente, quel que soit son calibre. */
   feedsAny?: boolean;
@@ -58,7 +58,7 @@ export interface ActiveStats {
 }
 
 export interface SynergyStats {
-  kind: 'mag' | 'scope' | 'silencer' | 'pierce' | 'grip' | 'extmag' | 'holo' | 'bipod' | 'drum' | 'cooler' | 'tracer' | 'butt';
+  kind: 'mag' | 'scope' | 'silencer' | 'pierce' | 'grip' | 'extmag' | 'holo' | 'bipod' | 'drum' | 'cooler' | 'tracer';
   value: number;
 }
 
@@ -79,8 +79,8 @@ export interface ItemDef {
   price: number;
   weapon?: WeaponStats;
   melee?: MeleeStats;
-  /** Chargeur : recharges qu'il donne par duel (1 par défaut ; 2 pour les gros calibres, peu de balles par chargeur). */
-  reloads?: number;
+  /** Objet de signature : seul cet opérateur peut le trouver et l'utiliser (il nourrit son passif). */
+  signature?: 'viper' | 'sentinelle';
   armor?: number;
   /** Chaque balle reçue perd ce nombre de dégâts (minimum 1). */
   flatReduce?: number;
@@ -92,7 +92,7 @@ export interface ItemDef {
 
 const DEFS: ItemDef[] = [
   { id: 'pistolet', name: 'Pistolet Mamba', short: 'Mamba', wclass: 'Pistolet', shape: ['XX', 'X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 4,
-    weapon: { dmg: 11, interval: 0.86, mag: 9, reload: 2.0 } },
+    weapon: { dmg: 11, interval: 0.86, mag: 8, reload: 2.0 } },
   { id: 'smg', name: 'SMG Furet', short: 'Furet', wclass: 'SMG', shape: ['XXX', '.X.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 6,
     weapon: { dmg: 4.5, interval: 0.4, mag: 15, reload: 2.5 } },
   { id: 'fusil_assaut', name: "Fusil d'assaut KR-4", short: 'KR-4', wclass: "Fusil d'assaut", shape: ['XXXX', '.X..'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 8,
@@ -100,13 +100,13 @@ const DEFS: ItemDef[] = [
   { id: 'pompe', name: 'Pompe Sanglier', short: 'Sanglier', wclass: 'Fusil à pompe', shape: ['XXXX', 'X...'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRound: 0, price: 8,
     weapon: { dmg: 18.5, interval: 1.5, mag: 4, reload: 3.0, targets: 2 } },
   { id: 'precision', name: 'Fusil de précision Aigle', short: 'Aigle', wclass: 'Fusil de précision', shape: ['XXXXX', '..X..'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRound: 1, price: 14,
-    weapon: { dmg: 38, interval: 3.0, mag: 8, reload: 3.5 } },
+    weapon: { dmg: 51.5, interval: 3.0, mag: 4, reload: 3.5 } },
   { id: 'chg_9mm', name: 'Chargeur 9 mm', short: 'Chg 9mm', shape: ['X'], category: 'munition', family: 'rafale', tags: ['munition'], caliber: '9mm', minRound: 0, price: 2,
     synergy: { kind: 'mag', value: 0.25 } },
   { id: 'chg_556', name: 'Chargeur 5.56', short: 'Chg 5.56', shape: ['X'], category: 'munition', family: 'rafale', tags: ['munition'], caliber: '5.56', minRound: 0, price: 2,
     synergy: { kind: 'mag', value: 0.25 } },
   { id: 'chg_762', name: 'Chargeur 7.62', short: 'Chg 7.62', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], caliber: '7.62', minRound: 0, price: 3,
-    reloads: 2, synergy: { kind: 'mag', value: 0.25 } },
+    synergy: { kind: 'mag', value: 0.25 } },
   { id: 'lunette', name: 'Lunette ×4', short: 'Lunette', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRound: 0, price: 5,
     synergy: { kind: 'scope', value: 0.25 } },
   { id: 'silencieux', name: 'Silencieux', short: 'Silenc.', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRound: 1, price: 7,
@@ -143,7 +143,7 @@ const DEFS: ItemDef[] = [
   { id: 'pompe_belier', name: 'Pompe auto Bélier', short: 'Bélier', wclass: 'Fusil à pompe', shape: ['XXXX', 'XX..'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRound: 1, price: 12,
     weapon: { dmg: 13, interval: 0.95, mag: 4, reload: 3.2, targets: 2 } },
   { id: 'dmr_faucon', name: 'DMR Faucon', short: 'Faucon', wclass: 'Fusil de précision', shape: ['XXXX', '..X.'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRound: 0, price: 10,
-    weapon: { dmg: 26, interval: 1.6, mag: 10, reload: 3.0 } },
+    weapon: { dmg: 35.5, interval: 1.6, mag: 5, reload: 3.0 } },
   // --- Alimentation et accessoires : sans eux, une arme vaut peu
   { id: 'chg_12g', name: 'Cartouches 12G', short: 'Cart. 12G', shape: ['X'], category: 'munition', family: 'demolition', tags: ['munition'], caliber: '12G', minRound: 0, price: 3,
     synergy: { kind: 'mag', value: 0.25 } },
@@ -158,13 +158,13 @@ const DEFS: ItemDef[] = [
   { id: 'bipied', name: 'Bipied', short: 'Bipied', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRound: 0, price: 5,
     synergy: { kind: 'bipod', value: 0.25 } },
   // --- Autour des passifs : Feu continu (Viper) et Marque (Sentinelle)
-  { id: 'chg_tambour', name: 'Chargeur tambour', short: 'Tambour', shape: ['XX', 'XX'], category: 'accessoire', family: 'rafale', tags: ['accessoire'], minRound: 0, price: 5,
+  { id: 'chg_tambour', name: 'Chargeur tambour', short: 'Tambour', shape: ['XX', 'XX'], category: 'accessoire', family: 'rafale', tags: ['accessoire'], signature: 'viper', minRound: 0, price: 5,
     synergy: { kind: 'drum', value: 1 } },
-  { id: 'refroidisseur', name: 'Refroidisseur de canon', short: 'Refroid.', shape: ['XXX'], category: 'accessoire', family: 'rafale', tags: ['accessoire'], minRound: 0, price: 5,
+  { id: 'refroidisseur', name: 'Refroidisseur de canon', short: 'Refroid.', shape: ['XXX'], category: 'accessoire', family: 'rafale', tags: ['accessoire'], signature: 'viper', minRound: 0, price: 5,
     synergy: { kind: 'cooler', value: 1 } },
   { id: 'colibri', name: 'Pistolet de poche Colibri', short: 'Colibri', wclass: 'Pistolet', shape: ['XX'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRound: 0, price: 5,
-    weapon: { dmg: 8, interval: 0.8, mag: 6, reload: 1.8, critBonus: 0.2 } },
-  { id: 'tracantes', name: 'Munitions traçantes', short: 'Traçantes', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], minRound: 1, price: 5,
+    weapon: { dmg: 8.5, interval: 0.8, mag: 6, reload: 1.8, critBonus: 0.2 } },
+  { id: 'tracantes', name: 'Munitions traçantes', short: 'Traçantes', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], signature: 'sentinelle', minRound: 1, price: 5,
     synergy: { kind: 'tracer', value: 0.3 } },
   // --- Objets assemblés (recettes, voir data/recipes.ts) : ingrédients adjacents, assemblage automatique
   { id: 'kr4_tactique', name: 'KR-4 Tactique', short: 'KR-4 T.', wclass: "Fusil d'assaut", shape: ['XXXX', '.XX.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 18, crafted: true,
@@ -172,13 +172,13 @@ const DEFS: ItemDef[] = [
   { id: 'furet_akimbo', name: 'Furet Akimbo', short: 'Akimbo', wclass: 'SMG', shape: ['XXX', 'XXX'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 16, crafted: true,
     weapon: { dmg: 4.5, interval: 0.38, mag: 24, reload: 2.6, targets: 2 } },
   { id: 'aigle_longuevue', name: 'Aigle Longue-vue', short: 'Longue-vue', wclass: 'Fusil de précision', shape: ['XXXXX', '..X..'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRound: 0, price: 26, crafted: true,
-    weapon: { dmg: 45, interval: 2.8, mag: 10, reload: 3.2, firstCrit: true, armorPierce: 0.5 } },
+    weapon: { dmg: 54, interval: 2.8, mag: 5, reload: 3.2, firstCrit: true, armorPierce: 0.5 } },
   { id: 'taureau_magnum', name: 'Taureau Magnum', short: 'Magnum', wclass: 'Pistolet', shape: ['XXX', 'X..'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRound: 0, price: 16, crafted: true,
-    weapon: { dmg: 26, interval: 1.3, mag: 12, reload: 2.2, selfFed: true, critStun: 0.5 } },
+    weapon: { dmg: 33.5, interval: 1.3, mag: 6, reload: 2.2, selfFed: true, critStun: 0.5 } },
   { id: 'ours_deluge', name: 'Ours Déluge', short: 'Déluge', wclass: 'SMG', shape: ['XXXX', '.XX.'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 18, crafted: true,
     weapon: { dmg: 8.5, interval: 0.36, mag: 40, reload: 3.4, selfFed: true, heatBonus: 0.2 } },
   { id: 'faucon_traqueur', name: 'Faucon Traqueur', short: 'Traqueur', wclass: 'Fusil de précision', shape: ['XXXX', '.XX.'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRound: 0, price: 18, crafted: true,
-    weapon: { dmg: 23, interval: 1.5, mag: 12, reload: 2.8, selfFed: true, critBonus: 0.1, markBoost: 0.3 } },
+    weapon: { dmg: 29.5, interval: 1.5, mag: 6, reload: 2.8, selfFed: true, critBonus: 0.1, markBoost: 0.3 } },
   { id: 'pompe_dragon', name: 'Pompe Dragon', short: 'Dragon', wclass: 'Fusil à pompe', shape: ['XXXX', 'X...'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRound: 0, price: 16, crafted: true,
     weapon: { dmg: 16, interval: 1.4, mag: 5, reload: 2.8, targets: 2, selfFed: true, trueDmg: 5 } },
   { id: 'thermite', name: 'Grenade thermite', short: 'Thermite', shape: ['X', 'X'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 12, crafted: true,
@@ -194,8 +194,6 @@ const DEFS: ItemDef[] = [
     melee: { dmg: 3, interval: 1.0, bleed: 4 } },
   { id: 'masse', name: 'Masse', short: 'Masse', wclass: 'Masse', shape: ['XXX'], category: 'arme', family: 'tactique', tags: ['melee'], minRound: 1, price: 7,
     melee: { dmg: 12, interval: 1.8, armorPierce: 0.3 } },
-  { id: 'crosse_renforcee', name: 'Crosse renforcée', short: 'Crosse R.', shape: ['X'], category: 'accessoire', family: 'tactique', tags: ['accessoire'], minRound: 0, price: 3,
-    synergy: { kind: 'butt', value: 1 } },
   { id: 'taser', name: 'Taser', short: 'Taser', shape: ['XX'], category: 'accessoire', family: 'tactique', tags: ['accessoire'], minRound: 0, price: 5,
     active: { kind: 'taser', value: 3, cooldown: 0, charges: 1, duration: 1.5 } },
   { id: 'bandage', name: 'Bandage', short: 'Bandage', shape: ['X'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 0, price: 3,
@@ -206,7 +204,7 @@ const DEFS: ItemDef[] = [
   { id: 'mamba_akimbo', name: 'Mamba Akimbo', short: 'Akimbo M.', wclass: 'Pistolet', shape: ['XX', 'XX'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 10, crafted: true,
     weapon: { dmg: 11, interval: 0.75, mag: 16, reload: 2.2, targets: 2 } },
   { id: 'taureau_jumeaux', name: 'Taureau Jumeaux', short: 'Jumeaux', wclass: 'Pistolet', shape: ['XXX', 'XX.'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRound: 0, price: 14, crafted: true,
-    weapon: { dmg: 17, interval: 1.3, mag: 16, reload: 2.6, targets: 2, critBonus: 0.1 } },
+    weapon: { dmg: 22, interval: 1.3, mag: 8, reload: 2.6, targets: 2, critBonus: 0.1 } },
   { id: 'casque_lourd', name: 'Casque lourd', short: 'Casque L.', shape: ['XX', 'XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 0, price: 8, crafted: true,
     armor: 32, flatReduce: 1 },
   { id: 'sous_munitions', name: 'Grenade à sous-munitions', short: 'Sous-mun.', shape: ['X'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 8, crafted: true,
@@ -222,7 +220,7 @@ export const LOOT_IDS: string[] = DEFS.filter((d) => !d.crafted).map((d) => d.id
 
 export const FAMILY_INFO: Record<Family, { name: string; color: number; hex: string; tier2: string; tier4: string }> = {
   rafale: { name: 'Rafale', color: 0xe8a33d, hex: '#f0b252', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 3 touche deux fois' },
-  precision: { name: 'Précision', color: 0x4fc3f7, hex: '#6fd0fa', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,25 au lieu de ×2, chargeurs des armes de précision ×1,6' },
+  precision: { name: 'Précision', color: 0x4fc3f7, hex: '#6fd0fa', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,25 au lieu de ×2' },
   demolition: { name: 'Démolition', color: 0xe5484d, hex: '#ff6b6b', tier2: '+1 charge pour chaque explosif', tier4: "Explosions et fusils à pompe ignorent l'armure" },
   rempart: { name: 'Rempart', color: 0x9fb3c0, hex: '#b4c6d2', tier2: "+20 % d'armure", tier4: "L'armure se régénère de 2 par seconde" },
   tactique: { name: 'Tactique', color: 0x9bbf3a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Prévu avec la radio et le drone' },
