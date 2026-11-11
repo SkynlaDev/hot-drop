@@ -3,6 +3,8 @@
 Roguelike d'autobattler au gilet tactique, mobile d'abord, jouable dans le navigateur.
 Phaser 4 + TypeScript + Vite.
 
+**Règles, recettes et objets : [docs/WIKI.md](docs/WIKI.md)** (généré par `npm run wiki`).
+
 ## Lancer
 
 ```bash
@@ -10,6 +12,7 @@ npm install
 npm run dev        # http://localhost:5173 (et l'adresse réseau, pour tester sur téléphone)
 npm test           # tests de la logique (grille, rareté, synergies, combat)
 npm run build      # version statique dans dist/
+npm run wiki       # régénère docs/WIKI.md depuis les données
 npx vite-node tests/balance.ts   # taux de victoire par étage, pour l'équilibrage
 ```
 
