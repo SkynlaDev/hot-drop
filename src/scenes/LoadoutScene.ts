@@ -18,7 +18,7 @@ import { Craftable, autoCraft } from '../logic/recipes';
 import {
   BAG_RESERVE_MAX, CrateKind, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
   finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
-  finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
+  closeResupply, finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
 import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
@@ -582,12 +582,12 @@ export default class LoadoutScene extends Phaser.Scene {
     const x1 = COMBAT.x + 350;
     L.add(this.add.rectangle(x1 - 16, COMBAT.y + 18, 2, COMBAT.h - 36, C.panelLine).setOrigin(0));
     let y1 = COMBAT.y + 18;
-    const title = this.mode === 'shop' ? 'BOUTIQUE' : this.mode === 'caisse' ? CRATE_TITLE[this.crate] : 'SAC À DOS';
+    const title = this.mode === 'shop' ? (this.run.resupply ? 'RAVITAILLEMENT' : 'BOUTIQUE') : this.mode === 'caisse' ? CRATE_TITLE[this.crate] : 'SAC À DOS';
     L.add(txt(this, x1, y1, title, 22, C.text, { fontStyle: 'bold', wordWrap: { width: 310 } }));
     y1 += 40;
     const lines: [string, string][] = [];
     if (this.mode === 'shop') {
-      lines.push(['Achète, range, puis termine l\'action.', C.text]);
+      lines.push([this.run.resupply ? 'Le cercle se resserre : achète et range avant la suite.' : 'Achète, range, puis termine l\'action.', C.text]);
       lines.push([`Relance : ${REROLL_COST} cr`, C.quiet]);
     } else if (this.mode === 'caisse') {
       const l = this.loot;
@@ -1211,7 +1211,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (this.modal) return;
     const offers = shopOffers(this.run);
     const m = modalBase(this);
-    m.add(txt(this, W / 2, 130, 'BOUTIQUE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
+    m.add(txt(this, W / 2, 130, this.run.resupply ? 'RAVITAILLEMENT' : 'BOUTIQUE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
     m.add(txt(this, W / 2, 180, `◆ ${this.run.credits} cr`, 28, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5));
     const cw = 320;
     const ch = 236;
@@ -1241,7 +1241,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.closeModal();
       this.refresh();
     }, { size: 24, primary: true }).root);
-    m.add(txt(this, W / 2, by + 112, 'Les achats vont en réserve. « Terminer » clôt l\'action.', 17, C.quiet).setOrigin(0.5));
+    m.add(txt(this, W / 2, by + 112, this.run.resupply ? 'Les achats vont en réserve. « Terminer » ramène à la carte.' : 'Les achats vont en réserve. « Terminer » clôt l\'action.', 17, C.quiet).setOrigin(0.5));
     this.modal = m;
     this.updateButtons();
     saveRun(this.run);
@@ -1486,11 +1486,15 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     if (this.phase !== 'edit') return;
     if (this.mode === 'manage') return this.route();
+    if (this.run.resupply) {
+      // Fin du ravitaillement : la carte, avec le gaz qui se resserre (ou le Top 1).
+      closeResupply(this.run);
+      return this.route();
+    }
     // Boutique ou caisse : fin de l'action
     const e = endAction(this.run);
     saveRun(this.run);
-    if (e?.final) return this.announceFinal();
-    this.route();
+    this.route(); // fin de cercle : la carte ouvre le ravitaillement
   }
 
   private onAlt() {
@@ -2330,7 +2334,7 @@ export default class LoadoutScene extends Phaser.Scene {
         banner(this, 'DE RETOUR !', C.goodStr, GRID_Y + 160);
         vibrate([40, 40, 80]);
         const e = endAction(r);
-        this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
+        this.post = e?.nextRound ? { label: 'Ravitaillement →', go: () => this.route() } : { label: 'Continuer', go: () => this.route() };
       } else this.gameOver(false);
       this.refresh();
       return;
@@ -2374,7 +2378,7 @@ export default class LoadoutScene extends Phaser.Scene {
   /** Suite après le butin : fin de l'action. */
   private afterLoot() {
     const e = endAction(this.run);
-    this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };
+    this.post = e?.nextRound ? { label: 'Ravitaillement →', go: () => this.route() } : { label: 'Continuer', go: () => this.route() };
     this.refresh();
   }
 

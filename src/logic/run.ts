@@ -108,6 +108,8 @@ export interface RunState {
   pendingLoot?: PendingLoot;
   /** Un duel vient d'être perdu : le Goulag attend d'être joué. */
   pendingGoulag?: boolean;
+  /** Le cercle vient de se resserrer : la boutique du ravitaillement attend avant la carte (ou le Top 1). */
+  resupply?: boolean;
   credits: number;
   items: ItemInst[];
   bags: BagInst[];
@@ -192,7 +194,7 @@ export function selectableZones(run: RunState): MapZone[] {
 /** Largage dans une zone : tire ses cartes. Renvoie faux si la zone n'est pas jouable. */
 export function dropInZone(run: RunState, zoneId: number): boolean {
   const zone = run.map.zones[zoneId];
-  if (!zone || !selectableZones(run).includes(zone)) return false;
+  if (run.resupply || !zone || !selectableZones(run).includes(zone)) return false;
   run.zoneId = zoneId;
   run.cards = drawCards(run.seed, run.round, zone);
   run.played = [];
@@ -407,12 +409,13 @@ export function endAction(run: RunState): { nextRound: boolean; final: boolean }
   run.zoneId = null;
   run.cards = [];
   run.played = [];
+  run.resupply = true;
   return { nextRound: true, final: run.round >= FINAL_ROUND };
 }
 
 /** Lance le duel final « Top 1 » (après la 5e manche). */
 export function finalDuelParams(run: RunState): DuelParams | null {
-  if (run.over || run.round < FINAL_ROUND || run.pendingGoulag) return null;
+  if (run.over || run.round < FINAL_ROUND || run.pendingGoulag || run.resupply) return null;
   if (!run.fight) run.fight = { kind: 'final', cardIndex: -1, hp: roundMaxHp(FINAL_ROUND) };
   return currentDuel(run);
 }
@@ -640,7 +643,14 @@ export function unplaceBag(run: RunState, uid: number): boolean {
 // ---------- Boutique ----------
 
 function shopKey(run: RunState): string {
+  if (run.resupply) return `ravitaillement:${run.round}`;
   return `${run.round}:${run.zoneId}:${run.played[run.played.length - 1] ?? -1}`;
+}
+
+/** Ferme la boutique du ravitaillement : place à la carte (ou au Top 1). */
+export function closeResupply(run: RunState): void {
+  run.resupply = false;
+  run.shop = undefined;
 }
 
 /** Offres de la boutique ouverte (tirées à la première ouverture pour cette carte). */

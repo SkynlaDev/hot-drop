@@ -11,7 +11,7 @@ import { BagInst, ItemInst, Rot, canPlaceBag, cellKey, cellsOf, usableCells } fr
 import { autoCraft } from '../src/logic/recipes';
 import {
   DuelParams, RESERVE_MAX, REROLL_COST, RunState, buyOffer, dropInZone, endAction, finalDuelParams,
-  goulagParams, newRun, playCard, reserve, rerollShop, resolveDuel, resolveGoulag, selectableZones, sellItem, shopOffers, finishLoot, lootItem, swapLoot,
+  closeResupply, goulagParams, newRun, playCard, reserve, rerollShop, resolveDuel, resolveGoulag, selectableZones, sellItem, shopOffers, finishLoot, lootItem, swapLoot,
 } from '../src/logic/run';
 import { Rng, mulberry32, hashParts } from '../src/logic/rng';
 import { PlayerLoadout, computeLoadout, itemPrice } from '../src/logic/stats';
@@ -293,6 +293,12 @@ export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunSt
       if (run.over) break;
       repack(run, rng);
       endAction(run);
+      // Fin de cercle : ravitaillement.
+      if (run.resupply) {
+        shop(run, rng);
+        repack(run, rng);
+        closeResupply(run);
+      }
     }
   }
   return st;

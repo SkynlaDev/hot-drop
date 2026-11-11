@@ -11,7 +11,7 @@ import { rngFor } from '../src/logic/rng';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
-  CRATES, ELITE_PICKS, DUEL_PICKS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
+  CRATES, ELITE_PICKS, closeResupply, DUEL_PICKS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
   unplaceBag,
 } from '../src/logic/run';
 import {
@@ -274,6 +274,15 @@ describe('run', () => {
       expect(run.actionsLeft).toBe(ACTIONS_PER_ZONE);
       for (let a = 0; a < ACTIONS_PER_ZONE; a++) playThrough(run, firstCard(run));
       expect(run.zoneId).toBeNull();
+      // Le cercle se resserre : ravitaillement (une boutique à part) avant la carte ou le Top 1.
+      expect(run.resupply).toBe(true);
+      expect(finalDuelParams(run)).toBeNull();
+      if (r + 1 < ROUNDS) expect(dropInZone(run, selectableZones(run)[0].id)).toBe(false);
+      const offers = shopOffers(run);
+      expect(offers.length).toBeGreaterThan(0);
+      expect(run.shop!.key).toBe(`ravitaillement:${r + 1}`);
+      closeResupply(run);
+      expect(run.shop).toBeUndefined();
     }
     expect(run.round).toBe(FINAL_ROUND);
     expect(selectableZones(run)).toEqual([]);

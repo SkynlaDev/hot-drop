@@ -102,6 +102,10 @@ en rangeant (+40 par étoile allumée). Armes de précision assemblées −5 % p
 et les objets en plus des bots (donc le butin). Marché noir : poids de la boutique ×2. Thème affiché sur la carte,
 dans le panneau de zone et dans la zone.
 
+**Fait (étape 5b)** : `run.resupply` posé par `endAction` à chaque fin de cercle (Top 1 compris) ; la carte ouvre la
+boutique « Ravitaillement » (clé `ravitaillement:<cercle>`), `closeResupply` rend la main à la carte ou au Top 1.
+On ne peut pas se larguer tant qu'il est ouvert. (Le verrou d'une offre reste à faire.)
+
 ## 5. Ordre d'implémentation (un commit poussé par étape, tests au vert)
 
 1. **Retours arrière** : munitions infinies, combats solo + Élite, butin 1 parmi 3, pool commun + signatures.

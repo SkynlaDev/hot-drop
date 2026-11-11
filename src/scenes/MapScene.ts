@@ -67,6 +67,11 @@ export default class MapScene extends Phaser.Scene {
       this.scene.start('loadout', { mode: 'duel' });
       return;
     }
+    if (run.resupply) {
+      // Le cercle s'est resserré : ravitaillement d'abord.
+      this.scene.start('loadout', { mode: 'shop' });
+      return;
+    }
     if (run.zoneId !== null) {
       this.scene.start('zone');
       return;
