@@ -26,13 +26,14 @@ export interface GameMap {
   final: { x: number; y: number };
 }
 
-export type CardType = 'squad' | 'solo' | 'caisse' | 'shop' | 'caisse_epique';
+/** `squad` = escouade (3 ou 4 duels), `duo` = 2 duels, `solo` = 1 duel. */
+export type CardType = 'squad' | 'duo' | 'solo' | 'caisse' | 'shop' | 'caisse_epique';
 /** Types tirés au poids (la caisse épique est tirée à part, au plus une par zone). */
 export type WeightedCardType = Exclude<CardType, 'caisse_epique'>;
 
 export interface Card {
   type: CardType;
-  /** Nombre de duels : 1 (solo), 2 ou 3 (squad), 0 (caisses, boutique). */
+  /** Nombre de duels : 1 (solo), 2 (duo), 3 ou 4 (escouade), 0 (caisses, boutique). */
   duels: number;
 }
 
@@ -49,17 +50,19 @@ export const DANGER_BY_SIZE: Record<ZoneSize, number> = { petite: 0, moyenne: 0.
 export const ZONE_RADIUS: Record<ZoneSize, number> = { petite: 48, moyenne: 68, grande: 92 };
 /** Poids de tirage des cartes selon la taille de la zone. */
 export const CARD_WEIGHTS: Record<ZoneSize, Record<WeightedCardType, number>> = {
-  petite: { squad: 8, solo: 40, caisse: 32, shop: 20 },
-  moyenne: { squad: 20, solo: 40, caisse: 20, shop: 20 },
-  grande: { squad: 35, solo: 40, caisse: 12, shop: 13 },
+  petite: { squad: 3, duo: 8, solo: 33, caisse: 32, shop: 20 },
+  moyenne: { squad: 12, duo: 16, solo: 32, caisse: 20, shop: 20 },
+  grande: { squad: 22, duo: 20, solo: 33, caisse: 12, shop: 13 },
 };
 /**
  * Chance qu'une zone contienne une caisse épique (au plus une par largage) : elle remplace une des cartes tirées.
  * Réservée aux grandes zones : c'est la récompense qui justifie d'aller au chaud.
  */
 export const EPIC_CRATE_CHANCE: Record<ZoneSize, number> = { petite: 0, moyenne: 0, grande: 0.5 };
-/** Manche (index 0) à partir de laquelle une squad enchaîne 3 duels au lieu de 2. */
-export const SQUAD3_FROM_ROUND = 2;
+/** Duels d'un duo. */
+export const DUO_DUELS = 2;
+/** Manche (index 0) à partir de laquelle une escouade enchaîne 4 duels au lieu de 3 (4e cercle). */
+export const SQUAD4_FROM_ROUND = 3;
 /** Rayon du premier cercle : couvre toute la carte. */
 const FIRST_RADIUS = 760;
 const MIN_SPACING = 175;
@@ -83,9 +86,14 @@ function shuffle<T>(rng: Rng, arr: T[]): T[] {
   return arr;
 }
 
-/** Duels d'une carte squad selon la manche (index 0). */
+/** Duels d'une carte escouade selon la manche (index 0). */
 export function squadDuels(round: number): number {
-  return round >= SQUAD3_FROM_ROUND ? 3 : 2;
+  return round >= SQUAD4_FROM_ROUND ? 4 : 3;
+}
+
+/** Carte de combat (solo, duo ou escouade). */
+export function isFightType(t: CardType): t is 'solo' | 'duo' | 'squad' {
+  return t === 'solo' || t === 'duo' || t === 'squad';
 }
 
 export function genMap(seed: number): GameMap {
@@ -165,19 +173,19 @@ export function drawCards(seed: number, round: number, zone: MapZone): Card[] {
     const allowed = (Object.keys(w) as WeightedCardType[]).filter((t) => t !== 'shop' || !types.includes('shop'));
     types.push(weighted(rng, allowed.map((t) => [t, w[t]] as const)));
   }
-  if (!types.some((t) => t === 'squad' || t === 'solo')) {
+  if (!types.some(isFightType)) {
     // Remplace une carte au hasard par un duel solo.
     types[Math.floor(rng() * types.length)] = 'solo';
   }
   // Caisse épique : remplace une carte au hasard, sans retirer le seul combat de la zone.
   if (rng() < EPIC_CRATE_CHANCE[zone.size]) {
-    const fights = types.filter((t) => t === 'squad' || t === 'solo').length;
-    const spots = types.map((_, i) => i).filter((i) => fights > 1 || !(types[i] === 'squad' || types[i] === 'solo'));
+    const fights = types.filter(isFightType).length;
+    const spots = types.map((_, i) => i).filter((i) => fights > 1 || !isFightType(types[i]));
     types[spots[Math.floor(rng() * spots.length)]] = 'caisse_epique';
   }
-  return types.map((type) => ({ type, duels: type === 'squad' ? squadDuels(round) : type === 'solo' ? 1 : 0 }));
+  return types.map((type) => ({ type, duels: type === 'squad' ? squadDuels(round) : type === 'duo' ? DUO_DUELS : type === 'solo' ? 1 : 0 }));
 }
 
 export function isFight(card: Card): boolean {
-  return card.type === 'squad' || card.type === 'solo';
+  return isFightType(card.type);
 }

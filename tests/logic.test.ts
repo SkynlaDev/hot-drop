@@ -11,7 +11,7 @@ import { rngFor } from '../src/logic/rng';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
-  craftedPool, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
+  HEAL_BETWEEN_DUELS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
   unplaceBag,
 } from '../src/logic/run';
 import {
@@ -180,18 +180,20 @@ describe('cartes', () => {
     }
   });
 
-  it('squad à 2 duels, 3 à partir de la 3e manche ; déterministe', () => {
-    const squadDuels = (round: number) => {
+  it('duo à 2 duels ; escouade à 3, 4 à partir du 4e cercle ; déterministe', () => {
+    const duels = (type: 'duo' | 'squad', round: number) => {
       for (let seed = 0; seed < 100; seed++) {
-        const c = drawCards(seed, round, zone('grande')).find((x) => x.type === 'squad');
+        const c = drawCards(seed, round, zone('grande')).find((x) => x.type === type);
         if (c) return c.duels;
       }
       return -1;
     };
-    expect(squadDuels(0)).toBe(2);
-    expect(squadDuels(1)).toBe(2);
-    expect(squadDuels(2)).toBe(3);
-    expect(squadDuels(4)).toBe(3);
+    expect(duels('duo', 0)).toBe(2);
+    expect(duels('duo', 4)).toBe(2);
+    expect(duels('squad', 0)).toBe(3);
+    expect(duels('squad', 2)).toBe(3);
+    expect(duels('squad', 3)).toBe(4);
+    expect(duels('squad', 4)).toBe(4);
     expect(drawCards(7, 1, zone('moyenne'))).toEqual(drawCards(7, 1, zone('moyenne')));
   });
 
@@ -208,6 +210,15 @@ describe('cartes', () => {
       }
       if (EPIC_CRATE_CHANCE[size] === 0) expect(zones).toBe(0);
       else expect(Math.abs(zones / 400 - EPIC_CRATE_CHANCE[size])).toBeLessThan(0.08);
+    }
+  });
+
+  it('crédits : solo < duo < escouade, bonus de fin plus gros pour l’escouade', () => {
+    for (const r of [0, 2, 4]) {
+      const total = (kind: 'solo' | 'duo' | 'squad', n: number) =>
+        Array.from({ length: n }, (_, k) => duelCredits(kind, r, k === n - 1)).reduce((a, b) => a + b, 0);
+      expect(total('duo', 2)).toBeGreaterThan(2 * total('solo', 1) - 2);
+      expect(total('squad', 3)).toBeGreaterThan(total('duo', 2) + total('solo', 1));
     }
   });
 
@@ -272,7 +283,7 @@ describe('run', () => {
     expect(playCard(run, j)).toBeNull();
   });
 
-  it('squad : PV reportés entre les duels, chaque bot vaincu se fouille, bonus à la fin', () => {
+  it('escouade : PV reportés et à moitié soignés entre les duels, chaque bot vaincu se fouille, bonus à la fin', () => {
     const run = newRun('viper', 1);
     run.round = 2;
     const z = selectableZones(run)[0];
@@ -285,7 +296,7 @@ describe('run', () => {
     expect(endAction(run)).toBeNull(); // combat en cours
     const r1 = resolveDuel(run, { win: true, hpEnd: 77, botItems: botItems() });
     expect(r1.actionDone).toBe(false);
-    expect(r1.next!.hp).toBe(77);
+    expect(r1.next!.hp).toBe(Math.round(77 + (roundMaxHp(2) - 77) * HEAL_BETWEEN_DUELS));
     expect(r1.next!.squad.duel).toBe(1);
     expect(r1.next!.seed).not.toBe(p.seed);
     expect(r1.lootChoices!.map((i) => i.defId)).toEqual(botItems().map((i) => i.defId));

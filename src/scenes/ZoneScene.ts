@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { ART, zoneBg } from '../art';
 import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
-import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS } from '../logic/zone';
+import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from '../logic/zone';
 import { DANGER_RAMP } from '../logic/bots';
 import { EPIC_EXTRA_ITEMS } from '../logic/run';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, statusPills } from '../ui/hud';
@@ -24,9 +24,11 @@ interface CardView {
 function cardDesc(card: Card): string {
   switch (card.type) {
     case 'squad':
-      return `${card.duels} duels d'affilée : tes PV ne remontent pas entre eux. Gros butin, et parfois une sacoche.`;
+      return `Escouade : ${card.duels} duels d'affilée, tu récupères la moitié des PV perdus entre deux. Tu fouilles chaque sac, gros bonus de crédits, souvent une sacoche.`;
+    case 'duo':
+      return `Duo : ${card.duels} duels d'affilée, tu récupères la moitié des PV perdus entre les deux. Tu fouilles chaque sac, bonus de crédits, parfois une sacoche.`;
     case 'solo':
-      return 'Un duel, sac contre sac. Tu récupères un objet du sac adverse et des crédits.';
+      return 'Un duel, sac contre sac. Tu fouilles le sac adverse et tu gagnes des crédits.';
     case 'caisse':
       return 'Pas de combat : un objet, et parfois une sacoche.';
     case 'caisse_epique':
@@ -240,7 +242,7 @@ export default class ZoneScene extends Phaser.Scene {
     disc.lineStyle(2, info.color, 0.5);
     disc.strokeCircle(0, iy, dr);
     root.add(disc);
-    if (card.type === 'squad' || card.type === 'solo') {
+    if (isFight(card)) {
       const fi = ART.figures['mil-stand'];
       const n = card.duels;
       const sc = (dr * 2.2) / (fi.h * 3);
@@ -268,10 +270,10 @@ export default class ZoneScene extends Phaser.Scene {
     // Détails
     let dy = t + h * 0.66;
     const fs = small ? 18 : 22;
-    if (card.type === 'squad' || card.type === 'solo') {
+    if (isFight(card)) {
       root.add(txt(this, 0, dy, card.duels > 1 ? `${card.duels} COMBATS` : '1 COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
-      root.add(txt(this, 0, dy, card.type === 'squad' ? 'Gros butin' : 'Butin normal', fs - 2, C.quiet).setOrigin(0.5));
+      root.add(txt(this, 0, dy, card.type === 'squad' ? 'Gros butin' : card.type === 'duo' ? 'Bon butin' : 'Butin normal', fs - 2, C.quiet).setOrigin(0.5));
       dy += fs + 10;
       const risk = riskOf(card, zone, this.run.round);
       const pw = small ? 18 : 24;

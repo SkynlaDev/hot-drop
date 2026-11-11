@@ -23,8 +23,11 @@ export const CRATE_BAG_CHANCE = 0.3;
 /** Caisse épique (grandes zones) : 1 objet assemblé garanti (recette de l'opérateur)… */
 /** … plus ce nombre d'objets ordinaires de la manche. */
 export const EPIC_EXTRA_ITEMS = 1;
-/** Chance qu'une squad terminée donne aussi une sacoche. */
-export const SQUAD_BAG_CHANCE = 0.5;
+/** Chance qu'un duo ou une escouade terminés donnent aussi une sacoche. */
+export const DUO_BAG_CHANCE = 0.3;
+export const SQUAD_BAG_CHANCE = 0.6;
+/** Entre deux duels d'un duo ou d'une escouade, on récupère cette part des PV perdus. */
+export const HEAL_BETWEEN_DUELS = 0.5;
 /** Manche du duel final « Top 1 ». */
 export const FINAL_ROUND = ROUNDS;
 /** Bonus de difficulté du duel final, et du Goulag (duel équitable). */
@@ -48,9 +51,12 @@ export interface ShopOffer {
   sold: boolean;
 }
 
-export type FightKind = 'solo' | 'squad' | 'final';
+export type FightKind = 'solo' | 'duo' | 'squad' | 'final';
 
-/** Combat en cours (solo, squad ou final). Les PV sont reportés entre les duels d'une squad. */
+/**
+ * Combat en cours (solo, duo, escouade ou final). Entre les duels d'un duo ou d'une escouade, les PV sont reportés
+ * et on récupère HEAL_BETWEEN_DUELS des PV perdus.
+ */
 export interface Fight {
   kind: FightKind;
   /** Index de la carte jouée (-1 pour le final). */
@@ -265,7 +271,7 @@ export interface DuelResolution {
   loot: Loot;
   /** Victoire : objets du sac du bot à fouiller (aussi dans run.pendingLoot). */
   lootChoices?: ItemInst[];
-  /** Duel suivant de la squad (PV reportés), si elle continue : à lancer après finishLoot. */
+  /** Duel suivant du duo ou de l'escouade (PV reportés, en partie soignés), à lancer après finishLoot. */
   next?: DuelParams;
   /** L'action est terminée : l'UI appelle endAction (après finishLoot). */
   actionDone: boolean;
@@ -278,7 +284,8 @@ export interface DuelResolution {
 export function duelCredits(kind: FightKind, round: number, last: boolean): number {
   if (kind === 'final') return 0;
   if (kind === 'solo') return 6 + 2 * round;
-  return 5 + 2 * round + (last ? 8 + 2 * round : 0);
+  if (kind === 'duo') return 5 + 2 * round + (last ? 6 + 2 * round : 0);
+  return 5 + 2 * round + (last ? 10 + 3 * round : 0);
 }
 
 /**
@@ -305,9 +312,9 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
     return { loot: empty, actionDone: true, goulag: false, over: 'lose' };
   }
   const last = f.duel + 1 >= f.total;
-  const squadEnd = f.kind === 'squad' && last;
+  const bagChance = !last ? 0 : f.kind === 'squad' ? SQUAD_BAG_CHANCE : f.kind === 'duo' ? DUO_BAG_CHANCE : 0;
   const rng = rngFor(run.seed, 'loot', run.round, run.zoneId ?? -1, f.cardIndex, f.duel);
-  const bags = squadEnd && rng() < SQUAD_BAG_CHANCE ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
+  const bags = rng() < bagChance ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
   const reward = duelCredits(f.kind, run.round, last);
   run.credits += reward;
   const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
@@ -317,7 +324,10 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const res: DuelResolution = { loot, lootChoices: choices, actionDone: last, goulag: false };
   if (!last) {
     f.duel++;
-    f.hp = Math.max(1, Math.round(out.hpEnd));
+    // Souffle entre deux duels : on récupère une partie des PV perdus.
+    const max = roundMaxHp(run.round);
+    const hpEnd = Math.max(1, Math.round(out.hpEnd));
+    f.hp = Math.min(max, Math.round(hpEnd + (max - hpEnd) * HEAL_BETWEEN_DUELS));
     res.next = currentDuel(run)!;
     return res;
   }

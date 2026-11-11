@@ -210,11 +210,13 @@ function cardScore(card: Card, run: RunState, policy: Policy): number {
     if (t === 'caisse') return 50;
     if (t === 'solo') return 40;
     if (t === 'shop') return run.credits >= 8 ? 45 : 5;
-    return 10; // squad
+    if (t === 'duo') return 15;
+    return 10; // escouade
   }
   // Une squad par zone tant que le Goulag est disponible ; ensuite il joue plus serré (mais reste au chaud).
   const squads = run.played.filter((i) => run.cards[i].type === 'squad').length;
   if (t === 'squad') return squads === 0 && !run.goulagUsed ? 60 : 8;
+  if (t === 'duo') return squads === 0 && !run.goulagUsed ? 55 : 20;
   if (t === 'shop') return run.credits >= 10 ? 50 : 5;
   if (t === 'caisse') return 45;
   return 40; // solo

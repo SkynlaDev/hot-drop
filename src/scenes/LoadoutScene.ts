@@ -1534,10 +1534,11 @@ export default class LoadoutScene extends Phaser.Scene {
     L.add(shade);
     const p = this.params!;
     const head = p.type === 'goulag' ? 'GOULAG · DERNIÈRE CHANCE' : p.type === 'final' ? 'DERNIER CERCLE · TOP 1'
-      : p.type === 'squad' ? `SQUAD · COMBAT ${p.squad.duel + 1}/${p.squad.total}` : 'DUEL SOLO';
+      : p.type === 'squad' ? `ESCOUADE · COMBAT ${p.squad.duel + 1}/${p.squad.total}`
+      : p.type === 'duo' ? `DUO · COMBAT ${p.squad.duel + 1}/${p.squad.total}` : 'DUEL SOLO';
     L.add(txt(this, A.x + 14, A.y + 18, head, 18, p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5));
-    if (p.type === 'squad') {
-      // Pastilles de progression de la squad
+    if (p.squad.total > 1) {
+      // Pastilles de progression du duo ou de l'escouade
       for (let i = 0; i < p.squad.total; i++) {
         const done = i < p.squad.duel;
         const cur = i === p.squad.duel;
@@ -2165,7 +2166,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const next = currentDuel(r);
     if (next && next.type !== 'final' && next.type !== 'goulag') {
       this.post = { label: `Combat ${next.squad.duel + 1}/${next.squad.total} →`, go: () => this.setupDuel(next) };
-      this.time.delayedCall(400, () => toast(this, `Prochain combat avec ${next.hp}/${next.maxHp} PV`, C.text, GRID_Y + 390));
+      this.time.delayedCall(400, () => toast(this, `Souffle : prochain combat avec ${next.hp}/${next.maxHp} PV`, C.text, GRID_Y + 390));
     } else {
       const e = endAction(r);
       this.post = e?.final ? { label: 'Dernier cercle →', go: () => this.announceFinal() } : { label: 'Continuer', go: () => this.route() };

@@ -56,10 +56,12 @@ l'indiquer sur la fiche de l'objet.
 **Décidé** : on garde Solo < Duo < Escouade, dès le cercle 1. Entre deux duels d'une même carte, le joueur **récupère des PV**.
 
 - Solo : 1 duel. **Duo** : 2 duels (nouveau). **Escouade** : 3 duels, 4 à partir du cercle 4.
-- Soin entre deux duels : **50 % des PV manquants** (à calibrer : viser ~45 % de réussite d'un duo au cercle 1 avec le sac de départ).
+- Soin entre deux duels : **50 % des PV manquants** (`HEAL_BETWEEN_DUELS`). Mesuré au cercle 1 avec le sac de départ et sans fouille
+  entre les duels : duo 15 à 21 %, escouade 2 à 6 %. En partie simulée (fouille et rangement entre les duels), le joueur agressif
+  gagne 93 % de ses duels au cercle 1.
 - Crédits : Solo 6+2r par duel ; Duo 5+2r par duel + bonus de fin 6+2r ; Escouade 5+2r par duel + bonus de fin 10+3r.
 - Sacoche en fin de chaîne : Duo 30 %, Escouade 60 %.
-- Poids de tirage (`CARD_WEIGHTS`) :
+- Poids de tirage (`CARD_WEIGHTS`) ; tant que la caisse renforcée (§ 6) n'existe pas, son poids est ajouté à la caisse :
 
 | Zone | escouade | duo | solo | caisse | renforcée | shop |
 |---|---|---|---|---|---|---|
