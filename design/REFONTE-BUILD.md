@@ -57,6 +57,11 @@ Les accessoires gardent exactement leur règle d'adjacence : l'équilibre ne bou
 - **Fiche** : la liste des étoiles avec leur effet, cochées ou non.
 - **Boutique et butin** : un objet qui remplirait une étoile du sac porte « ★ », un objet qui complète une recette porte « ⚗ ».
 
+**Fait (étape 3, interface)** : objet tenu → étoiles creuses sur les cases libres où il se lierait (étoiles des objets
+posés qui l'attendent, et cases voisines des objets que ses étoiles attendent), contour vert sur ces objets, étoiles
+pleines là où une étoile s'allume à l'endroit visé. Pastille « ★ n » sur les objets posés. « ★ » et « ⚗ » en boutique,
+dans les caisses et au butin (`starAffinity`, `completesRecipe`).
+
 ### Conversion des synergies actuelles
 
 Les synergies existantes deviennent des étoiles posées sur tous les côtés de l'accessoire, qui attendent une arme

@@ -3,6 +3,7 @@
 // - Accessoires : une étoile sur toutes les cases voisines, qui attend une arme compatible (leur synergie).
 // - Objets à étoiles (`ItemDef.stars`) : cases et effets décrits dans les données.
 import { ITEMS, ItemDef, StarEffect, Tag } from '../data/items';
+import { RECIPES } from '../data/recipes';
 import { ItemInst, Rot, cellsAt, cellsOf, dims } from './grid';
 
 /** Chargeur tambour : recharge plus lente de l'arme adjacente. */
@@ -179,4 +180,29 @@ export function starsLitBy(items: ItemInst[], cand: ItemInst, x: number, y: numb
   const ghost: ItemInst = { ...cand, x, y, rot, placed: true };
   const others = items.filter((i) => i.placed && i.uid !== cand.uid);
   return bagStars([...others, ghost]).filter((f) => f.by.length > 0 && (f.uid === cand.uid || f.by.includes(cand.uid)));
+}
+
+/** L'objet se lierait au sac : il remplirait une étoile d'un objet posé, ou des objets posés rempliraient les siennes. */
+export function starAffinity(items: ItemInst[], defId: string): boolean {
+  const d = ITEMS[defId];
+  const placed = items.filter((i) => i.placed);
+  if (placed.some((p) => starSpecs(p.defId).some((sp) => sp.wants(d)))) return true;
+  return starSpecs(defId).some((sp) => placed.some((p) => p.defId !== defId && sp.wants(ITEMS[p.defId])));
+}
+
+/** L'objet complète une recette avec ce que le joueur possède déjà (sac ou réserve). */
+export function completesRecipe(items: ItemInst[], defId: string): boolean {
+  const have = items.map((i) => i.defId);
+  return RECIPES.some((r) => {
+    const i = r.inputs.indexOf(defId);
+    if (i < 0) return false;
+    const rest = [...have];
+    return r.inputs.every((id, k) => {
+      if (k === i) return true;
+      const j = rest.indexOf(id);
+      if (j < 0) return false;
+      rest.splice(j, 1);
+      return true;
+    });
+  });
 }

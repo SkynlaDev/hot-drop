@@ -9,8 +9,9 @@ import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
 import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
-  dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
+  cellsOf, dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
 } from '../logic/grid';
+import { bagStars, completesRecipe, starAffinity, starSpecs, starsLitBy } from '../logic/stars';
 import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
@@ -46,6 +47,28 @@ interface DragState {
 
 /** Couleurs du Feu continu (Viper), du plus froid au plafond. */
 const HEAT_COLORS = ['#ffd27a', '#ff9a3c', '#ff5a36'];
+/** Or des étoiles. */
+const GOLD_HEX = 0xf2c94c;
+
+/** Étoile à 5 branches centrée en (x, y), pleine ou creuse. */
+function drawStar(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, filled: boolean, color: number, alpha: number) {
+  const pts: Phaser.Math.Vector2[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    pts.push(new Phaser.Math.Vector2(x + Math.cos(a) * rr, y + Math.sin(a) * rr));
+  }
+  if (filled) {
+    g.fillStyle(color, alpha);
+    g.fillPoints(pts, true);
+    g.lineStyle(2, 0x000000, 0.6 * alpha);
+    g.strokePoints(pts, true);
+  } else {
+    g.lineStyle(3, color, alpha);
+    g.strokePoints(pts, true);
+  }
+}
+
 /** Saignement : dégâts lents qui ignorent l'armure. */
 const BLEED_COLOR = '#d0343a';
 /** Couleur de la Marque (Sentinelle) : celle de la famille Précision. */
@@ -142,7 +165,11 @@ export default class LoadoutScene extends Phaser.Scene {
   private itemLayer!: Container;
   private linkG!: Phaser.GameObjects.Graphics;
   private unfedLayer!: Container;
+  /** Pastilles « ★ n » des objets posés (étoiles remplies). */
+  private starLayer!: Container;
   private previewG!: Phaser.GameObjects.Graphics;
+  /** Étoiles affichées pendant qu'on tient un objet. */
+  private starG!: Phaser.GameObjects.Graphics;
   private sellG!: Phaser.GameObjects.Graphics;
   private trayLayer!: Container;
   private stripLayer!: Container;
@@ -206,7 +233,9 @@ export default class LoadoutScene extends Phaser.Scene {
     this.itemLayer = this.add.container(0, 0).setDepth(2);
     this.linkG = this.add.graphics().setDepth(5);
     this.unfedLayer = this.add.container(0, 0).setDepth(6);
+    this.starLayer = this.add.container(0, 0).setDepth(6);
     this.previewG = this.add.graphics().setDepth(40);
+    this.starG = this.add.graphics().setDepth(45);
     this.sellG = this.add.graphics().setDepth(1.2);
     this.trayLayer = this.add.container(0, 0).setDepth(2);
     this.stripLayer = this.add.container(0, 0).setDepth(3);
@@ -331,7 +360,7 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private refresh() {
-    const { loadout, links } = this.loadout();
+    const { loadout, links, stars } = this.loadout();
     this.drawGrid();
 
     // Sacoches posées (sous les objets)
@@ -410,6 +439,24 @@ export default class LoadoutScene extends Phaser.Scene {
       g.fillStyle(C.danger, 1);
       g.fillRoundedRect(bx, by, 58, 20, 6);
       this.unfedLayer.add([g, txt(this, bx + 29, by + 10, 'RECH ×2', 12, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
+    }
+
+    // Étoiles remplies : pastille « ★ n » en haut à droite de l'objet porteur.
+    this.starLayer.removeAll(true);
+    const lit = new Map<number, number>();
+    for (const f of stars) if (f.by.length) lit.set(f.uid, (lit.get(f.uid) ?? 0) + f.by.length);
+    for (const [uid, n] of lit) {
+      const inst = this.run.items.find((i) => i.uid === uid);
+      if (!inst || this.drag?.item?.uid === uid || this.hidden.has(uid)) continue;
+      const row = maskOf(inst.defId, inst.rot)[0];
+      const rx = row.length - 1 - [...row].reverse().findIndex(Boolean);
+      const bx = GRID_X + (inst.x + rx + 1) * CELL - 6;
+      const by = GRID_Y + inst.y * CELL + 6;
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.65);
+      g.fillRoundedRect(bx - 40, by, 40, 22, 11);
+      drawStar(g, bx - 28, by + 11, 8, true, GOLD_HEX, 1);
+      this.starLayer.add([g, txt(this, bx - 8, by + 11, `${n}`, 15, GOLD, { fontStyle: 'bold' }).setOrigin(1, 0.5)]);
     }
 
     this.drawTray();
@@ -744,6 +791,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.sellG.fillStyle(C.danger, 0.35);
       this.sellG.fillRoundedRect(SELL.x + 6, SELL.y + 8, SELL.w - 10, SELL.h - 16, 12);
     }
+    if (d.item) this.drawStarHints(d.item, d.rot, a.overGrid && this.validDrop(d, a.ax, a.ay) ? a : null);
     if (!a.overGrid) return;
     const valid = this.validDrop(d, a.ax, a.ay);
     const col = valid ? (d.bag ? 0xd8a25e : C.good) : C.danger;
@@ -756,12 +804,62 @@ export default class LoadoutScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Étoiles pendant qu'on tient un objet :
+   * - étoile creuse dorée sur les cases libres où un objet posé attend ce type d'objet (« pose-moi ici ») ;
+   * - contour vert autour des objets posés que ses propres étoiles attendent ;
+   * - à l'endroit visé (si on peut y poser l'objet), étoiles pleines là où une étoile s'allumerait.
+   */
+  private drawStarHints(cand: ItemInst, rot: Rot, at: { ax: number; ay: number } | null) {
+    const g = this.starG;
+    g.clear();
+    const cd = ITEMS[cand.defId];
+    const others = this.run.items.filter((i) => i.placed && i.uid !== cand.uid);
+    const occupied = new Set(others.flatMap((o) => cellsOf(o).map(([x, y]) => `${x},${y}`)));
+    const use = usable(this.run);
+    const cx = (x: number) => GRID_X + (x + 0.5) * CELL;
+    const cy = (y: number) => GRID_Y + (y + 0.5) * CELL;
+    const hinted = new Set<string>();
+    for (const f of bagStars(others)) {
+      const holder = others.find((o) => o.uid === f.uid)!;
+      if (!starSpecs(holder.defId)[f.spec].wants(cd)) continue;
+      for (const c of f.cells) {
+        const k = `${c.x},${c.y}`;
+        if (occupied.has(k) || !use.has(k) || hinted.has(k)) continue;
+        hinted.add(k);
+        drawStar(g, cx(c.x), cy(c.y), CELL * 0.2, false, GOLD_HEX, 0.75);
+      }
+    }
+    const wanted = others.filter((o) => starSpecs(cand.defId).some((sp) => sp.wants(ITEMS[o.defId])));
+    // Cases libres à côté des objets que ses étoiles attendent : c'est là qu'il faut le poser.
+    for (const o of wanted) {
+      for (const [x, y] of cellsOf(o)) {
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const k = `${x + dx},${y + dy}`;
+          if (occupied.has(k) || !use.has(k) || hinted.has(k)) continue;
+          hinted.add(k);
+          drawStar(g, cx(x + dx), cy(y + dy), CELL * 0.2, false, GOLD_HEX, 0.75);
+        }
+      }
+    }
+    g.lineStyle(4, C.good, 0.85);
+    for (const o of wanted) for (const [x, y] of cellsOf(o)) g.strokeRoundedRect(GRID_X + x * CELL + 4, GRID_Y + y * CELL + 4, CELL - 8, CELL - 8, 8);
+    if (!at) return;
+    for (const f of starsLitBy(this.run.items, cand, at.ax, at.ay, rot)) {
+      for (const c of f.cells) {
+        if (c.by === null || (f.uid !== cand.uid && c.by !== cand.uid)) continue;
+        drawStar(g, cx(c.x), cy(c.y), CELL * 0.24, true, GOLD_HEX, 1);
+      }
+    }
+  }
+
   private onUp(p: Phaser.Input.Pointer) {
     const d = this.drag;
     if (!d) return;
     this.drag = null;
     d.longPress?.remove();
     this.previewG.clear();
+    this.starG.clear();
     this.sellG.clear();
     if (!d.moved) {
       if (d.item) this.rotateItemInPlace(d.item, d.from);
@@ -1098,6 +1196,7 @@ export default class LoadoutScene extends Phaser.Scene {
     cc.add(pill);
     cc.add(txt(this, w / 2, h - 26, o.sold ? 'VENDU' : `◆ ${o.price} cr`, 18, o.sold ? C.quiet : afford ? '#1a1206' : C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5));
     if (o.sold) v.setAlpha(0.3);
+    if (o.item && !o.sold) this.affinityBadges(cc, 10, 10, w - 10, o.item.defId);
     const z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
     z.on('pointerdown', () => cc.setScale(0.96).setPosition(x0 + w * 0.02, y0 + h * 0.02));
     z.on('pointerout', () => cc.setScale(1).setPosition(x0, y0));
@@ -1772,6 +1871,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.fightL = { a: loadout, b: this.botL };
     this.phase = 'combat';
     this.unfedLayer.setVisible(false);
+    this.starLayer.setVisible(false);
     this.ammo.clear();
     for (const side of ['a', 'b'] as Side[]) {
       for (const w of this.fightL[side].weapons) {
@@ -1917,6 +2017,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     this.ammo.clear();
     this.unfedLayer.setVisible(true);
+    this.starLayer.setVisible(true);
   }
 
   /** Compteur de munitions sur l'arme : « 7/15 », orange quand le chargeur est vide. */
@@ -2455,6 +2556,9 @@ export default class LoadoutScene extends Phaser.Scene {
       const v = itemView(this, it, cell).setPosition(gx + (it.x - x0) * cell, gy + (it.y - y0) * cell);
       m.add(v);
       views.set(it.uid, v);
+      const row = maskOf(it.defId, it.rot)[0];
+      const right = (row.length - [...row].reverse().findIndex(Boolean)) * cell;
+      this.affinityBadges(v, 2, 2, right - 2, it.defId);
       v.setAlpha(0);
       this.tweens.add({ targets: v, alpha: 1, delay: 80 + views.size * 50, duration: 200 });
       for (const [cx, cy] of cellsAt(it, it.x, it.y)) {
@@ -2474,6 +2578,24 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     m.add(sel);
     update();
+  }
+
+  /** « ★ » (se lierait au sac) en haut à gauche, « ⚗ » (complète une recette) en haut à droite. */
+  private affinityBadges(c: Container, left: number, top: number, right: number, defId: string) {
+    const items = this.run.items;
+    if (starAffinity(items, defId)) {
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.7);
+      g.fillCircle(left + 14, top + 14, 14);
+      drawStar(g, left + 14, top + 14, 10, true, GOLD_HEX, 1);
+      c.add(g);
+    }
+    if (completesRecipe(items, defId)) {
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.7);
+      g.fillCircle(right - 14, top + 14, 14);
+      c.add([g, txt(this, right - 14, top + 14, '⚗', 18, '#7dd3fc', { fontStyle: 'bold' }).setOrigin(0.5)]);
+    }
   }
 
   private gameOver(win: boolean) {
