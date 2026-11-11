@@ -11,7 +11,7 @@ import { rngFor } from '../src/logic/rng';
 import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
-  HEAL_BETWEEN_DUELS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
+  CRATES, HEAL_BETWEEN_DUELS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
   unplaceBag,
 } from '../src/logic/run';
 import {
@@ -36,6 +36,7 @@ function playThrough(run: RunState, index: number, win = true): void {
     }
     if (res.actionDone && !run.over) endAction(run);
   } else {
+    if (run.pendingLoot) finishLoot(run); // caisse : choix laissé vide
     endAction(run);
   }
 }
@@ -197,13 +198,16 @@ describe('cartes', () => {
     expect(drawCards(7, 1, zone('moyenne'))).toEqual(drawCards(7, 1, zone('moyenne')));
   });
 
-  it('caisse épique : grandes zones seulement, au plus une par largage, au moins un combat gardé', () => {
+  it('caisse épique : grandes zones seulement, dès le 2e cercle, au plus une par largage, au moins un combat gardé', () => {
     for (const size of ['petite', 'moyenne', 'grande'] as const) {
       let zones = 0;
       for (let seed = 0; seed < 400; seed++) {
-        const cards = drawCards(seed, seed % ROUNDS, zone(size, seed % 9));
+        const cards = drawCards(seed, 1 + (seed % (ROUNDS - 1)), zone(size, seed % 9));
         const n = cards.filter((c) => c.type === 'caisse_epique').length;
         expect(n).toBeLessThanOrEqual(1);
+        expect(cards.filter((c) => c.type === 'caisse_renforcee').length).toBeLessThanOrEqual(1);
+        const first = drawCards(seed, 0, zone(size, seed % 9));
+        expect(first.some((c) => c.type === 'caisse_epique' || c.type === 'caisse_renforcee')).toBe(false);
         expect(cards.some(isFight)).toBe(true);
         expect(cards.length).toBe(CARDS_BY_SIZE[size]);
         zones += n;
@@ -384,20 +388,27 @@ describe('run', () => {
     expect(run.items.some((i) => i.defId === 'chg_44')).toBe(true);
   });
 
-  it('caisse épique : un objet assemblé de l’opérateur garanti, sans combat', () => {
+  it('caisse épique : du cash et 2 objets à choisir sur 5, dont une arme et un objet assemblé', () => {
     for (let seed = 0; seed < 200; seed++) {
       const run = newRun(seed % 2 ? 'viper' : 'sentinelle', seed);
-      run.round = seed % ROUNDS;
+      run.round = 1 + (seed % (ROUNDS - 1));
       dropInZone(run, selectableZones(run)[0].id);
       run.cards[0] = { type: 'caisse_epique', duels: 0 };
+      const credits = run.credits;
       const r = playCard(run, 0)!;
       expect(r.kind).toBe('caisse');
       if (r.kind !== 'caisse') continue;
-      expect(r.epic).toBe(true);
+      expect(r.crate).toBe('caisse_epique');
       expect(run.fight).toBeUndefined();
-      expect(r.loot.items.length).toBeGreaterThanOrEqual(1);
-      expect(r.loot.items.some((i) => ITEMS[i.defId].crafted)).toBe(true);
-      for (const it of r.loot.items) expect([...lootPool(run.operator), ...craftedPool(run.operator)]).toContain(it.defId);
+      expect(run.credits - credits).toBe(r.loot.credits);
+      expect(r.loot.credits).toBeGreaterThanOrEqual(CRATES.caisse_epique.cash(run.round));
+      const p = run.pendingLoot!;
+      expect(p.items.length).toBe(5);
+      expect(p.maxPicks).toBe(2);
+      expect(new Set(p.items.map((i) => i.defId)).size).toBe(5);
+      expect(p.items.some((i) => ITEMS[i.defId].weapon)).toBe(true);
+      expect(p.items.some((i) => ITEMS[i.defId].crafted)).toBe(true);
+      for (const it of p.items) expect([...lootPool(run.operator), ...craftedPool(run.operator)]).toContain(it.defId);
     }
   });
 
@@ -441,7 +452,7 @@ describe('run', () => {
     expect(b.over).toBe('lose');
   });
 
-  it('caisse : 1 objet du pool de l’opérateur (parfois une sacoche), sans combat', () => {
+  it('caisse : du cash, 1 objet à choisir sur 3 dont une arme, parfois une sacoche, sans combat', () => {
     let bags = 0;
     for (let seed = 0; seed < 100; seed++) {
       const run = newRun('sentinelle', seed);
@@ -450,13 +461,45 @@ describe('run', () => {
       const r = playCard(run, 0)!;
       expect(r.kind).toBe('caisse');
       if (r.kind !== 'caisse') continue;
-      expect(r.loot.items.length).toBe(1);
-      expect(lootPool('sentinelle')).toContain(r.loot.items[0].defId);
+      expect(r.loot.items).toEqual([]);
+      expect(r.loot.credits).toBeGreaterThanOrEqual(CRATES.caisse.cash(0));
+      const p = run.pendingLoot!;
+      expect(p.items.length).toBe(3);
+      expect(p.items.some((i) => ITEMS[i.defId].weapon)).toBe(true);
+      for (const it of p.items) expect(lootPool('sentinelle')).toContain(it.defId);
       bags += r.loot.bags.length;
       expect(run.fight).toBeUndefined();
+      // Un seul objet : le 2e est refusé ; l'action attend la fin du choix.
+      expect(lootItem(run, p.items[0].uid)).not.toBeNull();
+      expect(lootItem(run, p.items[0].uid)).toBeNull();
+      expect(endAction(run)).toBeNull();
+      finishLoot(run);
+      expect(endAction(run)).not.toBeNull();
     }
     expect(bags).toBeGreaterThan(10);
     expect(bags).toBeLessThan(55);
+  });
+
+  it('caisse renforcée : 2 objets sur 4, dont un ingrédient qui complète une recette commencée', () => {
+    let hits = 0;
+    for (let seed = 0; seed < 100; seed++) {
+      const run = newRun('viper', seed);
+      run.round = 2;
+      dropInZone(run, selectableZones(run)[0].id);
+      run.items.push({ uid: 999, defId: 'smg', rot: 0, x: 0, y: 0, placed: false }); // moitié du Furet Akimbo
+      run.cards[0] = { type: 'caisse_renforcee', duels: 0 };
+      playCard(run, 0);
+      const p = run.pendingLoot!;
+      expect(p.items.length).toBe(4);
+      expect(p.maxPicks).toBe(2);
+      // Ingrédients manquants des recettes commencées (le sac de départ en commence aussi).
+      const owned = run.items.map((i) => i.defId);
+      const missing = new Set(RECIPES.filter((rc) => rc.inputs.some((id) => owned.includes(id))).flatMap((rc) => rc.inputs));
+      if (p.items.some((i) => missing.has(i.defId))) hits++;
+      for (const it of p.items.slice(0, 2)) lootItem(run, it.uid);
+      expect(lootItem(run, p.items[0]?.uid ?? -1)).toBeNull();
+    }
+    expect(hits).toBe(100);
   });
 
   it('boutique : 5 offres du pool, relance payante, achat en réserve', () => {

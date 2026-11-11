@@ -144,7 +144,8 @@ Code : `FightKind`, `CardType`, `squadDuels`, `CARD_WEIGHTS`, `drawCards` (utili
 | **Renforcée** (nouvelle, dès le cercle 2, max 1/zone) | 4 | 2 | 1 arme + 1 ingrédient qui complète une recette déjà commencée dans le sac | 6+2r | 60 % |
 | Épique (grandes zones, dès le cercle 2) | 5 | 2 | 1 arme + 1 objet assemblé | 10+3r | 50 % |
 
-Même écran que le loot d'un ennemi (§ 7).
+Même écran que le loot d'un ennemi (§ 7), avec un quota d'objets. Le cash et la sacoche sont ramassés à l'ouverture.
+Code : `CRATES`, `crateOffers`, `missingIngredient` (run.ts) ; `PendingLoot.crate / maxPicks / picked`.
 
 ---
 

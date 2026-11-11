@@ -5,7 +5,7 @@ import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from '../logic/zone';
 import { DANGER_RAMP } from '../logic/bots';
-import { EPIC_EXTRA_ITEMS } from '../logic/run';
+import { CRATES } from '../logic/run';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, statusPills } from '../ui/hud';
 import { Button, button, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
 
@@ -30,9 +30,11 @@ function cardDesc(card: Card): string {
     case 'solo':
       return 'Un duel, sac contre sac. Tu fouilles le sac adverse et tu gagnes des crédits.';
     case 'caisse':
-      return 'Pas de combat : un objet, et parfois une sacoche.';
+      return `Pas de combat : du cash, et ${CRATES.caisse.picks} objet à choisir parmi ${CRATES.caisse.offers} (toujours une arme). Parfois une sacoche.`;
+    case 'caisse_renforcee':
+      return `Caisse renforcée, sans combat : ${CRATES.caisse_renforcee.picks} objets à choisir parmi ${CRATES.caisse_renforcee.offers}, dont une arme et de quoi compléter une recette de ton sac. Plus de cash, souvent une sacoche.`;
     case 'caisse_epique':
-      return `Caisse épique, sans combat : un objet assemblé (recette) garanti, plus ${EPIC_EXTRA_ITEMS} objet ordinaire.`;
+      return `Caisse épique, sans combat : ${CRATES.caisse_epique.picks} objets à choisir parmi ${CRATES.caisse_epique.offers}, dont une arme et un objet assemblé (recette). Gros cash.`;
     case 'shop':
       return 'Boutique : 5 offres de ton opérateur, relance possible contre des crédits.';
   }
@@ -286,16 +288,17 @@ export default class ZoneScene extends Phaser.Scene {
       }
       root.add(rg);
       root.add(txt(this, 0, dy, 'RISQUE', 13, C.quiet, { fontStyle: 'bold' }).setOrigin(0.5));
-    } else if (card.type === 'caisse') {
+    } else if (card.type === 'caisse' || card.type === 'caisse_renforcee') {
+      const cr = CRATES[card.type];
       root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
-      root.add(txt(this, 0, dy, small ? '1 objet\n(+ sacoche ?)' : '1 objet, parfois\nune sacoche', fs - 2, C.quiet, { align: 'center' }).setOrigin(0.5, 0));
+      root.add(txt(this, 0, dy, `${cr.picks} objet${cr.picks > 1 ? 's' : ''}\nsur ${cr.offers}`, fs - 2, card.type === 'caisse' ? C.quiet : '#6fb0ff', { align: 'center', fontStyle: card.type === 'caisse' ? 'normal' : 'bold' }).setOrigin(0.5, 0));
     } else if (epic) {
       root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
       root.add(txt(this, 0, dy - 4, '1 objet\nassemblé', fs, '#f2c94c', { fontStyle: 'bold', align: 'center', lineSpacing: -2 }).setOrigin(0.5, 0));
       dy += 2 * fs + 6;
-      root.add(txt(this, 0, dy, `+ ${EPIC_EXTRA_ITEMS} objet`, fs - 5, C.quiet).setOrigin(0.5, 0));
+      root.add(txt(this, 0, dy, `${CRATES.caisse_epique.picks} sur ${CRATES.caisse_epique.offers}`, fs - 5, C.quiet).setOrigin(0.5, 0));
     } else {
       root.add(txt(this, 0, dy, '5 OFFRES', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
@@ -389,7 +392,7 @@ export default class ZoneScene extends Phaser.Scene {
     v.root.setDepth(10);
     this.tweens.add({ targets: v.root, x: W / 2, y: H / 2, scale: 1.5, duration: 320, ease: 'Cubic.Out' });
     this.views.forEach((w) => w !== v && this.tweens.add({ targets: w.root, alpha: 0.2, duration: 200 }));
-    const data = res.kind === 'shop' ? { mode: 'shop' } : res.kind === 'caisse' ? { mode: 'caisse', loot: res.loot, epic: !!res.epic } : { mode: 'duel' };
+    const data = res.kind === 'shop' ? { mode: 'shop' } : res.kind === 'caisse' ? { mode: 'caisse', loot: res.loot, crate: res.crate } : { mode: 'duel' };
     this.time.delayedCall(380, () => this.cameras.main.fadeOut(200, 20, 22, 15));
     this.time.delayedCall(600, () => this.scene.start('loadout', data));
   }

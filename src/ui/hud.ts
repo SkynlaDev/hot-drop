@@ -88,6 +88,7 @@ export const CARD_INFO: Record<CardType, { name: string; color: number; hex: str
   duo: { name: 'Duo', color: 0xf2683c, hex: '#ff8a66', icon: 'ic-t-assaut' },
   solo: { name: 'Solo', color: 0xff8c1a, hex: '#ffa64d', icon: 'ic-p-contrat' },
   caisse: { name: 'Caisse', color: 0x5fbf6a, hex: '#7ddc86', icon: 'ic-p-caisse' },
+  caisse_renforcee: { name: 'Caisse renforcée', color: 0x2f80ed, hex: '#6fb0ff', icon: 'ic-p-caisse' },
   shop: { name: 'Boutique', color: 0x4fa3ff, hex: '#7dbcff', icon: 'ic-p-marchand' },
   // Violet, liseré or (voir EPIC_GOLD).
   caisse_epique: { name: 'Caisse épique', color: 0x9b51e0, hex: '#c08cff', icon: 'ic-p-caisse' },

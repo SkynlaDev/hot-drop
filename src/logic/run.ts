@@ -5,7 +5,7 @@ import { Category, ITEMS } from '../data/items';
 import { BAGS, BAG_IDS, BagId } from '../data/bags';
 import { OPERATORS, OperatorId, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
-import { BagInst, ItemInst, canPlace, findSpot, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
+import { BagInst, ItemInst, canPlace, dims, findSpot, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
 import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice } from './stats';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, drawCards, genMap, isGassed, zonesInCircle } from './zone';
@@ -18,11 +18,18 @@ export const REROLL_COST = 2;
 export const SHOP_OFFERS = 5;
 /** Chance qu'une des offres de la boutique soit une sacoche. */
 export const SHOP_BAG_CHANCE = 0.4;
-/** Chance qu'une caisse donne aussi une sacoche, en plus de l'objet. */
-export const CRATE_BAG_CHANCE = 0.3;
-/** Caisse épique (grandes zones) : 1 objet assemblé garanti (recette de l'opérateur)… */
-/** … plus ce nombre d'objets ordinaires de la manche. */
-export const EPIC_EXTRA_ITEMS = 1;
+/** Les trois caisses. */
+export type CrateKind = 'caisse' | 'caisse_renforcee' | 'caisse_epique';
+/**
+ * Caisses : `offers` objets proposés dont on prend au plus `picks` ; toujours une arme parmi eux.
+ * Renforcée : en plus, un ingrédient qui complète une recette commencée dans le sac. Épique : un objet assemblé.
+ * Crédits ramassés (`cash` selon la manche) et chance de sacoche.
+ */
+export const CRATES: Record<CrateKind, { offers: number; picks: number; cash: (round: number) => number; bag: number }> = {
+  caisse: { offers: 3, picks: 1, cash: (r) => 3 + r, bag: 0.3 },
+  caisse_renforcee: { offers: 4, picks: 2, cash: (r) => 6 + 2 * r, bag: 0.6 },
+  caisse_epique: { offers: 5, picks: 2, cash: (r) => 10 + 3 * r, bag: 0.5 },
+};
 /** Chance qu'un duo ou une escouade terminés donnent aussi une sacoche. */
 export const DUO_BAG_CHANCE = 0.3;
 export const SQUAD_BAG_CHANCE = 0.6;
@@ -74,10 +81,16 @@ export interface Fight {
  * Tant qu'elle est en cours, ni carte, ni fin d'action, ni duel suivant de la squad.
  */
 export interface PendingLoot {
-  /** Objets encore dans le sac du bot (uid du bot, positions d'origine). */
+  /** Objets encore dans le sac du bot (uid du bot, positions d'origine), ou encore proposés par la caisse. */
   items: ItemInst[];
-  /** Cases utilisables du sac du bot, pour l'afficher en entier. */
+  /** Cases utilisables du sac du bot, pour l'afficher en entier (vide pour une caisse). */
   usable: string[];
+  /** Caisse : son type ; absent pour le sac d'un bot. */
+  crate?: CrateKind;
+  /** Nombre maximal d'objets à prendre (caisses) ; absent = autant qu'on veut (sac d'un bot). */
+  maxPicks?: number;
+  /** Objets déjà pris. */
+  picked: number;
 }
 
 /** Où est allé un objet pris dans le sac du vaincu ; `plein` = ni réserve ni sac, rien n'a bougé. */
@@ -131,8 +144,8 @@ export interface Loot {
   credits: number;
 }
 
-/** `epic` : caisse épique (au moins un objet assemblé). */
-export type PlayResult = { kind: 'shop' } | { kind: 'caisse'; loot: Loot; epic?: boolean } | ({ kind: 'duel' } & DuelParams);
+/** Caisse : crédits et sacoche tout de suite (`loot`), les objets se choisissent dans run.pendingLoot. */
+export type PlayResult = { kind: 'shop' } | { kind: 'caisse'; crate: CrateKind; loot: Loot } | ({ kind: 'duel' } & DuelParams);
 
 // ---------- Création ----------
 
@@ -226,18 +239,16 @@ export function playCard(run: RunState, index: number): PlayResult | null {
     shopOffers(run);
     return { kind: 'shop' };
   }
-  if (card.type === 'caisse') {
-    const rng = rngFor(run.seed, 'caisse', run.round, run.zoneId!, index);
-    const items = addDrops(run, randomItems(run, rng, 1));
-    const bags = rng() < CRATE_BAG_CHANCE ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
-    return { kind: 'caisse', loot: { items: items.taken, bags: bags.taken, credits: items.credits + bags.credits } };
-  }
-  if (card.type === 'caisse_epique') {
-    const rng = rngFor(run.seed, 'caisse_epique', run.round, run.zoneId!, index);
-    const best = [drop(pick(rng, craftedPool(run.operator)))];
-    const extra = randomItems(run, rng, EPIC_EXTRA_ITEMS).filter((it) => !best.some((b) => b.defId === it.defId));
-    const items = addDrops(run, [...best, ...extra]);
-    return { kind: 'caisse', epic: true, loot: { items: items.taken, bags: [], credits: items.credits } };
+  if (card.type === 'caisse' || card.type === 'caisse_renforcee' || card.type === 'caisse_epique') {
+    const crate = card.type;
+    const def = CRATES[crate];
+    const rng = rngFor(run.seed, crate, run.round, run.zoneId!, index);
+    const cash = def.cash(run.round);
+    run.credits += cash;
+    const bags = rng() < def.bag ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
+    const offers = layoutOffers(crateOffers(run, crate, rng));
+    run.pendingLoot = { items: offers, usable: [], crate, maxPicks: Math.min(def.picks, offers.length), picked: 0 };
+    return { kind: 'caisse', crate, loot: { items: [], bags: bags.taken, credits: cash + bags.credits } };
   }
   run.fight = { kind: card.type, cardIndex: index, duel: 0, total: card.duels, hp: roundMaxHp(run.round) };
   return { kind: 'duel', ...currentDuel(run)! };
@@ -320,7 +331,7 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
   // Le sac du bot, tel quel : le joueur le fouille.
   const choices = out.botItems.map((it) => ({ ...it, placed: true }));
-  if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [] };
+  if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], picked: 0 };
   const res: DuelResolution = { loot, lootChoices: choices, actionDone: last, goulag: false };
   if (!last) {
     f.duel++;
@@ -342,9 +353,15 @@ function stowSpot(items: ItemInst[], defId: string, cells: Set<string>): { to: '
   return spot ? { to: 'sac', ...spot } : null;
 }
 
+/** Encore le droit de prendre un objet (caisses : `maxPicks`). */
+function canTakeMore(p: PendingLoot): boolean {
+  return p.maxPicks === undefined || p.picked < p.maxPicks;
+}
+
 function takeFromLoot(run: RunState, src: ItemInst, dest: NonNullable<ReturnType<typeof stowSpot>>): LootTake & { to: 'reserve' | 'sac' } {
   const p = run.pendingLoot!;
   p.items = p.items.filter((i) => i.uid !== src.uid);
+  p.picked++;
   const item = makeItem(run, src.defId);
   if (dest.to === 'sac') Object.assign(item, { x: dest.x, y: dest.y, rot: dest.rot, placed: true });
   run.items.push(item);
@@ -357,7 +374,7 @@ function takeFromLoot(run: RunState, src: ItemInst, dest: NonNullable<ReturnType
  */
 export function lootItem(run: RunState, uid: number): LootTake | null {
   const src = run.pendingLoot?.items.find((i) => i.uid === uid);
-  if (!src) return null;
+  if (!src || !canTakeMore(run.pendingLoot!)) return null;
   const dest = stowSpot(run.items, src.defId, usable(run));
   return dest ? takeFromLoot(run, src, dest) : { to: 'plein' };
 }
@@ -369,7 +386,7 @@ export function lootItem(run: RunState, uid: number): LootTake | null {
 export function swapLoot(run: RunState, uid: number, giveUid: number): { take: LootTake & { to: 'reserve' | 'sac' }; credits: number } | null {
   const src = run.pendingLoot?.items.find((i) => i.uid === uid);
   const give = run.items.find((i) => i.uid === giveUid);
-  if (!src || !give) return null;
+  if (!src || !give || !canTakeMore(run.pendingLoot!)) return null;
   const rest = run.items.filter((i) => i.uid !== giveUid);
   const dest = stowSpot(rest, src.defId, usable(run));
   if (!dest) return null;
@@ -457,6 +474,74 @@ function randomItems(run: RunState, rng: Rng, count: number): ItemInst[] {
     out.push(drop(id));
   }
   return out;
+}
+
+/** Une arme au hasard parmi les armes du pool déjà apparues à cette manche. */
+function randomWeapon(run: RunState, rng: Rng, exclude: string[]): string | undefined {
+  const ids = lootPool(run.operator).filter((id) => ITEMS[id].weapon && ITEMS[id].minRound <= run.round && !exclude.includes(id));
+  return ids.length ? pick(rng, ids) : undefined;
+}
+
+/**
+ * Ingrédient qui complète une recette déjà commencée : recette de l'opérateur dont au moins un ingrédient
+ * est dans les objets du joueur et dont il manque un ingrédient trouvable. Undefined s'il n'y en a pas.
+ */
+export function missingIngredient(run: RunState, rng: Rng, exclude: string[] = []): string | undefined {
+  const pool = lootPool(run.operator);
+  const owned = run.items.map((i) => i.defId);
+  const cands: string[] = [];
+  for (const r of RECIPES) {
+    if (!r.inputs.every((id) => pool.includes(id)) || !r.inputs.some((id) => owned.includes(id))) continue;
+    // Ingrédients manquants, en comptant les doublons (deux frags pour une recette de doublon).
+    const left = [...owned];
+    for (const id of r.inputs) {
+      const k = left.indexOf(id);
+      if (k >= 0) left.splice(k, 1);
+      else if (!exclude.includes(id) && ITEMS[id].minRound <= run.round) cands.push(id);
+    }
+  }
+  return cands.length ? pick(rng, cands) : undefined;
+}
+
+/** Objets proposés par une caisse : une arme, la garantie du type de caisse, puis des objets du pool, tous différents. */
+function crateOffers(run: RunState, crate: CrateKind, rng: Rng): ItemInst[] {
+  const ids: string[] = [];
+  const w = randomWeapon(run, rng, ids);
+  if (w) ids.push(w);
+  if (crate === 'caisse_renforcee') {
+    const ing = missingIngredient(run, rng, ids);
+    if (ing) ids.push(ing);
+  }
+  if (crate === 'caisse_epique') {
+    const crafted = craftedPool(run.operator).filter((id) => !ids.includes(id));
+    if (crafted.length) ids.push(pick(rng, crafted));
+  }
+  const pool = lootPool(run.operator).filter((id) => ITEMS[id].minRound <= run.round && !ids.includes(id));
+  while (ids.length < CRATES[crate].offers && pool.length) {
+    const id = pickWeighted(rng, pool);
+    pool.splice(pool.indexOf(id), 1);
+    ids.push(id);
+  }
+  return ids.map(drop);
+}
+
+/** Range les objets proposés côte à côte (rangées de 8 cases au plus), pour l'écran de choix. uid 1, 2… */
+function layoutOffers(items: ItemInst[]): ItemInst[] {
+  let x = 0;
+  let y = 0;
+  let rowH = 0;
+  return items.map((it, i) => {
+    const d = dims(it);
+    if (x > 0 && x + d.w > 8) {
+      x = 0;
+      y += rowH + 1;
+      rowH = 0;
+    }
+    const out = { ...it, uid: i + 1, x, y, placed: true };
+    x += d.w + 1;
+    rowH = Math.max(rowH, d.h);
+    return out;
+  });
 }
 
 /** Objets assemblés que l'opérateur peut obtenir : recettes dont tous les ingrédients sont dans son pool. */

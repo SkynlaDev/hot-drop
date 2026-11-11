@@ -14,7 +14,7 @@ import {
 import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
-  BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
+  BAG_RESERVE_MAX, CrateKind, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
   finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
   finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
@@ -82,6 +82,7 @@ const QUALITY: Record<BotBuild['quality'], { label: string; color: number; hex: 
   fort: { label: 'FORT', color: 0xe5484d, hex: '#ff6b6b' },
 };
 const GOLD = '#f2c94c';
+const CRATE_TITLE: Record<CrateKind, string> = { caisse: 'CAISSE DE RAVITAILLEMENT', caisse_renforcee: 'CAISSE RENFORCÉE', caisse_epique: 'CAISSE ÉPIQUE' };
 /** Violet de la caisse épique (ancienne couleur Épique). */
 const EPIC_HEX = '#b57bf0';
 const EPIC_COLOR = 0x9b51e0;
@@ -92,7 +93,8 @@ export default class LoadoutScene extends Phaser.Scene {
   private run!: RunState;
   private mode: LoadoutMode = 'manage';
   private loot?: Loot;
-  /** Caisse épique (grandes zones) : présentation violet et or. */
+  /** Caisse ouverte (mode caisse) ; la caisse épique a une présentation violet et or. */
+  private crate: CrateKind = 'caisse';
   private epic = false;
   private phase: Phase = 'edit';
   private params: DuelParams | null = null;
@@ -155,11 +157,12 @@ export default class LoadoutScene extends Phaser.Scene {
     super('loadout');
   }
 
-  init(data: { mode?: LoadoutMode; loot?: Loot; epic?: boolean }) {
+  init(data: { mode?: LoadoutMode; loot?: Loot; crate?: CrateKind }) {
     this.run = this.registry.get('run');
     this.mode = data?.mode ?? 'manage';
     this.loot = data?.loot;
-    this.epic = !!data?.epic && this.mode === 'caisse';
+    this.crate = data?.crate ?? this.run?.pendingLoot?.crate ?? 'caisse';
+    this.epic = this.crate === 'caisse_epique' && this.mode === 'caisse';
     this.phase = 'edit';
     this.params = null;
     this.bot = null;
@@ -228,8 +231,7 @@ export default class LoadoutScene extends Phaser.Scene {
       // Un rangement laissé prêt à assembler (ancienne sauvegarde) s'assemble tout de suite.
       this.time.delayedCall(250, () => this.craftNow());
       if (this.mode === 'shop') this.time.delayedCall(120, () => this.openShop());
-      if (this.mode === 'caisse' && this.loot && (this.loot.items.length || this.loot.bags.length || this.loot.credits)) {
-        this.loot.items.forEach((it) => this.hidden.add(it.uid));
+      if (this.mode === 'caisse' && this.loot && this.run.pendingLoot?.crate) {
         this.loot.bags.forEach((b) => this.hiddenBags.add(b.uid));
         this.refresh();
         this.time.delayedCall(200, () => this.openCrate(this.loot!));
@@ -523,7 +525,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const x1 = COMBAT.x + 350;
     L.add(this.add.rectangle(x1 - 16, COMBAT.y + 18, 2, COMBAT.h - 36, C.panelLine).setOrigin(0));
     let y1 = COMBAT.y + 18;
-    const title = this.mode === 'shop' ? 'BOUTIQUE' : this.mode === 'caisse' ? (this.epic ? 'CAISSE ÉPIQUE' : 'CAISSE DE RAVITAILLEMENT') : 'SAC À DOS';
+    const title = this.mode === 'shop' ? 'BOUTIQUE' : this.mode === 'caisse' ? CRATE_TITLE[this.crate] : 'SAC À DOS';
     L.add(txt(this, x1, y1, title, 22, C.text, { fontStyle: 'bold', wordWrap: { width: 310 } }));
     y1 += 40;
     const lines: [string, string][] = [];
@@ -532,11 +534,8 @@ export default class LoadoutScene extends Phaser.Scene {
       lines.push([`Relance : ${REROLL_COST} cr`, C.quiet]);
     } else if (this.mode === 'caisse') {
       const l = this.loot;
-      if (l && (l.items.length || l.bags.length)) {
-        for (const it of l.items) lines.push([ITEMS[it.defId].name, TIER_HEX[tierOf(it.defId)]]);
-        for (const b of l.bags) lines.push([`${BAGS[b.defId as BagId].name} : +${cellCount(b.defId)} cases`, '#d8b98c']);
-        if (l.credits) lines.push([`Réserve pleine : revendu +${l.credits} cr`, C.accentStr]);
-      } else lines.push(['Caisse ouverte.', C.quiet]);
+      if (l?.credits) lines.push([`Cash ramassé : +${l.credits} cr`, C.accentStr]);
+      for (const b of l?.bags ?? []) lines.push([`${BAGS[b.defId as BagId].name} : +${cellCount(b.defId)} cases`, '#d8b98c']);
       lines.push(['Range le butin puis termine.', C.quiet]);
     }
     lines.push(['Glisse objets et sacoches.', C.quiet]);
@@ -1166,13 +1165,13 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
     const cx = W / 2;
     const cy = 760;
-    const head = txt(this, W / 2, 200, epic ? 'CAISSE ÉPIQUE' : 'CAISSE DE RAVITAILLEMENT', epic ? 46 : 36, epic ? EPIC_HEX : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const head = txt(this, W / 2, 200, CRATE_TITLE[this.crate], epic ? 46 : 36, epic ? EPIC_HEX : this.crate === 'caisse_renforcee' ? '#6fb0ff' : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     m.add(head);
     if (epic) {
       head.setShadow(0, 0, '#f2c94c', 14, true, true);
       head.setScale(0.4).setAlpha(0);
       this.tweens.add({ targets: head, scale: 1, alpha: 1, duration: 420, ease: 'Back.Out' });
-      m.add(txt(this, W / 2, 252, 'Un objet assemblé garanti', 24, GOLD, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
+      m.add(txt(this, W / 2, 252, 'Un objet assemblé parmi les choix', 24, GOLD, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
     }
     // Lueur au sol qui monte pendant les tremblements (épique).
     const aura = this.add.graphics().setPosition(cx, cy).setAlpha(0);
@@ -1271,8 +1270,9 @@ export default class LoadoutScene extends Phaser.Scene {
       else this.cameras.main.flash(160, 255, 236, 180);
       vibrate(epic ? [40, 40, 40, 40, 80] : [30, 40, 30]);
       const entries: { v: Container; label: string; col: string; w: number; h: number }[] = [];
-      // Épique : l'objet assemblé sort en premier.
-      const items = epic ? [...loot.items].sort((a, b) => tierOf(b.defId) - tierOf(a.defId)) : loot.items;
+      // Les objets proposés jaillissent (on les choisira ensuite) ; l'objet assemblé en premier.
+      const offers = this.run.pendingLoot?.items ?? [];
+      const items = [...offers].sort((a, b) => tierOf(b.defId) - tierOf(a.defId)).slice(0, 3);
       for (const it of items) {
         const d = dims(it);
         const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
@@ -1297,11 +1297,12 @@ export default class LoadoutScene extends Phaser.Scene {
         this.tweens.add({ targets: t, alpha: 1, delay: 400 + i * 160, duration: 250 });
       });
       if (loot.credits) {
-        const ct = txt(this, W / 2, 940, `Réserve pleine : revendu +${loot.credits} cr`, 22, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5);
+        const ct = txt(this, W / 2, 940, `Cash ramassé : +${loot.credits} cr`, 26, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5);
         m.add(ct);
       }
       if (!n) m.add(txt(this, W / 2, 400, 'Vide… pas de chance.', 26, C.quiet).setOrigin(0.5));
-      const hint = txt(this, W / 2, 1040, 'Touche pour ranger', 24, C.text, { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0);
+      const pl = this.run.pendingLoot;
+      const hint = txt(this, W / 2, 1040, pl?.maxPicks ? `Touche pour choisir : ${pl.maxPicks} objet${pl.maxPicks > 1 ? 's' : ''} sur ${pl.items.length}` : 'Touche pour ranger', 24, C.text, { fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0);
       m.add(hint);
       this.tweens.add({ targets: hint, alpha: 1, delay: 700, duration: 300 });
       this.tweens.add({ targets: hint, scale: 1.08, yoyo: true, repeat: -1, delay: 1000, duration: 500 });
@@ -1313,7 +1314,9 @@ export default class LoadoutScene extends Phaser.Scene {
         if (done || this.time.now < armedAt) return;
         done = true;
         this.closeModal();
-        this.flyToReserve(loot.items, sources, 0, loot.bags);
+        const bagFrom = sources.slice(items.length);
+        if (loot.bags.length) this.flyToReserve([], bagFrom.length ? bagFrom : sources, 0, loot.bags);
+        if (this.run.pendingLoot) this.time.delayedCall(loot.bags.length ? 500 : 0, () => this.openLootChoice());
       });
     });
   }
@@ -2190,9 +2193,11 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
     const top = 96;
     const PH = 1130;
-    const pnl = panel(this, 24, top, W - 48, PH, 0x7a3a32);
+    const crate = pl.crate;
+    const pnl = panel(this, 24, top, W - 48, PH, crate === 'caisse_epique' ? EPIC_COLOR : crate === 'caisse_renforcee' ? 0x2f80ed : crate ? 0x5fbf6a : 0x7a3a32);
     m.add(pnl);
-    m.add(txt(this, 54, top + 26, botName ? `SAC DE ${botName.toUpperCase()}` : 'SAC DU VAINCU', 34, '#ffb4a8', { fontStyle: 'bold' }));
+    const head = crate ? CRATE_TITLE[crate] : botName ? `SAC DE ${botName.toUpperCase()}` : 'SAC DU VAINCU';
+    m.add(txt(this, 54, top + 26, head, 34, crate === 'caisse_epique' ? EPIC_HEX : crate ? '#bfe8a8' : '#ffb4a8', { fontStyle: 'bold' }));
     const counter = txt(this, 54, top + 76, '', 24, GOLD, { fontStyle: 'bold' });
     m.add(counter);
     // Sac du bot : ses cases (ou, à défaut, la boîte englobante de ses objets)
@@ -2256,23 +2261,40 @@ export default class LoadoutScene extends Phaser.Scene {
       // Ce qui est allé en réserve s'y envole ; ce qui est dans le sac y apparaît (et peut s'assembler).
       const still = flown.filter((f) => this.run.items.some((i) => i.uid === f.item.uid && !i.placed));
       if (still.length) this.flyToReserve(still.map((f) => f.item), still.map((f) => f.from), 0);
+      if (crate) {
+        // Caisse : retour au rangement, l'action se termine avec le bouton principal.
+        this.mode = 'caisse';
+        this.crate = crate;
+        this.epic = crate === 'caisse_epique';
+        this.phase = 'edit';
+        this.post = null;
+        this.craftNow();
+        this.updateButtons();
+        return;
+      }
       this.craftNow();
       this.afterLoot();
     }, { size: 24 });
     m.add([take.root, finish.root]);
 
     const update = () => {
-      const left = this.run.pendingLoot?.items.length ?? 0;
-      counter.setText(`Réserve ${reserve(this.run).length}/${RESERVE_MAX} · ${left ? `${left} objet${left > 1 ? 's' : ''} à prendre` : 'sac vidé'}`);
+      const p = this.run.pendingLoot;
+      const max = p?.maxPicks;
+      // Caisse : plus rien à prendre une fois le quota atteint.
+      const left = p && (max === undefined || p.picked < max) ? p.items.length : 0;
+      const res = `Réserve ${reserve(this.run).length}/${RESERVE_MAX}`;
+      counter.setText(max !== undefined ? `Choisis ${max} objet${max > 1 ? 's' : ''} · ${p!.picked}/${max} · ${res}`
+        : `${res} · ${left ? `${left} objet${left > 1 ? 's' : ''} à prendre` : 'sac vidé'}`);
       if (current) {
         const d = describe(current);
         title.setText(`${d.title} · ${d.subtitle}`).setColor(TIER_HEX[tierOf(current.defId)]);
         info.setText(d.lines.slice(0, 5).join('\n'));
         take.setLabel(`Prendre · ${ITEMS[current.defId].short}`);
-        take.setEnabled(true);
+        take.setEnabled(left > 0);
       } else {
         title.setText(left ? 'Touche un objet pour voir sa fiche, puis prends-le.' : 'Plus rien à prendre.').setColor(C.text);
-        info.setText('Prends tout ce que tu veux : la réserve, puis le sac. Ce qui reste est perdu.');
+        info.setText(crate ? 'Ce que tu prends va en réserve, puis dans le sac. Le reste reste dans la caisse.'
+          : 'Prends tout ce que tu veux : la réserve, puis le sac. Ce qui reste est perdu.');
         take.setLabel('Prendre');
         take.setEnabled(false);
       }

@@ -207,6 +207,7 @@ function cardScore(card: Card, run: RunState, policy: Policy): number {
   const t = card.type as string;
   if (t === 'caisse_epique') return 100;
   if (policy === 'prudent') {
+    if (t === 'caisse_renforcee') return 60;
     if (t === 'caisse') return 50;
     if (t === 'solo') return 40;
     if (t === 'shop') return run.credits >= 8 ? 45 : 5;
@@ -218,6 +219,7 @@ function cardScore(card: Card, run: RunState, policy: Policy): number {
   if (t === 'squad') return squads === 0 && !run.goulagUsed ? 60 : 8;
   if (t === 'duo') return squads === 0 && !run.goulagUsed ? 55 : 20;
   if (t === 'shop') return run.credits >= 10 ? 50 : 5;
+  if (t === 'caisse_renforcee') return 58;
   if (t === 'caisse') return 45;
   return 40; // solo
 }
@@ -270,7 +272,9 @@ export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunSt
       const res = playCard(run, i)!;
       if (res.kind === 'shop') shop(run, rng);
       else if (res.kind === 'caisse') {
-        if ((res as { epic?: boolean }).epic) st.epic++;
+        if (res.crate === 'caisse_epique') st.epic++;
+        lootAll(run, [...run.pendingLoot!.items], rng);
+        repack(run, rng);
       } else {
         let p: DuelParams | undefined = res;
         while (p) {

@@ -27,7 +27,7 @@ export interface GameMap {
 }
 
 /** `squad` = escouade (3 ou 4 duels), `duo` = 2 duels, `solo` = 1 duel. */
-export type CardType = 'squad' | 'duo' | 'solo' | 'caisse' | 'shop' | 'caisse_epique';
+export type CardType = 'squad' | 'duo' | 'solo' | 'caisse' | 'caisse_renforcee' | 'shop' | 'caisse_epique';
 /** Types tirés au poids (la caisse épique est tirée à part, au plus une par zone). */
 export type WeightedCardType = Exclude<CardType, 'caisse_epique'>;
 
@@ -50,15 +50,17 @@ export const DANGER_BY_SIZE: Record<ZoneSize, number> = { petite: 0, moyenne: 0.
 export const ZONE_RADIUS: Record<ZoneSize, number> = { petite: 48, moyenne: 68, grande: 92 };
 /** Poids de tirage des cartes selon la taille de la zone. */
 export const CARD_WEIGHTS: Record<ZoneSize, Record<WeightedCardType, number>> = {
-  petite: { squad: 3, duo: 8, solo: 33, caisse: 32, shop: 20 },
-  moyenne: { squad: 12, duo: 16, solo: 32, caisse: 20, shop: 20 },
-  grande: { squad: 22, duo: 20, solo: 33, caisse: 12, shop: 13 },
+  petite: { squad: 3, duo: 8, solo: 33, caisse: 28, caisse_renforcee: 4, shop: 20 },
+  moyenne: { squad: 12, duo: 16, solo: 28, caisse: 14, caisse_renforcee: 6, shop: 20 },
+  grande: { squad: 22, duo: 20, solo: 29, caisse: 8, caisse_renforcee: 4, shop: 13 },
 };
 /**
  * Chance qu'une zone contienne une caisse épique (au plus une par largage) : elle remplace une des cartes tirées.
  * Réservée aux grandes zones : c'est la récompense qui justifie d'aller au chaud.
  */
 export const EPIC_CRATE_CHANCE: Record<ZoneSize, number> = { petite: 0, moyenne: 0, grande: 0.5 };
+/** Manche (index 0) à partir de laquelle la caisse renforcée et la caisse épique apparaissent (2e cercle). */
+export const RICH_CRATES_FROM_ROUND = 1;
 /** Duels d'un duo. */
 export const DUO_DUELS = 2;
 /** Manche (index 0) à partir de laquelle une escouade enchaîne 4 duels au lieu de 3 (4e cercle). */
@@ -170,7 +172,9 @@ export function drawCards(seed: number, round: number, zone: MapZone): Card[] {
   const w = CARD_WEIGHTS[zone.size];
   const types: CardType[] = [];
   for (let i = 0; i < CARDS_BY_SIZE[zone.size]; i++) {
-    const allowed = (Object.keys(w) as WeightedCardType[]).filter((t) => t !== 'shop' || !types.includes('shop'));
+    // Au plus une boutique et une caisse renforcée ; pas de caisse renforcée au 1er cercle.
+    const allowed = (Object.keys(w) as WeightedCardType[]).filter((t) => (t !== 'shop' || !types.includes('shop'))
+      && (t !== 'caisse_renforcee' || (round >= RICH_CRATES_FROM_ROUND && !types.includes('caisse_renforcee'))));
     types.push(weighted(rng, allowed.map((t) => [t, w[t]] as const)));
   }
   if (!types.some(isFightType)) {
@@ -178,7 +182,7 @@ export function drawCards(seed: number, round: number, zone: MapZone): Card[] {
     types[Math.floor(rng() * types.length)] = 'solo';
   }
   // Caisse épique : remplace une carte au hasard, sans retirer le seul combat de la zone.
-  if (rng() < EPIC_CRATE_CHANCE[zone.size]) {
+  if (rng() < EPIC_CRATE_CHANCE[zone.size] && round >= RICH_CRATES_FROM_ROUND) {
     const fights = types.filter(isFightType).length;
     const spots = types.map((_, i) => i).filter((i) => fights > 1 || !isFightType(types[i]));
     types[spots[Math.floor(rng() * spots.length)]] = 'caisse_epique';
