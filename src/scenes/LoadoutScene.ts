@@ -5,6 +5,7 @@ import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, GRID_X, GRID_Y, H, 
 import { BAGS, BagId } from '../data/bags';
 import { FAMILY_INFO, ITEMS } from '../data/items';
 import { OPERATORS } from '../data/operators';
+import { ARCHETYPES } from '../data/archetypes';
 import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
 import { DuelReport, ItemReport, duelReport, itemWeight } from '../logic/report';
@@ -1758,7 +1759,10 @@ export default class LoadoutScene extends Phaser.Scene {
     L.add(badge);
     L.add(txt(this, E.x + E.w - bw / 2 - 12, E.y + 28, q.label, 16, '#14110c', { fontStyle: 'bold' }).setOrigin(0.5));
     if (name.width > E.w - bw - 40) name.setScale((E.w - bw - 40) / name.width);
-    L.add(txt(this, E.x + 14, E.y + 46, `${OPERATORS[bot.operator].name} · ${bot.items.length} objets`, 15, C.quiet));
+    L.add(txt(this, E.x + 14, E.y + 46, `${OPERATORS[bot.operator].name} · `, 15, C.quiet));
+    const arch = txt(this, 0, E.y + 46, ARCHETYPES[bot.archetype].name.toUpperCase(), 15, C.accentStr, { fontStyle: 'bold' });
+    arch.setX(E.x + 14 + (L.list[L.list.length - 1] as Phaser.GameObjects.Text).width);
+    L.add(arch);
     // Sac adverse en miniature (sa boîte englobante seulement)
     const cells = bot.usable.map((k) => k.split(',').map(Number));
     const x0 = Math.min(...cells.map((c) => c[0]));
@@ -1810,6 +1814,8 @@ export default class LoadoutScene extends Phaser.Scene {
     m.add(badge);
     m.add(txt(this, W - 54 - 55, 166, q.label, 20, '#14110c', { fontStyle: 'bold' }).setOrigin(0.5));
     m.add(txt(this, 54, 196, `${OPERATORS[bot.operator].name} · ♥ ${bl.maxHp} · ARM ${bl.armor} · DPS ${Math.round(estimateDps(bl))}`, 22, C.text));
+    const A = ARCHETYPES[bot.archetype];
+    m.add(txt(this, 54, 226, `${A.name.toUpperCase()} : ${A.blurb}`, 18, C.accentStr, { wordWrap: { width: W - 108 } }));
     const cells = bot.usable.map((k) => k.split(',').map(Number));
     const x0 = Math.min(...cells.map((c) => c[0]));
     const y0 = Math.min(...cells.map((c) => c[1]));
@@ -1817,7 +1823,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const bhc = Math.max(...cells.map((c) => c[1])) - y0 + 1;
     const cell = Math.floor(Math.min(600 / bwc, 470 / bhc, 90));
     const gx = (W - bwc * cell) / 2;
-    const gy = 250;
+    const gy = 290;
     const bg = this.add.graphics();
     bg.fillStyle(0x5a4a3a, 1);
     bg.fillRoundedRect(gx - 8, gy - 8, bwc * cell + 16, bhc * cell + 16, 14);

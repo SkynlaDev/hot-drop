@@ -1,6 +1,7 @@
 // Bots adverses : un vrai sac généré comme celui d'un joueur (mêmes objets, mêmes règles, même computeLoadout).
 import { ITEMS, ItemDef } from '../data/items';
-import { OPERATOR_IDS, OperatorId, corePool } from '../data/operators';
+import { ARCHETYPES, ArchetypeId, archetypesFor } from '../data/archetypes';
+import { NEUTRAL_FAMILIES, OPERATORS, OPERATOR_IDS, OperatorId, canUse, corePool, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { ItemInst, Rot, canPlace, cellKey, cellsAt, cellsOf } from './grid';
 import { Rng, hashParts, mulberry32, pick } from './rng';
@@ -13,6 +14,7 @@ export type BotQuality = 'faible' | 'normal' | 'fort';
 export interface BotBuild {
   name: string;
   operator: OperatorId;
+  archetype: ArchetypeId;
   items: ItemInst[];
   /** Cases "x,y" utilisables de son sac. */
   usable: string[];
@@ -43,6 +45,11 @@ const BACKPACKS: [number, number, number, number][] = [
  * un objet assemblé (recette) : c'est ce qui remplace les raretés dans la montée en puissance des bots.
  */
 export const CRAFTED_ODDS = [0, 0.1, 0.25, 0.4, 0.5, 0.65, 0.8];
+/** Chance qu'un objet tiré vienne de l'archétype du bot (sinon de son pool « cœur »). */
+export const ARCH_FOCUS = 0.8;
+export const ARCH_FOCUS_LANDING = 0.4;
+/** Manche (0 = 1er cercle) à partir de laquelle un bot peut jouer le build Lame. */
+export const LAME_FROM = 2;
 /** Bonus de chance d'objet assemblé pour un bot fort. */
 const FORT_CRAFTED_BONUS = 0.25;
 
@@ -89,6 +96,8 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const danger = (opts.danger ?? 0) * (opts.final ? 1 : DANGER_RAMP[Math.min(round, DANGER_RAMP.length - 1)]);
   const rng = mulberry32(hashParts('bot', seed, round, opts.danger ?? 0, opts.final ? 1 : 0, opts.goulag ? 1 : 0));
   const operator = pick(rng, OPERATOR_IDS);
+  // Le build Lame demande des pièces : pas avant le 3e cercle, ni au Top 1.
+  const archetype = pick(rng, archetypesFor(operator).filter((a) => a !== 'lame' || (round >= LAME_FROM && !opts.final)));
   const name = rng() < 0.4 ? `${pick(rng, CALLSIGNS)}-${1 + Math.floor(rng() * 9)}` : pick(rng, CALLSIGNS);
 
   let quality: BotQuality = 'normal';
@@ -112,24 +121,47 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const cap = minRoundCap(lvl);
   // Aux premiers niveaux, pas d'objets chers (plaque céramique…) hors armes.
   const itemCap = [5, 7][lvl] ?? Infinity;
-  const pool = corePool(operator).filter((id) => ITEMS[id].minRound <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap));
-  const crafted = RECIPES.filter((r) => r.inputs.every((id) => corePool(operator).includes(id))).map((r) => r.output);
+  // Pool : tout ce que l'opérateur peut trouver (pool commun), avec une préférence forte pour l'archétype.
+  // Hors archétype, le bot reste dans son pool « cœur » pour garder un sac cohérent.
+  const capOk = (id: string) => ITEMS[id].minRound <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap);
+  // 1er cercle : pas encore d'objets de signature (ils se trouvent en jouant).
+  const pool = lootPool(operator).filter((id) => capOk(id) && !(landing && ITEMS[id].signature));
+  const core = new Set(corePool(operator));
+  const coreFams = [OPERATORS[operator].family, ...NEUTRAL_FAMILIES];
+  // Objets assemblés : « cœur » si leur famille l'est (corePool ne contient pas d'objets assemblés).
+  const inCoreOf = (id: string) => core.has(id) || (!!ITEMS[id].crafted && coreFams.includes(ITEMS[id].family));
+  const crafted = RECIPES.filter((r) => canUse(operator, r.output)).map((r) => r.output);
   const craftChance = landing ? 0 : Math.min(0.95, CRAFTED_ODDS[lvl] + (quality === 'fort' ? FORT_CRAFTED_BONUS : 0));
+  const A = ARCHETYPES[archetype];
+  const wanted = new Set([...A.weapons, ...A.crafted, ...A.extras]);
+  /** Un objet de la liste : de l'archétype le plus souvent, sinon du pool cœur. */
+  // 1er cercle : on vient d'atterrir, le plan se devine à peine.
+  const focus = landing ? ARCH_FOCUS_LANDING : ARCH_FOCUS;
+  const prefer = (list: string[], p = focus): string | undefined => {
+    const mine = list.filter((id) => wanted.has(id));
+    if (mine.length && rng() < p) return pick(rng, mine);
+    const inCore = list.filter(inCoreOf);
+    return inCore.length ? pick(rng, inCore) : list.length ? pick(rng, list) : undefined;
+  };
 
   // Composition : armes, chargeurs et accessoires assortis, protection, puis le reste.
   const ids: string[] = [];
   // Armes plafonnées par prix aux premiers niveaux : un bot du 1er cercle a une arme de départ.
   const priceCap = [7, 8, 10][lvl] ?? Infinity;
-  const weapons = pool.filter((id) => isWeapon(id) && ITEMS[id].price <= priceCap);
+  // Les armes de l'archétype échappent au plafond de prix (hors 1er cercle) : un Tir lourd a son fusil.
+  const weapons = pool.filter((id) => isWeapon(id) && (ITEMS[id].price <= priceCap || (!landing && wanted.has(id))));
+  const gunless = A.weapons.length === 0;
   // 2e arme de plus en plus probable quand le sac se remplit (de 6 à 8 objets).
-  const nWeapons = nItems >= 6 && rng() < (nItems - 5) / 3 ? 2 : 1;
-  const craftedWeapons = crafted.filter(isWeapon);
+  // La Marque ne sert qu'avec deux armes : une marque, l'autre achève.
+  const nWeapons = gunless ? 0 : A.twoGuns && nItems >= 5 ? 2 : nItems >= 6 && rng() < (nItems - 5) / 3 ? 2 : 1;
+  const craftedWeapons = crafted.filter((id) => isWeapon(id) && !isMelee(id));
   const craftedArmors = crafted.filter((id) => ITEMS[id].armor);
   const craftedSupport = crafted.filter((id) => ITEMS[id].active);
   const chosenWeapons: string[] = [];
   for (let i = 0; i < nWeapons; i++) {
-    if (i === 0 && craftedWeapons.length && rng() < craftChance) chosenWeapons.push(pick(rng, craftedWeapons));
-    else chosenWeapons.push(pick(rng, weapons));
+    const c = craftedWeapons.length && rng() < craftChance ? prefer(craftedWeapons, 0.9) : undefined;
+    const w = c ?? prefer(weapons);
+    if (w) chosenWeapons.push(w);
   }
   const mags = pool.filter(isMag);
   const accs = pool.filter(isAccessory);
@@ -137,46 +169,54 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
     const wd = ITEMS[w];
     const out: string[] = [];
     if (!wd.weapon!.selfFed) {
-      const fit = mags.filter((m) => accessoryFits(ITEMS[m], wd));
-      if (fit.length) out.push(pick(rng, fit));
+      const m = prefer(mags.filter((x) => accessoryFits(ITEMS[x], wd)));
+      if (m) out.push(m);
     }
-    const fitAcc = accs.filter((a) => accessoryFits(ITEMS[a], wd));
-    if (fitAcc.length) out.push(pick(rng, fitAcc));
+    const a = A.noAccessory ? undefined : prefer(accs.filter((x) => accessoryFits(ITEMS[x], wd)));
+    if (a) out.push(a);
     return out;
   });
-  ids.push(chosenWeapons[0], ...perWeapon[0]);
-  // Arme de mêlée, en plus du compte d'objets : un couteau au 1er cercle (comme le sac de départ), puis au choix.
+  if (chosenWeapons[0]) ids.push(chosenWeapons[0], ...perWeapon[0]);
+  // Mêlée : en plus du compte d'objets (un couteau au 1er cercle) ; le build Lame en fait son cœur.
   const melees = pool.filter(isMelee);
   const craftedMelee = crafted.filter(isMelee);
-  const melee = landing ? 'couteau' : craftedMelee.length && rng() < craftChance ? pick(rng, craftedMelee) : pick(rng, melees);
+  const pickMelee = () => (craftedMelee.length && rng() < craftChance ? prefer(craftedMelee, 0.9) : undefined) ?? prefer(melees);
+  const melee = landing && !gunless ? 'couteau' : pickMelee();
+  if (gunless) for (let i = 0; i < (nItems >= 6 ? 2 : 1); i++) {
+    const m = pickMelee();
+    if (m) ids.push(m);
+  }
   const armors = pool.filter((id) => ITEMS[id].armor);
-  ids.push(craftedArmors.length && rng() < craftChance ? pick(rng, craftedArmors) : pick(rng, armors));
+  const armor = (craftedArmors.length && rng() < craftChance ? prefer(craftedArmors, 0.9) : undefined) ?? prefer(armors);
+  if (armor) ids.push(armor);
   if (chosenWeapons[1]) ids.push(chosenWeapons[1], ...perWeapon[1]);
-  const support = pool.filter((id) => ITEMS[id].active);
+  const support = pool.filter((id) => ITEMS[id].active && !isMelee(id));
   // Thème de la zone : une fois sur deux, l'objet en plus vient du thème (c'est ce qu'on trouvera en le fouillant).
   const themed = pool.filter((id) => !isWeapon(id) && themeFits(opts.theme, id));
+  const armorShare = A.armorShare ?? 0.25;
   // Le reste : au plus 2 exemplaires d'un même objet.
   const room = (id: string | undefined): id is string => !!id && ids.filter((x) => x === id).length < 2;
   for (let guard = 0; ids.length < nItems && guard < 50; guard++) {
     const r = rng();
     let id: string | undefined;
     if (themed.length && rng() < THEME_BIAS) id = pick(rng, themed);
-    else if (r < 0.5) id = craftedSupport.length && rng() < craftChance ? pick(rng, craftedSupport) : pick(rng, support);
-    else if (r < 0.75) {
+    else if (r < armorShare) id = (craftedArmors.length && rng() < craftChance ? prefer(craftedArmors, 0.9) : undefined) ?? prefer(armors);
+    else if (r < armorShare + 0.4) id = (craftedSupport.length && rng() < craftChance ? prefer(craftedSupport, 0.9) : undefined) ?? prefer(support);
+    else if (chosenWeapons.length && !A.noAccessory) {
       // Chargeur ou accessoire en plus pour une arme du sac.
       const wd = ITEMS[pick(rng, chosenWeapons)];
-      id = pick(rng, [...mags, ...accs].filter((a) => accessoryFits(ITEMS[a], wd)));
-    } else id = pick(rng, armors);
+      id = prefer([...mags, ...accs].filter((a) => accessoryFits(ITEMS[a], wd)));
+    } else id = gunless ? pickMelee() : prefer([...armors, ...support]);
     if (room(id)) ids.push(id);
   }
   ids.length = Math.min(ids.length, nItems);
-  ids.push(melee);
+  if (melee) ids.push(melee);
 
   // Rangement bâclé (chargeur ou accessoire posé n'importe où) : fréquent chez les faibles, rare ensuite.
   // Le Goulag est un duel équitable : un bot qui range bien son sac.
   const sloppy = opts.goulag ? 0 : quality === 'faible' ? 0.5 : quality === 'normal' ? Math.max(0.05, 0.3 - 0.06 * round) : 0;
   const items = placeBot(ids, new Set(usable), rng, sloppy);
-  return { name, operator, items, usable, maxHp: maxHpFor(round), quality };
+  return { name, operator, archetype, items, usable, maxHp: maxHpFor(round), quality };
 }
 
 export function botLoadout(b: BotBuild): PlayerLoadout {
@@ -190,11 +230,14 @@ export function botLoadout(b: BotBuild): PlayerLoadout {
  */
 export function placeBot(list: string[], usable: Set<string>, rng: Rng, sloppy = 0): ItemInst[] {
   const placed: ItemInst[] = [];
+  // Les protections passent avant les accessoires : un sac plein abandonne un viseur plutôt que son armure.
+  const isArmor = (id: string) => !!ITEMS[id].armor && !isWeapon(id);
   const order = [
     ...list.filter((id) => isWeapon(id)),
     ...list.filter((id) => isMag(id)),
+    ...list.filter(isArmor).sort((x, y) => cells(y) - cells(x)),
     ...list.filter((id) => isAccessory(id)),
-    ...list.filter((id) => !isWeapon(id) && !ITEMS[id].synergy).sort((x, y) => cells(y) - cells(x)),
+    ...list.filter((id) => !isWeapon(id) && !ITEMS[id].synergy && !isArmor(id)).sort((x, y) => cells(y) - cells(x)),
   ];
   let uid = 1;
   const bounds = [...usable].map((k) => k.split(',').map(Number));
