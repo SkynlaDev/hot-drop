@@ -71,3 +71,14 @@ describe('rapport de duel', () => {
     expect(get(2)).toBeUndefined();
   });
 });
+
+describe('rapport de duel : touches', () => {
+  it('jamais plus de touches que de tirs (plombs, balles doublées)', () => {
+    for (let s = 0; s < 60; s++) {
+      const a = botLoadout(generateBot(s, 4, { final: true }));
+      const b = botLoadout(generateBot(s + 300, 4, { final: true }));
+      const rep = duelReport(simulateDuel(a, b, s), a, b);
+      for (const side of ['a', 'b'] as const) for (const r of rep[side].items) if (r.shots) expect(r.hits, `${r.uid}`).toBeLessThanOrEqual(r.shots);
+    }
+  });
+});

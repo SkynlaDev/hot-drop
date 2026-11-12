@@ -67,6 +67,8 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
   /** Réserve de saignement sur chaque camp, par objet adverse qui l'a posée. */
   const bleedBy: Record<Side, Map<number, number>> = { a: new Map(), b: new Map() };
   const smoke: Record<Side, { uid: number; until: number } | null> = { a: null, b: null };
+  /** Tir en cours de chaque arme (plombs, balle doublée) : déjà compté comme touche ? */
+  const shotHit = new Map<string, boolean>();
 
   /** `target` encaisse `amount`, dont `absorbed` par son armure. */
   const take = (target: Side, amount: number, absorbed: number) => {
@@ -79,13 +81,21 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
     switch (e.kind) {
       case 'shot': {
         const r = it(e.from, e.uid);
-        if (!e.double) r.shots++;
+        // Un tir = une touche au plus, même s'il frappe deux fois (plombs, balle doublée).
+        const key = `${e.from}:${e.uid}`;
+        if (!e.double) {
+          r.shots++;
+          shotHit.set(key, false);
+        }
+        if (!e.miss && !shotHit.get(key)) {
+          r.hits++;
+          shotHit.set(key, true);
+        }
         if (e.miss) {
           const sm = smoke[other(e.from)];
           if (sm && e.t < sm.until) it(other(e.from), sm.uid).dodged++;
           break;
         }
-        r.hits++;
         if (e.crit) r.crits++;
         r.dmg += e.amount;
         take(other(e.from), e.amount, e.absorbed ?? 0);
