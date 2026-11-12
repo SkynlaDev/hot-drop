@@ -246,7 +246,20 @@ function duel(run: RunState, p: DuelParams): { win: boolean; hpEnd: number; bot:
 
 export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunStats {
   const rng = mulberry32(hashParts('sim', seed, policy));
-  const run = newRun(op, seed);
+  let run = newRun(op, seed);
+  // Largage : essaie chaque arme proposée et garde celle qui donne le sac le plus fort.
+  if (run.pendingLoot?.crate === 'largage') {
+    let best: { run: RunState; f: number } | null = null;
+    for (const offer of run.pendingLoot.items) {
+      const r = structuredClone(run);
+      lootItem(r, offer.uid);
+      finishLoot(r);
+      repack(r, rng);
+      const f = fitness(r.items, op, 0) + rng() * 0.5;
+      if (!best || f > best.f) best = { run: r, f };
+    }
+    run = best!.run;
+  }
   const st: RunStats = { duels: Array.from({ length: ROUNDS }, () => [0, 0]), reached: 0, goulag: 'none', top1: false, items: [], crafted: [], epic: 0 };
   repack(run, rng);
   while (!run.over) {

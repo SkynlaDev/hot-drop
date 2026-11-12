@@ -13,7 +13,10 @@ export interface OperatorDef {
   pitch: string;
   /** Passif, appliqué par computeLoadout. */
   passive: string;
-  /** Objets de départ : [defId, x, y] dans le sac de base (colonnes 2 à 6, lignes 2 à 5). */
+  /**
+   * Kit de référence : [defId, x, y] dans le sac de base (colonnes 2 à 6, lignes 2 à 5). En partie, l'arme et son
+   * chargeur sont retirés (on les choisit au largage) : les deux rangées du haut restent libres pour l'arme.
+   */
   start: [string, number, number][];
 }
 
@@ -24,7 +27,7 @@ export const OPERATORS: Record<OperatorId, OperatorDef> = {
     family: 'rafale',
     pitch: 'Fusils d’assaut et SMG : noie l’ennemi sous les balles, sans lâcher la gâchette.',
     passive: 'Feu continu : chaque arme gagne +5\u00a0% de cadence par seconde de tir sans recharger (max +30\u00a0%)',
-    start: [['casque', 2, 2], ['pistolet', 4, 2], ['chg_9mm', 5, 3], ['refroidisseur', 4, 4], ['couteau', 2, 4]],
+    start: [['casque', 2, 4], ['pistolet', 4, 2], ['chg_9mm', 6, 2], ['refroidisseur', 4, 4], ['couteau', 4, 5]],
   },
   sentinelle: {
     id: 'sentinelle',
@@ -32,7 +35,7 @@ export const OPERATORS: Record<OperatorId, OperatorDef> = {
     family: 'precision',
     pitch: 'Fusils de précision et revolvers : une arme marque, l’autre achève.',
     passive: 'Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +50\u00a0%',
-    start: [['casque', 2, 2], ['revolver', 4, 2], ['chg_44', 5, 3], ['poignee', 6, 3], ['couteau', 2, 4]],
+    start: [['casque', 2, 4], ['revolver', 4, 2], ['chg_44', 5, 3], ['poignee', 6, 3], ['couteau', 4, 4]],
   },
 };
 

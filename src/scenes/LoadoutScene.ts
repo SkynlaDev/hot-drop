@@ -118,7 +118,7 @@ const QUALITY: Record<BotBuild['quality'], { label: string; color: number; hex: 
   fort: { label: 'FORT', color: 0xe5484d, hex: '#ff6b6b' },
 };
 const GOLD = '#f2c94c';
-const CRATE_TITLE: Record<CrateKind, string> = { caisse: 'CAISSE DE RAVITAILLEMENT', caisse_renforcee: 'CAISSE RENFORCÉE', caisse_epique: 'CAISSE ÉPIQUE' };
+const CRATE_TITLE: Record<CrateKind, string> = { caisse: 'CAISSE DE RAVITAILLEMENT', caisse_renforcee: 'CAISSE RENFORCÉE', caisse_epique: 'CAISSE ÉPIQUE', largage: 'LARGAGE : TON ARME' };
 /** Violet de la caisse épique (ancienne couleur Épique). */
 const EPIC_HEX = '#b57bf0';
 const EPIC_COLOR = 0x9b51e0;
@@ -2706,6 +2706,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }, { primary: true, size: 26 });
     const finish = button(this, 54 + 376, top + PH - 120, W - 108 - 376, 96, 'Terminer', () => {
       if (swapLayer) return;
+      if (crate === 'largage' && !this.run.pendingLoot?.picked) return;
       finishLoot(this.run);
       this.closeModal();
       // Ce qui est allé en réserve s'y envole ; ce qui est dans le sac y apparaît (et peut s'assembler).
@@ -2743,12 +2744,15 @@ export default class LoadoutScene extends Phaser.Scene {
         take.setEnabled(left > 0);
       } else {
         title.setText(left ? 'Touche un objet pour voir sa fiche, puis prends-le.' : 'Plus rien à prendre.').setColor(C.text);
-        info.setText(crate ? 'Ce que tu prends va en réserve, puis dans le sac. Le reste reste dans la caisse.'
+        info.setText(crate === 'largage' ? 'Ton arme de départ : elle arrive dans le sac avec son chargeur. Elle oriente ta run sans la figer.'
+          : crate ? 'Ce que tu prends va en réserve, puis dans le sac. Le reste reste dans la caisse.'
           : 'Choisis ce que tu emportes : la réserve, puis le sac. Le reste est perdu.');
         take.setLabel('Prendre');
         take.setEnabled(false);
       }
       finish.setLabel(left ? 'Terminer' : 'Terminer ▸');
+      // Largage : on ne repart pas sans arme.
+      finish.setEnabled(crate !== 'largage' || p?.picked === 1);
     };
 
     /** Tout est plein : choisir un objet du joueur à revendre pour faire de la place. */

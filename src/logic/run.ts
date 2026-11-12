@@ -5,7 +5,7 @@ import { Category, ITEMS } from '../data/items';
 import { BAGS, BAG_IDS, BagId } from '../data/bags';
 import { OPERATORS, OperatorId, canUse, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
-import { BagInst, ItemInst, canPlace, dims, findSpot, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
+import { BagInst, ItemInst, canPlace, dims, findSpot, sharedEdge, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
 import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice, maxHpFor } from './stats';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, THEME_BIAS, ZoneTheme, drawCards, genMap, isGassed, themeFits, zonesInCircle } from './zone';
@@ -19,7 +19,7 @@ export const SHOP_OFFERS = 5;
 /** Chance qu'une des offres de la boutique soit une sacoche. */
 export const SHOP_BAG_CHANCE = 0.4;
 /** Les trois caisses. */
-export type CrateKind = 'caisse' | 'caisse_renforcee' | 'caisse_epique';
+export type CrateKind = 'caisse' | 'caisse_renforcee' | 'caisse_epique' | 'largage';
 /**
  * Caisses : `offers` objets proposés dont on prend au plus `picks` ; toujours une arme parmi eux.
  * Renforcée : en plus, un ingrédient qui complète une recette commencée dans le sac. Épique : un objet assemblé.
@@ -29,7 +29,11 @@ export const CRATES: Record<CrateKind, { offers: number; picks: number; cash: (r
   caisse: { offers: 3, picks: 1, cash: (r) => 3 + r, bag: 0.3 },
   caisse_renforcee: { offers: 4, picks: 2, cash: (r) => 6 + 2 * r, bag: 0.6 },
   caisse_epique: { offers: 5, picks: 2, cash: (r) => 10 + 3 * r, bag: 0.5 },
+  // Début de partie : 3 armes de départ de classes différentes, on en garde 1 (son chargeur est fourni).
+  largage: { offers: 3, picks: 1, cash: () => 0, bag: 0 },
 };
+/** Prix maximal d'une arme proposée au largage. */
+export const LANDING_PRICE_CAP = 8;
 /** Chance qu'une Élite vaincue donne aussi une sacoche. */
 export const ELITE_BAG_CHANCE = 0.4;
 /** Objets qu'on emporte du sac du vaincu : 1 après un duel, 2 après une Élite. */
@@ -161,14 +165,49 @@ export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1
     bags: [],
     nextUid: 1,
   };
+  // Kit de départ sans arme ni chargeur : l'arme se choisit au largage.
   for (const [id, x, y] of OPERATORS[operator].start) {
+    if (ITEMS[id].weapon || ITEMS[id].synergy?.kind === 'mag') continue;
     const it = makeItem(run, id);
     Object.assign(it, { x, y, placed: true });
     run.items.push(it);
   }
   // Une pochette en réserve pour découvrir les sacoches dès le début.
   run.bags.push(makeBag(run, 'pochette'));
+  const offers = landingOffers(run, rngFor(seed, 'largage'));
+  run.pendingLoot = { items: layoutOffers(offers.map(drop)), usable: [], crate: 'largage', maxPicks: 1, picked: 0 };
   return run;
+}
+
+/**
+ * Armes du largage : 3 classes d'armes différentes, prix ≤ LANDING_PRICE_CAP, dont au moins une de la famille
+ * de l'opérateur. Le choix oriente la run sans la figer.
+ */
+export function landingOffers(run: RunState, rng: Rng): string[] {
+  const fam = OPERATORS[run.operator].family;
+  const pool = lootPool(run.operator).filter((id) => ITEMS[id].weapon && ITEMS[id].minRound === 0 && ITEMS[id].price <= LANDING_PRICE_CAP);
+  const out: string[] = [];
+  const own = pool.filter((id) => ITEMS[id].family === fam);
+  if (own.length) out.push(pick(rng, own));
+  const classes = () => new Set(out.map((id) => ITEMS[id].wclass));
+  for (let guard = 0; out.length < CRATES.largage.offers && guard < 60; guard++) {
+    const left = pool.filter((id) => !out.includes(id) && !classes().has(ITEMS[id].wclass));
+    if (!left.length) break;
+    out.push(pick(rng, left));
+  }
+  // Ordre mélangé : l'arme de la famille n'est pas toujours la première.
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** Chargeur fourni avec une arme du largage (aucun pour une arme qui s'alimente seule). */
+export function landingMag(weaponId: string): string | undefined {
+  const w = ITEMS[weaponId];
+  if (!w.weapon || w.weapon.selfFed) return undefined;
+  return Object.values(ITEMS).find((d) => d.synergy?.kind === 'mag' && d.caliber === w.caliber && !d.signature && !d.crafted)?.id;
 }
 
 export function makeItem(run: RunState, defId: string): ItemInst {
@@ -328,11 +367,29 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   return res;
 }
 
-/** Destination d'un nouvel objet : la réserve si elle a de la place, sinon une place libre dans le sac. */
-function stowSpot(items: ItemInst[], defId: string, cells: Set<string>): { to: 'reserve' } | { to: 'sac'; x: number; y: number; rot: ItemInst['rot'] } | null {
-  if (items.filter((i) => !i.placed).length < RESERVE_MAX) return { to: 'reserve' };
+/**
+ * Destination d'un nouvel objet : la réserve si elle a de la place, sinon une place libre dans le sac.
+ * `bagFirst` : le sac d'abord (largage : on repart prêt à combattre).
+ */
+function stowSpot(items: ItemInst[], defId: string, cells: Set<string>, bagFirst = false): { to: 'reserve' } | { to: 'sac'; x: number; y: number; rot: ItemInst['rot'] } | null {
+  const roomy = items.filter((i) => !i.placed).length < RESERVE_MAX;
+  if (roomy && !bagFirst) return { to: 'reserve' };
   const spot = findSpot(items, { uid: -1, defId, rot: 0, x: 0, y: 0, placed: false }, cells);
-  return spot ? { to: 'sac', ...spot } : null;
+  return spot ? { to: 'sac', ...spot } : roomy ? { to: 'reserve' } : null;
+}
+
+/** Place libre du sac où `defId` touche l'objet `next` (un chargeur contre son arme), ou null. */
+function spotTouching(items: ItemInst[], defId: string, next: ItemInst, cells: Set<string>): { x: number; y: number; rot: ItemInst['rot'] } | null {
+  const self: ItemInst = { uid: -1, defId, rot: 0, x: 0, y: 0, placed: true };
+  for (const rot of [0, 1, 2, 3] as ItemInst['rot'][]) {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        if (!canPlace(items, self, x, y, rot, cells)) continue;
+        if (sharedEdge({ ...self, x, y, rot }, next)) return { x, y, rot };
+      }
+    }
+  }
+  return null;
 }
 
 /** Encore le droit de prendre un objet (caisses : `maxPicks`). */
@@ -347,6 +404,16 @@ function takeFromLoot(run: RunState, src: ItemInst, dest: NonNullable<ReturnType
   const item = makeItem(run, src.defId);
   if (dest.to === 'sac') Object.assign(item, { x: dest.x, y: dest.y, rot: dest.rot, placed: true });
   run.items.push(item);
+  // Largage : l'arme arrive avec son chargeur, rangé à côté si possible.
+  const mag = p.crate === 'largage' ? landingMag(src.defId) : undefined;
+  if (mag) {
+    const m = makeItem(run, mag);
+    const cells = usable(run);
+    const near = item.placed ? spotTouching(run.items, mag, item, cells) : null;
+    const spot = near ? { to: 'sac' as const, ...near } : stowSpot(run.items, mag, cells, true);
+    if (spot?.to === 'sac') Object.assign(m, { x: spot.x, y: spot.y, rot: spot.rot, placed: true });
+    run.items.push(m);
+  }
   return { to: dest.to, item };
 }
 
@@ -357,7 +424,7 @@ function takeFromLoot(run: RunState, src: ItemInst, dest: NonNullable<ReturnType
 export function lootItem(run: RunState, uid: number): LootTake | null {
   const src = run.pendingLoot?.items.find((i) => i.uid === uid);
   if (!src || !canTakeMore(run.pendingLoot!)) return null;
-  const dest = stowSpot(run.items, src.defId, usable(run));
+  const dest = stowSpot(run.items, src.defId, usable(run), run.pendingLoot!.crate === 'largage');
   return dest ? takeFromLoot(run, src, dest) : { to: 'plein' };
 }
 

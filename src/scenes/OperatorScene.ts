@@ -1,7 +1,7 @@
 // Choix de l'opérateur au début d'une run : il fixe le pool d'objets et donne un passif.
 import Phaser from 'phaser';
 import { C, H, W } from '../config';
-import { FAMILY_INFO } from '../data/items';
+import { FAMILY_INFO, ITEMS } from '../data/items';
 import { opFig, pxFigure } from '../art';
 import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
@@ -128,11 +128,14 @@ export default class OperatorScene extends Phaser.Scene {
       }
     }
     root.add(grid);
+    // L'arme et son chargeur se choisissent au largage : leur place reste vide.
     for (const [defId, x, yy] of op.start) {
+      if (ITEMS[defId].weapon || ITEMS[defId].synergy?.kind === 'mag') continue;
       const v = itemView(this, { defId, rot: 0 }, PCELL);
       v.setPosition(gx + (x - BASE_X0) * PCELL, gy + (yy - BASE_Y0) * PCELL);
       root.add(v);
     }
+    root.add(txt(this, gx + (cols * PCELL) / 2, gy + PCELL, 'ARME AU\nLARGAGE', 15, C.accentStr, { fontStyle: 'bold', align: 'center' }).setOrigin(0.5));
 
     // Contour de sélection
     const sel = this.add.graphics();

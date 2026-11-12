@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ITEMS } from '../src/data/items';
 import { RECIPES } from '../src/data/recipes';
-import { canUse, lootPool } from '../src/data/operators';
+import { OPERATORS, canUse, lootPool } from '../src/data/operators';
+import { computeLoadout } from '../src/logic/stats';
 import { autoCraft, craft, findCraftable } from '../src/logic/recipes';
 import {
   BASE_CELLS, BagInst, COLS, ItemInst, ROWS, Rot, bagsConnected, canMoveBag, canPlace, canPlaceBag, canRemoveBag, cellsAt,
@@ -12,13 +13,22 @@ import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
   CRATES, ELITE_PICKS, closeResupply, DUEL_PICKS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
-  unplaceBag,
+  unplaceBag, LANDING_PRICE_CAP, canPlayCard,
 } from '../src/logic/run';
 import {
   ACTIONS_PER_ZONE, CARDS_BY_SIZE, EPIC_CRATE_CHANCE, MapZone, ROUNDS, ZONE_COUNT, circle, dist, drawCards, genMap, isFight, isGassed, zonesInCircle, ZONE_THEMES, ZoneTheme, themeFits,
 } from '../src/logic/zone';
 
 const inst = (uid: number, defId: string, x: number, y: number, rot: Rot = 0): ItemInst => ({ uid, defId, rot, x, y, placed: true });
+
+/** Nouvelle run, largage joué : on garde la 1re arme proposée (avec son chargeur). */
+function startRun(...args: Parameters<typeof newRun>): RunState {
+  const run = newRun(...args);
+  const first = run.pendingLoot!.items[0];
+  lootItem(run, first.uid);
+  finishLoot(run);
+  return run;
+}
 const bag = (uid: number, defId: string, x: number, y: number, rot: Rot = 0, placed = true): BagInst => ({ uid, defId, rot, x, y, placed });
 const BASE = new Set(BASE_CELLS);
 const botItems = (): ItemInst[] => [inst(900, 'pistolet', 2, 2), inst(901, 'chg_9mm', 4, 2), inst(902, 'casque', 2, 4)];
@@ -118,7 +128,7 @@ describe('sacoches', () => {
   });
 
   it('placeBag / unplaceBag dans une run, réserve limitée', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     const poch = run.bags[0];
     expect(poch.placed).toBe(false);
     expect(placeBag(run, poch.uid, 0, 0, 0)).toBe(false);
@@ -222,7 +232,7 @@ describe('cartes', () => {
       let fit = 0;
       let n = 0;
       for (let seed = 0; seed < 150; seed++) {
-        const run = newRun('viper', seed);
+        const run = startRun('viper', seed);
         const z = selectableZones(run)[0];
         z.theme = theme;
         dropInZone(run, z.id);
@@ -253,7 +263,7 @@ describe('cartes', () => {
 describe('run', () => {
   it('départ : objets de l’opérateur posés dans le sac, 10 crédits, une pochette en réserve', () => {
     for (const op of ['viper', 'sentinelle'] as const) {
-      const run = newRun(op, 5);
+      const run = startRun(op, 5);
       expect(run.credits).toBe(10);
       expect(run.items.every((i) => i.placed)).toBe(true);
       const kept = run.items.map((i) => ({ ...i }));
@@ -264,7 +274,7 @@ describe('run', () => {
   });
 
   it('une run complète : 5 manches de 3 actions, puis le Top 1', () => {
-    const run = newRun('viper', 123);
+    const run = startRun('viper', 123);
     for (let r = 0; r < ROUNDS; r++) {
       expect(run.round).toBe(r);
       const zones = selectableZones(run);
@@ -294,7 +304,7 @@ describe('run', () => {
   });
 
   it('refuse une zone gazée et une carte déjà jouée', () => {
-    const run = newRun('viper', 9);
+    const run = startRun('viper', 9);
     run.round = ROUNDS - 1;
     const gassed = run.map.zones.find((z) => isGassed(run.map, z, run.round))!;
     expect(dropInZone(run, gassed.id)).toBe(false);
@@ -306,7 +316,7 @@ describe('run', () => {
   });
 
   it('Élite : un bot fort, 2 objets à prendre dans son sac, plus de crédits ; un duel : 1 objet', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     run.round = 2;
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'elite', duels: 1 };
@@ -332,7 +342,7 @@ describe('run', () => {
   });
 
   it('fouille : on prend 1 objet dans le sac du vaincu, puis on termine', () => {
-    const run = newRun('viper', 2);
+    const run = startRun('viper', 2);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
@@ -359,7 +369,7 @@ describe('run', () => {
   });
 
   it('réserve pleine : l’objet va directement dans le sac ; tout plein : échange contre un objet revendu', () => {
-    const run = newRun('viper', 2);
+    const run = startRun('viper', 2);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
@@ -398,7 +408,7 @@ describe('run', () => {
   });
 
   it('pool commun : on fouille tout sauf les objets de signature de l’autre opérateur', () => {
-    const run = newRun('viper', 3);
+    const run = startRun('viper', 3);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
@@ -412,7 +422,7 @@ describe('run', () => {
 
   it('caisse épique : du cash et 2 objets à choisir sur 5, dont une arme et un objet assemblé', () => {
     for (let seed = 0; seed < 200; seed++) {
-      const run = newRun(seed % 2 ? 'viper' : 'sentinelle', seed);
+      const run = startRun(seed % 2 ? 'viper' : 'sentinelle', seed);
       run.round = 1 + (seed % (ROUNDS - 1));
       dropInZone(run, selectableZones(run)[0].id);
       run.cards[0] = { type: 'caisse_epique', duels: 0 };
@@ -435,7 +445,7 @@ describe('run', () => {
   });
 
   it('Goulag : 1re défaite → Goulag ; gagné → on continue ; 2e défaite → fin', () => {
-    const run = newRun('sentinelle', 3);
+    const run = startRun('sentinelle', 3);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'elite', duels: 1 };
     run.cards[1] = { type: 'solo', duels: 1 };
@@ -459,7 +469,7 @@ describe('run', () => {
   });
 
   it('Goulag perdu = fin de run ; Top 1 perdu = fin de run', () => {
-    const a = newRun('viper', 4);
+    const a = startRun('viper', 4);
     dropInZone(a, selectableZones(a)[0].id);
     a.cards[0] = { type: 'solo', duels: 1 };
     playCard(a, 0);
@@ -467,7 +477,7 @@ describe('run', () => {
     resolveGoulag(a, false);
     expect(a.over).toBe('lose');
 
-    const b = newRun('viper', 4);
+    const b = startRun('viper', 4);
     b.round = FINAL_ROUND;
     finalDuelParams(b);
     resolveDuel(b, { win: false, hpEnd: 0, botItems: [] });
@@ -477,7 +487,7 @@ describe('run', () => {
   it('caisse : du cash, 1 objet à choisir sur 3 dont une arme, parfois une sacoche, sans combat', () => {
     let bags = 0;
     for (let seed = 0; seed < 100; seed++) {
-      const run = newRun('sentinelle', seed);
+      const run = startRun('sentinelle', seed);
       dropInZone(run, selectableZones(run)[0].id);
       run.cards[0] = { type: 'caisse', duels: 0 };
       const r = playCard(run, 0)!;
@@ -505,7 +515,7 @@ describe('run', () => {
   it('caisse renforcée : 2 objets sur 4, dont un ingrédient qui complète une recette commencée', () => {
     let hits = 0;
     for (let seed = 0; seed < 100; seed++) {
-      const run = newRun('viper', seed);
+      const run = startRun('viper', seed);
       run.round = 2;
       dropInZone(run, selectableZones(run)[0].id);
       run.items.push({ uid: 999, defId: 'smg', rot: 0, x: 0, y: 0, placed: false }); // moitié du Furet Akimbo
@@ -525,7 +535,7 @@ describe('run', () => {
   });
 
   it('boutique : 5 offres du pool, relance payante, achat en réserve', () => {
-    const run = newRun('viper', 8);
+    const run = startRun('viper', 8);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'shop', duels: 0 };
     expect(playCard(run, 0)).toEqual({ kind: 'shop' });
@@ -551,7 +561,7 @@ describe('run', () => {
   });
 
   it('le butin en trop est revendu quand la réserve est pleine', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     const drops = Array.from({ length: RESERVE_MAX + 2 }, () => ({ ...inst(-1, 'frag', 0, 0), placed: false }));
     const credits = run.credits;
     const res = addDrops(run, drops);
@@ -564,7 +574,7 @@ describe('run', () => {
 describe('objets sans rareté', () => {
   it('un objet n’apparaît pas avant sa manche minimale', () => {
     for (let seed = 0; seed < 60; seed++) {
-      const run = newRun(seed % 2 ? 'viper' : 'sentinelle', seed);
+      const run = startRun(seed % 2 ? 'viper' : 'sentinelle', seed);
       dropInZone(run, selectableZones(run)[0].id);
       const offers = shopOffers(run);
       for (const o of offers) if (o.item) expect(ITEMS[o.item.defId].minRound).toBe(0);
@@ -581,7 +591,7 @@ describe('recettes de doublon', () => {
   });
 
   it('à ingrédients partagés, la première recette de la liste l’emporte', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     run.items = [inst(1, 'frag', 2, 2), inst(2, 'fumigene', 3, 2), inst(3, 'frag', 2, 3)];
     const done = autoCraft(run);
     expect(done[0].recipe.output).toBe('thermite');
@@ -595,7 +605,7 @@ describe('recettes automatiques', () => {
   });
 
   it('assembler retire les ingrédients et pose dans les cases utilisables', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     run.items = [inst(1, 'plaque', 2, 2), inst(2, 'casque', 3, 2)];
     const made = craft(run, findCraftable(run.items)[0]);
     expect(made.defId).toBe('armure_lourde');
@@ -606,7 +616,7 @@ describe('recettes automatiques', () => {
   });
 
   it('autoCraft assemble tout ce qui est prêt, sur sacoches comprises', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     run.bags = [bag(50, 'sacoche', 7, 2)];
     run.items = [inst(1, 'frag', 7, 2), inst(2, 'fumigene', 8, 2), inst(3, 'ifak', 2, 2), inst(4, 'seringue', 4, 2), inst(5, 'chg_9mm', 6, 5)];
     const done = autoCraft(run);
@@ -636,7 +646,7 @@ describe('sauvegarde', () => {
   });
 
   it('aller-retour, clé v8', () => {
-    const run = newRun('viper', 77);
+    const run = startRun('viper', 77);
     placeBag(run, run.bags[0].uid, 7, 2, 0);
     dropInZone(run, selectableZones(run)[0].id);
     playThrough(run, firstCard(run));
@@ -648,7 +658,7 @@ describe('sauvegarde', () => {
   });
 
   it('une fouille en cours survit à la sauvegarde', () => {
-    const run = newRun('viper', 78);
+    const run = startRun('viper', 78);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     playCard(run, 0);
@@ -665,14 +675,14 @@ describe('sauvegarde', () => {
   });
 
   it('une run terminée ne se recharge pas', () => {
-    const run = newRun('viper', 77);
+    const run = startRun('viper', 77);
     run.over = 'lose';
     saveRun(run);
     expect(loadRun()).toBeNull();
   });
 
   it('sanitizeLayout remet en réserve sacoches détachées et objets hors des cases utilisables', () => {
-    const run = newRun('viper', 1);
+    const run = startRun('viper', 1);
     run.bags = [bag(50, 'pochette', 0, 0), bag(51, 'pochette', 7, 2)];
     run.items.push(inst(60, 'chg_9mm', 0, 0), inst(61, 'chg_9mm', 8, 2));
     sanitizeLayout(run);
@@ -684,7 +694,7 @@ describe('sauvegarde', () => {
 
 describe('duels', () => {
   it('les paramètres de duel sont stables (rechargement)', () => {
-    const run = newRun('viper', 11);
+    const run = startRun('viper', 11);
     dropInZone(run, selectableZones(run)[0].id);
     run.cards[0] = { type: 'solo', duels: 1 };
     const p = playCard(run, 0) as { kind: 'duel' } & DuelParams;
@@ -694,10 +704,45 @@ describe('duels', () => {
   });
 
   it('la danger dépend de la taille de la zone', () => {
-    const run = newRun('viper', 12);
+    const run = startRun('viper', 12);
     const grande = selectableZones(run).find((z) => z.size === 'grande')!;
     dropInZone(run, grande.id);
     run.cards[0] = { type: 'solo', duels: 1 };
     expect((playCard(run, 0) as DuelParams).danger).toBe(1);
+  });
+});
+
+describe('largage de départ', () => {
+  it('kit sans arme, puis 3 armes de classes différentes dont une de la famille de l’opérateur', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      for (const op of ['viper', 'sentinelle'] as const) {
+        const run = newRun(op, seed);
+        expect(run.items.some((i) => ITEMS[i.defId].weapon)).toBe(false);
+        const p = run.pendingLoot!;
+        expect(p.crate).toBe('largage');
+        expect(p.maxPicks).toBe(1);
+        const ids = p.items.map((i) => i.defId);
+        expect(ids.length).toBe(3);
+        expect(new Set(ids.map((id) => ITEMS[id].wclass)).size).toBe(3);
+        expect(ids.some((id) => ITEMS[id].family === OPERATORS[op].family)).toBe(true);
+        for (const id of ids) expect(ITEMS[id].price).toBeLessThanOrEqual(LANDING_PRICE_CAP);
+        // Interdit de jouer avant d'avoir choisi.
+        expect(canPlayCard(run, 0)).toBe(false);
+      }
+    }
+  });
+
+  it('l’arme choisie arrive dans le sac avec son chargeur, posé contre elle', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      const run = newRun(seed % 2 ? 'viper' : 'sentinelle', seed);
+      const pick = run.pendingLoot!.items[seed % 3];
+      const r = lootItem(run, pick.uid);
+      expect(r && r.to).toBe('sac');
+      finishLoot(run);
+      const w = run.items.find((i) => i.defId === pick.defId)!;
+      expect(w.placed).toBe(true);
+      const { loadout } = computeLoadout(run.items, run.operator, 300);
+      expect(loadout.weapons.find((x) => x.uid === w.uid)!.fed, pick.defId).toBe(true);
+    }
   });
 });

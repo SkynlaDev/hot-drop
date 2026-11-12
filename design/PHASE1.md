@@ -38,9 +38,21 @@ Mesures après 1a :
 60 à 65 % en fin de partie ; Rempart 31 à 38 %, Feu continu 35 à 42 %, Tir lourd 33 à 43 %. Ce sont surtout les objets
 qui sont en cause (grenades assemblées qui ignorent l'armure, pistolets jumelés), pas les plans des bots.
 
+## Étape 1b : largage de départ (fait)
+
+- Le kit de départ n'a plus d'arme ni de chargeur : casque, couteau et l'accessoire de l'opérateur (refroidisseur ou
+  poignée), rangés en bas du sac pour laisser les deux rangées du haut libres.
+- `newRun` ouvre une caisse **Largage** (`landingOffers`) : 3 armes de classes différentes, prix ≤ 8, dont au moins une
+  de la famille de l'opérateur, ordre mélangé. On en garde une ; elle va directement dans le sac avec son chargeur
+  (`landingMag`), posé contre elle. Impossible de terminer sans avoir choisi.
+- L'écran des opérateurs montre le kit sans arme (« arme au largage »).
+- `tests/runsim.ts` essaie les 3 armes et garde la meilleure.
+
+Mesures après 1b (40 runs) : prudent 38 % de Top 1 gagné (68 % des duels finaux), agressif 48 % (83 %). La politique
+choisit la meilleure arme au largage, d'où une légère hausse : la courbe de difficulté (1d) reste à faire.
+
 ## Étapes suivantes
 
-1. **1b** Kit de départ « surplus » et caisse de largage 1 parmi 3.
-2. **1c** Boutique à la fin de chaque zone, verrou d'une offre.
-3. **1d** Courbe de difficulté : la menace monte jusqu'au Top 1 (cible : politique agressive autour de 30 à 35 % de
+1. **1c** Boutique à la fin de chaque zone, verrou d'une offre.
+2. **1d** Courbe de difficulté : la menace monte jusqu'au Top 1 (cible : politique agressive autour de 30 à 35 % de
    Top 1 gagné, duels du cercle 5 autour de 70 %).
