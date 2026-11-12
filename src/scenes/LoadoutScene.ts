@@ -5,6 +5,7 @@ import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, GRID_X, GRID_Y, H, 
 import { BAGS, BagId } from '../data/bags';
 import { FAMILY_INFO, ITEMS } from '../data/items';
 import { OPERATORS } from '../data/operators';
+import { RECIPES } from '../data/recipes';
 import { ARCHETYPES } from '../data/archetypes';
 import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
@@ -194,6 +195,9 @@ export default class LoadoutScene extends Phaser.Scene {
   private previewG!: Phaser.GameObjects.Graphics;
   /** Étoiles affichées pendant qu'on tient un objet. */
   private starG!: Phaser.GameObjects.Graphics;
+  /** Objet sélectionné (1er toucher) : ses fils de liens et de recettes sont affichés ; 2e toucher = rotation. */
+  private selUid: number | null = null;
+  private wireG!: Phaser.GameObjects.Graphics;
   private sellG!: Phaser.GameObjects.Graphics;
   private trayLayer!: Container;
   private stripLayer!: Container;
@@ -243,6 +247,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.foe = null;
     this.popUid = null;
     this.popBag = null;
+    this.selUid = null;
     this.linkKeys = null;
     this.famTiers = null;
     this.lastCredits = -1;
@@ -262,6 +267,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.reportLayer = this.add.container(0, 0).setDepth(6.5);
     this.previewG = this.add.graphics().setDepth(40);
     this.starG = this.add.graphics().setDepth(45);
+    this.wireG = this.add.graphics().setDepth(44);
     this.sellG = this.add.graphics().setDepth(1.2);
     this.trayLayer = this.add.container(0, 0).setDepth(2);
     this.stripLayer = this.add.container(0, 0).setDepth(3);
@@ -450,7 +456,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.linkG.fillStyle(0x000000, 0.5);
       if (dx !== 0) this.linkG.fillRoundedRect(ex - 6, ey - 21, 12, 42, 5);
       else this.linkG.fillRoundedRect(ex - 21, ey - 6, 42, 12, 5);
-      this.linkG.fillStyle(C.accent, 1);
+      this.linkG.fillStyle(GOLD_HEX, 1);
       if (dx !== 0) this.linkG.fillRoundedRect(ex - 4, ey - 19, 8, 38, 4);
       else this.linkG.fillRoundedRect(ex - 19, ey - 4, 38, 8, 4);
     }
@@ -488,6 +494,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
 
     this.drawReportBadges();
+    this.drawWires(links);
 
     this.drawTray();
     this.drawStatus();
@@ -708,7 +715,10 @@ export default class LoadoutScene extends Phaser.Scene {
       if (!item) bag = this.trayBagSlot(p.x, p.y);
     }
     const inst = item ?? bag;
-    if (!inst) return;
+    if (!inst) {
+      this.select(null);
+      return;
+    }
     const { w, h } = dims(inst);
     const d: DragState = {
       item, bag, from, downX: p.x, downY: p.y, moved: false, rot: inst.rot,
@@ -739,6 +749,7 @@ export default class LoadoutScene extends Phaser.Scene {
         return;
       }
       d.moved = true;
+      this.select(null);
       this.makeGhost(d);
       if (d.item) (d.from === 'grid' ? this.views : this.trayViews).get(d.item.uid)?.setVisible(false);
       if (d.bag) (d.from === 'grid' ? this.bagViews : this.trayBagViews).get(d.bag.uid)?.setVisible(false);
@@ -836,6 +847,101 @@ export default class LoadoutScene extends Phaser.Scene {
     }
   }
 
+  /** Sélectionne un objet (null = aucun) et redessine ses fils. */
+  private select(uid: number | null) {
+    if (this.selUid === uid) return;
+    this.selUid = uid;
+    if (uid !== null) {
+      sfx('click', { pitch: 1.3, vol: 0.6 });
+      vibrate(5);
+    }
+    this.drawWires(this.loadout().links);
+  }
+
+  /**
+   * Fils de l'objet sélectionné :
+   * - doré plein vers un objet qui lui est lié en ce moment (étoile ou accessoire allumé) ;
+   * - doré en pointillé vers un objet compatible mais pas encore collé ;
+   * - bleu en pointillé vers un objet (sac ou réserve) avec lequel il forme une recette.
+   */
+  private drawWires(links: { a: number; b: number }[]) {
+    const g = this.wireG;
+    g.clear();
+    this.tweens.killTweensOf(g);
+    g.setAlpha(1);
+    const uid = this.selUid;
+    const sel = uid === null ? undefined : this.run.items.find((i) => i.uid === uid);
+    const view = sel ? (sel.placed ? this.views.get(sel.uid) : this.trayViews.get(sel.uid)) : undefined;
+    if (!sel || !view || !view.visible || this.phase === 'combat' || this.modal) {
+      if (uid !== null && !sel) this.selUid = null;
+      return;
+    }
+    const center = (it: ItemInst): Phaser.Math.Vector2 | null => {
+      const v = it.placed ? this.views.get(it.uid) : this.trayViews.get(it.uid);
+      if (!v || !v.visible) return null;
+      const b = v.getBounds();
+      return new Phaser.Math.Vector2(b.centerX, b.centerY);
+    };
+    const from = center(sel);
+    if (!from) return;
+    const sd = ITEMS[sel.defId];
+    const others = this.run.items.filter((o) => o.uid !== sel.uid);
+    const active = new Set(links.filter((l) => l.a === sel.uid || l.b === sel.uid).map((l) => (l.a === sel.uid ? l.b : l.a)));
+    let n = 0;
+    // Liens (étoiles et accessoires) avec les objets posés
+    for (const o of others) {
+      if (!o.placed) continue;
+      const od = ITEMS[o.defId];
+      const compatible = starSpecs(sel.defId).some((sp) => sp.wants(od)) || starSpecs(o.defId).some((sp) => sp.wants(sd));
+      if (!compatible) continue;
+      const to = center(o);
+      if (!to) continue;
+      this.wire(g, from, to, GOLD_HEX, !(sel.placed && active.has(o.uid)), 1);
+      n++;
+    }
+    // Recettes : les autres ingrédients présents dans le sac ou la réserve
+    const partners = new Set<number>();
+    for (const r of RECIPES) {
+      if (!r.inputs.includes(sel.defId)) continue;
+      const rest = [...r.inputs];
+      rest.splice(rest.indexOf(sel.defId), 1);
+      for (const id of rest) for (const o of others) if (o.defId === id) partners.add(o.uid);
+    }
+    for (const pu of partners) {
+      const o = others.find((x) => x.uid === pu)!;
+      const to = center(o);
+      if (!to) continue;
+      this.wire(g, from, to, P.precision, true, -1);
+      n++;
+    }
+    // Contour de l'objet sélectionné
+    const b = view.getBounds();
+    g.lineStyle(3, P.blanc, 0.9);
+    g.strokeRoundedRect(b.x - 3, b.y - 3, b.width + 6, b.height + 6, 10);
+    if (!n) return;
+    this.tweens.add({ targets: g, alpha: 0.65, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  /** Un fil courbe de `a` vers `b` (plein ou en pointillé), avec une pastille à l'arrivée. `bend` = côté de la courbe. */
+  private wire(g: Phaser.GameObjects.Graphics, a: Phaser.Math.Vector2, b: Phaser.Math.Vector2, color: number, dashed: boolean, bend: number) {
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const k = Math.min(40, len * 0.25) * bend;
+    const ctrl = new Phaser.Math.Vector2(mx - (dy / len) * k, my + (dx / len) * k);
+    const pts = new Phaser.Curves.QuadraticBezier(a, ctrl, b).getPoints(Math.max(8, Math.round(len / 10)));
+    g.lineStyle(dashed ? 3 : 5, P.nuit, 0.6);
+    for (let i = 1; i < pts.length; i++) if (!dashed || i % 2) g.lineBetween(pts[i - 1].x, pts[i - 1].y + 2, pts[i].x, pts[i].y + 2);
+    g.lineStyle(dashed ? 3 : 4, color, 1);
+    for (let i = 1; i < pts.length; i++) if (!dashed || i % 2) g.lineBetween(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y);
+    g.fillStyle(color, 1);
+    g.fillCircle(b.x, b.y, dashed ? 5 : 7);
+    g.fillStyle(P.nuit, 1);
+    g.fillCircle(b.x, b.y, dashed ? 2 : 3);
+  }
+
   /**
    * Étoiles pendant qu'on tient un objet :
    * - étoile creuse dorée sur les cases libres où un objet posé attend ce type d'objet (« pose-moi ici ») ;
@@ -894,8 +1000,11 @@ export default class LoadoutScene extends Phaser.Scene {
     this.starG.clear();
     this.sellG.clear();
     if (!d.moved) {
-      if (d.item) this.rotateItemInPlace(d.item, d.from);
-      else if (d.bag) this.rotateBagInPlace(d.bag, d.from);
+      // Objet : 1er toucher = sélection (fils de liens), 2e toucher sur le même = rotation.
+      if (d.item) {
+        if (this.selUid === d.item.uid) this.rotateItemInPlace(d.item, d.from);
+        else this.select(d.item.uid);
+      } else if (d.bag) this.rotateBagInPlace(d.bag, d.from);
       return;
     }
     d.ghost?.destroy();
