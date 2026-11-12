@@ -1,7 +1,7 @@
 // Sac à dos : rangement (objets et sacoches), boutique, caisse, et duels 1v1 sac contre sac.
 import Phaser from 'phaser';
 import { PX_FIGS, PxFigId, foeFig, opFig, pxFigure, pxKey } from '../art';
-import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, GRID_X, GRID_Y, H, MONO, RESERVE, SELL, STATUS, TRAY, W } from '../config';
+import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, GRID_X, GRID_Y, H, MONO, RESERVE, SELL, STATUS, TITLE_FONT, TRAY, W } from '../config';
 import { BAGS, BagId } from '../data/bags';
 import { FAMILY_INFO, ITEMS } from '../data/items';
 import { OPERATORS } from '../data/operators';
@@ -1262,7 +1262,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (this.modal) return;
     const offers = shopOffers(this.run);
     const m = modalBase(this);
-    m.add(txt(this, W / 2, 130, this.run.resupply ? 'RAVITAILLEMENT' : 'BOUTIQUE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
+    m.add(txt(this, W / 2, 130, this.run.resupply ? 'RAVITAILLEMENT' : 'BOUTIQUE', 44, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5));
     m.add(txt(this, W / 2, 180, `◆ ${this.run.credits} cr`, 28, C.accentStr, { fontStyle: 'bold' }).setOrigin(0.5));
     const cw = 320;
     const ch = 236;
@@ -1654,7 +1654,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   /** Gros titre qui s'écrase avec secousse. */
   private slam(s: string, color: string, y: number, size = 64) {
-    const t = txt(this, W / 2, y, s, size, color, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 10, padding: { x: 16, y: 6 } })
+    const t = txt(this, W / 2, y, s, size, color, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 10, padding: { x: 16, y: 6 } })
       .setOrigin(0.5).setDepth(210).setScale(3).setAlpha(0);
     this.tweens.add({
       targets: t, scale: 1, alpha: 1, duration: 220, ease: 'Quad.In',
@@ -1729,7 +1729,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.me = this.makeActor('a', A.x + 92, feet, p.hp, p.maxHp, loadout.armor, OPERATORS[this.run.operator].name, meFig, FIG_PX);
     this.foe = this.makeActor('b', A.x + A.w - 92, feet, this.botL!.maxHp, this.botL!.maxHp, this.botL!.armor, this.bot!.name, enemyFig, FIG_PX);
     // VS au centre
-    const vs = txt(this, A.x + A.w / 2, A.y + 150, 'VS', 40, C.accentStr, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5);
+    const vs = txt(this, A.x + A.w / 2, A.y + 150, 'VS', 40, C.accentStr, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5);
     vs.setName('vs');
     L.add(vs);
     this.tweens.add({ targets: vs, scale: { from: 2.4, to: 1 }, alpha: { from: 0, to: 1 }, duration: 300, ease: 'Back.Out' });
@@ -1837,7 +1837,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const q = QUALITY[bot.quality];
     const pnl = panel(this, 24, 110, W - 48, 1000, 0x6e2f27);
     m.add(pnl);
-    m.add(txt(this, 54, 140, bot.name.toUpperCase(), 40, '#ef7b72', { fontStyle: 'bold' }));
+    m.add(txt(this, 54, 140, bot.name.toUpperCase(), 40, '#ef7b72', { fontFamily: TITLE_FONT }));
     const badge = this.add.graphics();
     badge.fillStyle(q.color, 1);
     badge.fillRoundedRect(W - 54 - 110, 148, 110, 36, 18);
@@ -2510,7 +2510,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const top = 70;
     const PH = 1140;
     m.add(panel(this, 24, top, W - 48, PH, R.win ? 0x3f5a35 : 0x6e2f27));
-    m.add(txt(this, 54, top + 24, 'RAPPORT DE DUEL', 34, R.win ? C.goodStr : '#ef7b72', { fontStyle: 'bold' }));
+    m.add(txt(this, 54, top + 24, 'RAPPORT DE DUEL', 34, R.win ? C.goodStr : '#ef7b72', { fontFamily: TITLE_FONT }));
     m.add(txt(this, W - 54, top + 34, `${fmt1(R.duration)} s`, 22, C.quiet, { fontFamily: MONO }).setOrigin(1, 0));
     const A = R.rep.a;
     const sum = `Infligés ${A.dealt} · Reçus ${A.tookHp + A.tookArmor} (armure ${A.tookArmor})${A.healed ? ` · Soignés ${A.healed}` : ''}`;
@@ -2676,7 +2676,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const pnl = panel(this, 24, top, W - 48, PH, crate === 'caisse_epique' ? EPIC_COLOR : crate === 'caisse_renforcee' ? 0x5fb3e0 : crate ? 0x86a95a : 0x6e2f27);
     m.add(pnl);
     const head = crate ? CRATE_TITLE[crate] : botName ? `SAC DE ${botName.toUpperCase()}` : 'SAC DU VAINCU';
-    m.add(txt(this, 54, top + 26, head, 34, crate === 'caisse_epique' ? EPIC_HEX : crate ? '#a8c97a' : '#ef7b72', { fontStyle: 'bold' }));
+    m.add(txt(this, 54, top + 26, head, 34, crate === 'caisse_epique' ? EPIC_HEX : crate ? '#a8c97a' : '#ef7b72', { fontFamily: TITLE_FONT }));
     const counter = txt(this, 54, top + 76, '', 24, GOLD, { fontStyle: 'bold' });
     m.add(counter);
     // Sac du bot : ses cases (ou, à défaut, la boîte englobante de ses objets)
@@ -2792,7 +2792,7 @@ export default class LoadoutScene extends Phaser.Scene {
       m.add(layer);
       layer.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.75).setOrigin(0).setInteractive());
       layer.add(panel(this, 24, top, W - 48, PH, 0xf4b06a));
-      layer.add(txt(this, 54, top + 26, 'TOUT EST PLEIN', 34, GOLD, { fontStyle: 'bold' }));
+      layer.add(txt(this, 54, top + 26, 'TOUT EST PLEIN', 34, GOLD, { fontFamily: TITLE_FONT }));
       layer.add(txt(this, 54, top + 76, `Revends un objet pour prendre : ${ITEMS[src.defId].name}`, 22, C.text, { wordWrap: { width: W - 108 } }));
       const close = () => {
         layer.destroy();
@@ -2951,7 +2951,7 @@ export default class LoadoutScene extends Phaser.Scene {
         vibrate([100, 50, 100]);
       },
     });
-    const sub = txt(this, W / 2, 590, 'DERNIÈRE CHANCE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
+    const sub = txt(this, W / 2, 590, 'DERNIÈRE CHANCE', 44, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
     m.add(sub);
     this.tweens.add({ targets: sub, alpha: 1, delay: 700, duration: 300 });
     const body = txt(this, W / 2, 680, 'Un duel 1v1 à PV pleins.\nGagne : tu reviens dans la partie.\nPerds : la run est finie.', 26, '#ece2cf', { align: 'center', lineSpacing: 8 })
@@ -2994,7 +2994,7 @@ export default class LoadoutScene extends Phaser.Scene {
     m.add(ring);
     this.tweens.add({ targets: ring, scale: 1, duration: 1100, ease: 'Cubic.Out' });
     this.tweens.add({ targets: ring, alpha: 0.5, yoyo: true, repeat: -1, duration: 700, delay: 1100 });
-    const pre = txt(this, W / 2, 440, 'DERNIER CERCLE', 48, '#c3a6e0', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
+    const pre = txt(this, W / 2, 440, 'DERNIER CERCLE', 48, '#c3a6e0', { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
     m.add(pre);
     this.tweens.add({ targets: pre, alpha: 1, delay: 500, duration: 300 });
     const title = txt(this, W / 2, 560, 'TOP 1', 150, GOLD, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 16, padding: { x: 24, y: 10 } })

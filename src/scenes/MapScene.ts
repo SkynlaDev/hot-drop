@@ -2,7 +2,7 @@
 // Le joueur choisit une zone dans le cercle et s'y largue.
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { C, H, W } from '../config';
+import { C, H, W, TITLE_FONT } from '../config';
 import { rngFor } from '../logic/rng';
 import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
 import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, EPIC_CRATE_CHANCE, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
@@ -301,7 +301,7 @@ export default class MapScene extends Phaser.Scene {
 
     iconButton(this, 50, 50, 'ic-menu', () => this.scene.start('menu')).setDepth(31);
     const title = run.round >= ROUNDS ? 'DUEL FINAL' : `CERCLE ${run.round + 1}/${ROUNDS}`;
-    txt(this, 96, 50, title, 38, C.text, { fontStyle: 'bold italic' }).setOrigin(0, 0.5).setDepth(31);
+    txt(this, 96, 50, title, 32, C.text, { fontFamily: TITLE_FONT }).setOrigin(0, 0.5).setDepth(31);
     statusPills(this, run, 50).setDepth(31);
     roundTrack(this, 42, 112, run.round).setDepth(31);
     const lg = this.add.graphics().setDepth(31);
@@ -412,7 +412,7 @@ export default class MapScene extends Phaser.Scene {
       return;
     }
     const si = SIZE_INFO[z.size];
-    I.add(txt(this, x0, y0 - 4, z.name, 36, C.text, { fontStyle: 'bold' }));
+    I.add(txt(this, x0, y0 - 4, z.name, 30, C.text, { fontFamily: TITLE_FONT }));
     const chipT = txt(this, 0, 0, `${si.name.toUpperCase()} · ${si.heat.toUpperCase()}`, 18, '#0f0d13', { fontStyle: 'bold' }).setOrigin(1, 0.5);
     const cw = chipT.width + 26;
     const chip = this.add.graphics();

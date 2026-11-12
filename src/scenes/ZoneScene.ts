@@ -2,7 +2,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { PX_SIZE, pxFigure, zoneBg } from '../art';
-import { C, H, W } from '../config';
+import { C, H, W, TITLE_FONT } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from '../logic/zone';
 import { DANGER_RAMP } from '../logic/bots';
@@ -128,7 +128,7 @@ export default class ZoneScene extends Phaser.Scene {
     txt(this, 24, 50, `CERCLE ${run.round + 1}/${ROUNDS}`, 24, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0, 0.5);
     statusPills(this, run, 50);
 
-    const name = txt(this, 24, 178, zone.name.toUpperCase(), 54, C.text, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 7, padding: { right: 12 } }).setOrigin(0, 0.5);
+    const name = txt(this, 24, 178, zone.name.toUpperCase(), 46, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 7, padding: { right: 12 } }).setOrigin(0, 0.5);
     if (name.width > W - 40) name.setScale((W - 40) / name.width);
     if (fresh) {
       // Arrivée dans la zone : le nom glisse depuis la gauche.

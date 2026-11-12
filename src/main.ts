@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import '@fontsource/oswald/500.css';
 import '@fontsource/oswald/700.css';
+import '@fontsource/black-ops-one/400.css';
 import { C, H, W } from './config';
 import BootScene from './scenes/BootScene';
 import EndScene from './scenes/EndScene';
@@ -14,7 +15,7 @@ import { initSfx } from './audio/sfx';
 async function start() {
   initSfx();
   // Les textes Phaser sont rendus une seule fois : la police doit être prête avant.
-  await Promise.all([document.fonts.load('500 20px Oswald'), document.fonts.load('700 20px Oswald')]).catch(() => undefined);
+  await Promise.all([document.fonts.load('500 20px Oswald'), document.fonts.load('700 20px Oswald'), document.fonts.load('400 20px "Black Ops One"')]).catch(() => undefined);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

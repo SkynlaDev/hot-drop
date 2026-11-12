@@ -1,6 +1,6 @@
 // Écran des paramètres : réglages du joueur gardés d'une partie à l'autre (logic/settings.ts).
 import Phaser from 'phaser';
-import { C, W } from '../config';
+import { C, TITLE_FONT, W } from '../config';
 import { SPEEDS, getSettings, setSettings } from '../logic/settings';
 import { button, modalBase, panel, txt, vibrate } from './widgets';
 import { sfx } from '../audio/sfx';
@@ -21,7 +21,7 @@ export function openSettings(scene: Phaser.Scene, onClose?: () => void): void {
     root = m;
     const s = getSettings();
     m.add(panel(scene, 40, top, W - 80, PH));
-    m.add(txt(scene, 72, top + 30, 'PARAMÈTRES', 38, C.accentStr, { fontStyle: 'bold' }));
+    m.add(txt(scene, 72, top + 30, 'PARAMÈTRES', 34, C.accentStr, { fontFamily: TITLE_FONT }));
 
     // Vitesse des combats
     let y = top + 120;

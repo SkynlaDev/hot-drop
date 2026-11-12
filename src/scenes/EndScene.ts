@@ -1,7 +1,7 @@
 // Fin de run : Top 1 (duel final gagné) ou élimination.
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { C, FONT, W } from '../config';
+import { C, FONT, TITLE_FONT, W } from '../config';
 import { OPERATORS } from '../data/operators';
 import { RunState, clearRun } from '../logic/run';
 import { ROUNDS } from '../logic/zone';
@@ -40,9 +40,8 @@ export default class EndScene extends Phaser.Scene {
 
     const title = this.add
       .text(W / 2, 680, win ? 'TOP 1' : 'ÉLIMINÉ', {
-        fontFamily: FONT,
-        fontSize: win ? '150px' : '110px',
-        fontStyle: 'bold italic',
+        fontFamily: TITLE_FONT,
+        fontSize: win ? '130px' : '96px',
         stroke: '#000000',
         strokeThickness: 12,
         padding: { left: 40, right: 40, top: 10, bottom: 4 },

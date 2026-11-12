@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ITEM_SPRITE_CELL, iconKey, isWeaponIcon, itemSpriteKey } from '../art';
-import { C, FONT, H, W } from '../config';
+import { C, FONT, H, TITLE_FONT, W } from '../config';
+import { P, hex } from './palette';
 import { CATEGORY_COLORS, FAMILY_INFO, ITEMS } from '../data/items';
 import { ItemInst, Mask, maskOf } from '../logic/grid';
 import { getSettings } from '../logic/settings';
@@ -36,7 +37,38 @@ export interface Button {
   setEnabled(on: boolean): void;
 }
 
-/** Bouton rectangulaire : (x, y) = coin haut-gauche. Se tasse quand on appuie. */
+/** Polygone d'un rectangle aux coins coupés (chanfrein `c`), style plaque militaire. */
+export function chamferPoints(x: number, y: number, w: number, h: number, c: number): Phaser.Math.Vector2[] {
+  const k = Math.min(c, w / 2, h / 2);
+  return [
+    new Phaser.Math.Vector2(x + k, y), new Phaser.Math.Vector2(x + w - k, y), new Phaser.Math.Vector2(x + w, y + k),
+    new Phaser.Math.Vector2(x + w, y + h - k), new Phaser.Math.Vector2(x + w - k, y + h), new Phaser.Math.Vector2(x + k, y + h),
+    new Phaser.Math.Vector2(x, y + h - k), new Phaser.Math.Vector2(x, y + k),
+  ];
+}
+
+function fillChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
+  g.fillPoints(chamferPoints(x, y, w, h, c), true);
+}
+
+function strokeChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
+  g.strokePoints(chamferPoints(x, y, w, h, c), true, true);
+}
+
+/** Rivet : tête sombre, reflet clair en haut à gauche. */
+function rivet(g: Phaser.GameObjects.Graphics, x: number, y: number, r = 3) {
+  g.fillStyle(P.nuit, 0.9);
+  g.fillCircle(x + 0.8, y + 1, r);
+  g.fillStyle(P.acier, 1);
+  g.fillCircle(x, y, r);
+  g.fillStyle(P.acierClair, 0.9);
+  g.fillCircle(x - r * 0.35, y - r * 0.35, r * 0.4);
+}
+
+/**
+ * Bouton de jeu : (x, y) = coin haut-gauche. Plaque aux coins coupés, lèvre 3D qui s'écrase à l'appui,
+ * rivets aux extrémités ; le bouton principal (orange) respire doucement. `icon` = clé d'une icône (ic-…).
+ */
 export function button(
   scene: Scene,
   x: number,
@@ -45,46 +77,66 @@ export function button(
   h: number,
   label: string,
   onClick: () => void,
-  opts: { primary?: boolean; size?: number } = {},
+  opts: { primary?: boolean; size?: number; icon?: string } = {},
 ): Button {
   const root = scene.add.container(x, y);
   root.setSize(w, h);
+  const LIP = 6;
+  const CH = Math.min(14, h * 0.22);
+  const glow = scene.add.graphics();
   const g = scene.add.graphics();
-  const t = txt(scene, w / 2, h / 2, label.toUpperCase(), opts.size ?? 28, C.text, { fontStyle: 'bold' }).setOrigin(0.5);
+  const t = txt(scene, w / 2, h / 2, label.toUpperCase(), opts.size ?? 28, C.text, { fontFamily: TITLE_FONT, letterSpacing: 1 }).setOrigin(0.5);
+  const icon = opts.icon && scene.textures.exists(opts.icon) ? scene.add.image(0, 0, opts.icon) : null;
   const zone = scene.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
   let enabled = true;
-  // Bouton de jeu mobile : lèvre 3D de 6 px qui s'écrase à l'appui, reflet sur la moitié haute.
-  const LIP = 6;
-  const r = 14;
   const draw = (pressed = false) => {
     g.clear();
     const dy = pressed ? LIP - 2 : 0;
     const prim = !!opts.primary && enabled;
+    const fh = h - LIP;
     // Ombre portée et lèvre
-    g.fillStyle(0x000000, 0.4);
-    g.fillRoundedRect(0, LIP + 3, w, h - LIP, r);
-    g.fillStyle(prim ? 0xe8894a : enabled ? 0x17141c : 0x0f0d13, 1);
-    g.fillRoundedRect(0, LIP, w, h - LIP, r);
-    // Face
-    const face = prim ? (pressed ? 0xe8894a : C.accent) : enabled ? 0x342e3c : 0x1c1822;
-    g.fillStyle(face, 1);
-    g.fillRoundedRect(0, dy, w, h - LIP, r);
-    // Reflet
-    g.fillStyle(0xffffff, prim ? 0.22 : enabled ? 0.06 : 0.02);
-    g.fillRoundedRect(4, dy + 3, w - 8, (h - LIP) * 0.42, { tl: r - 3, tr: r - 3, bl: 4, br: 4 });
-    g.lineStyle(2, prim ? 0xf4b06a : enabled ? 0x5a5162 : 0x342e3c, 1);
-    g.strokeRoundedRect(0, dy, w, h - LIP, r);
+    g.fillStyle(P.noir, 0.45);
+    fillChamfer(g, 0, LIP + 3, w, fh, CH);
+    g.fillStyle(prim ? P.braise : P.nuit, 1);
+    fillChamfer(g, 0, LIP, w, fh, CH);
+    // Face, puis bande claire en haut (le métal accroche la lumière)
+    g.fillStyle(prim ? (pressed ? P.orangeClair : P.orange) : enabled ? P.relief : P.fond2, 1);
+    fillChamfer(g, 0, dy, w, fh, CH);
+    g.fillStyle(prim ? P.orangeClair : P.trait, prim ? 0.55 : enabled ? 0.6 : 0.2);
+    fillChamfer(g, 3, dy + 3, w - 6, fh * 0.38, CH - 2);
+    // Liseré intérieur et contour
+    g.lineStyle(2, prim ? P.orangePale : enabled ? P.traitClair : P.case, prim ? 0.8 : 1);
+    strokeChamfer(g, 0, dy, w, fh, CH);
+    if (enabled && w > 140) {
+      rivet(g, 14, dy + fh / 2, 3);
+      rivet(g, w - 14, dy + fh / 2, 3);
+    }
     if (!enabled) {
       // Hachures d'un bouton désactivé
-      g.lineStyle(2, 0xffffff, 0.04);
-      const fh = h - LIP;
-      for (let hx = r; hx + fh < w - r; hx += 16) g.lineBetween(hx, dy + fh - 3, hx + fh - 6, dy + 3);
+      g.lineStyle(2, P.blanc, 0.04);
+      for (let hx = CH; hx + fh < w - CH; hx += 16) g.lineBetween(hx, dy + fh - 3, hx + fh - 6, dy + 3);
     }
-    t.setY((h - LIP) / 2 + dy);
-    t.setColor(prim ? '#17141c' : C.text);
-    t.setAlpha(enabled ? 1 : 0.35);
+    const col = prim ? hex(P.nuit) : C.text;
+    t.setY(fh / 2 + dy).setColor(col).setAlpha(enabled ? 1 : 0.35);
+    // Le texte rétrécit s'il déborde (la police des titres est large).
+    const iconW = icon ? Math.min(icon.width, (fh * 0.5 * icon.width) / Math.max(icon.width, icon.height)) + 12 : 0;
+    t.setScale(Math.min(1, (w - 40 - iconW) / t.width));
+    if (icon) {
+      const s = Math.min(1, (fh * 0.5) / Math.max(icon.width, icon.height));
+      icon.setScale(s).setTint(prim ? P.nuit : P.texte).setAlpha(enabled ? 1 : 0.35);
+      const total = icon.displayWidth + 12 + t.displayWidth;
+      icon.setPosition(w / 2 - total / 2 + icon.displayWidth / 2, fh / 2 + dy);
+      t.setX(w / 2 - total / 2 + icon.displayWidth + 12 + t.displayWidth / 2);
+    } else t.setX(w / 2);
+    // Lueur du bouton principal (elle respire, voir plus bas)
+    glow.clear();
+    if (prim) {
+      glow.lineStyle(6, P.orange, 0.35);
+      strokeChamfer(glow, -4, -4, w + 8, fh + 8, CH + 3);
+    }
   };
   draw();
+  if (opts.primary) scene.tweens.add({ targets: glow, alpha: { from: 1, to: 0.15 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
   zone.on('pointerdown', () => enabled && draw(true));
   zone.on('pointerout', () => draw());
   zone.on('pointerup', () => {
@@ -94,15 +146,42 @@ export function button(
       onClick();
     }
   });
-  root.add([g, t, zone]);
+  root.add([glow, g, ...(icon ? [icon] : []), t, zone]);
   return {
     root,
-    setLabel: (s) => t.setText(s.toUpperCase()),
+    setLabel: (s) => {
+      t.setText(s.toUpperCase());
+      draw();
+    },
     setEnabled: (on) => {
       enabled = on;
       draw();
     },
   };
+}
+
+/**
+ * Plaque de titre (style plaque gravée) : (x, y) = centre. Bande d'accent à gauche, texte au pochoir.
+ * Renvoie le conteneur ; sa largeur suit le texte.
+ */
+export function plate(scene: Scene, x: number, y: number, s: string, accent: number = P.orange, size = 26): Container {
+  const c = scene.add.container(x, y);
+  const t = txt(scene, 0, 0, s.toUpperCase(), size, C.text, { fontFamily: TITLE_FONT, letterSpacing: 2 }).setOrigin(0.5);
+  const w = t.width + 64;
+  const h = size + 22;
+  const g = scene.add.graphics();
+  g.fillStyle(P.noir, 0.45);
+  fillChamfer(g, -w / 2 + 3, -h / 2 + 4, w, h, 10);
+  g.fillStyle(P.fond2, 1);
+  fillChamfer(g, -w / 2, -h / 2, w, h, 10);
+  g.fillStyle(accent, 1);
+  g.fillRect(-w / 2 + 10, -h / 2 + 6, 6, h - 12);
+  g.fillRect(w / 2 - 16, -h / 2 + 6, 6, h - 12);
+  g.lineStyle(2, P.traitClair, 1);
+  strokeChamfer(g, -w / 2, -h / 2, w, h, 10);
+  c.add([g, t]);
+  c.setSize(w, h);
+  return c;
 }
 
 /**
@@ -268,7 +347,7 @@ export function toast(scene: Scene, s: string, color = C.text, y = 900) {
 
 /** Gros titre (VICTOIRE, DÉFAITE…) qui claque puis disparaît. */
 export function banner(scene: Scene, s: string, color: string, y: number) {
-  const t = txt(scene, W / 2, y, s, 64, color, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 8 })
+  const t = txt(scene, W / 2, y, s, 64, color, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 10, padding: { x: 12, y: 6 } })
     .setOrigin(0.5)
     .setDepth(210)
     .setScale(2.2)
@@ -288,16 +367,37 @@ export function modalBase(scene: Scene, onBackdrop?: () => void): Container {
   return root;
 }
 
+/**
+ * Panneau : plaque sombre aux coins coupés, renforts métalliques rivetés dans les angles (de la couleur
+ * du contour), reflet en haut. Un seul Graphics, ajouté par l'appelant.
+ */
 export function panel(scene: Scene, x: number, y: number, w: number, h: number, stroke = C.panelLine) {
   const g = scene.add.graphics();
-  g.fillStyle(0x000000, 0.35);
-  g.fillRoundedRect(x, y + 4, w, h, 18);
+  const CH = 16;
+  g.fillStyle(P.noir, 0.4);
+  fillChamfer(g, x + 2, y + 5, w, h, CH);
   g.fillStyle(C.panel, 1);
-  g.fillRoundedRect(x, y, w, h, 18);
-  g.fillStyle(0xffffff, 0.03);
-  g.fillRoundedRect(x + 2, y + 2, w - 4, Math.min(60, h / 3), { tl: 16, tr: 16, bl: 0, br: 0 });
+  fillChamfer(g, x, y, w, h, CH);
+  // Reflet du haut et ombre du bas (relief de tôle)
+  g.fillStyle(P.blanc, 0.035);
+  fillChamfer(g, x + 3, y + 3, w - 6, Math.min(56, h / 3), CH - 3);
+  g.fillStyle(P.noir, 0.18);
+  g.fillRect(x + CH, y + h - 6, w - 2 * CH, 3);
   g.lineStyle(2, stroke, 1);
-  g.strokeRoundedRect(x, y, w, h, 18);
+  strokeChamfer(g, x, y, w, h, CH);
+  // Renforts d'angle en L, rivetés
+  if (w > 200 && h > 120) {
+    const L = Math.min(24, w / 8, h / 5);
+    const T = 4;
+    g.fillStyle(stroke, 1);
+    for (const [cx, cy, sx, sy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]] as const) {
+      const ox = cx + sx * (CH * 0.5 + 4);
+      const oy = cy + sy * (CH * 0.5 + 4);
+      g.fillRect(sx > 0 ? ox : ox - L, sy > 0 ? oy : oy - T, L, T);
+      g.fillRect(sx > 0 ? ox : ox - T, sy > 0 ? oy : oy - L, T, L);
+      rivet(g, ox + sx * (T + 5), oy + sy * (T + 5), 2.6);
+    }
+  }
   return g;
 }
 

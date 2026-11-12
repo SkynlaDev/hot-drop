@@ -1,6 +1,6 @@
 // Choix de l'opérateur au début d'une run : il fixe le pool d'objets et donne un passif.
 import Phaser from 'phaser';
-import { C, H, W } from '../config';
+import { C, H, W, TITLE_FONT } from '../config';
 import { FAMILY_INFO, ITEMS } from '../data/items';
 import { opFig, pxFigure } from '../art';
 import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
@@ -32,7 +32,7 @@ export default class OperatorScene extends Phaser.Scene {
 
     const back = txt(this, 28, 44, '‹ MENU', 22, C.quiet, { fontStyle: 'bold' }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
     back.on('pointerup', () => this.scene.start('menu'));
-    txt(this, W / 2, 96, 'CHOISIS TON OPÉRATEUR', 44, C.text, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    txt(this, W / 2, 96, 'CHOISIS TON OPÉRATEUR', 38, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     txt(this, W / 2, 140, 'Il fixe les objets que tu trouveras pendant la run', 20, C.quiet).setOrigin(0.5);
 
     OPERATOR_IDS.forEach((id, i) => this.card(id, CARD_Y[i], i));
@@ -72,7 +72,7 @@ export default class OperatorScene extends Phaser.Scene {
     badge.strokeCircle(66, 62, 40);
     root.add(badge);
     root.add(this.add.image(66, 62, `ic-f-${op.family}`).setDisplaySize(44, 44).setTint(fam.color));
-    root.add(txt(this, 124, 60, op.name.toUpperCase(), 56, C.text, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 5 }).setOrigin(0, 0.55));
+    root.add(txt(this, 124, 60, op.name.toUpperCase(), 48, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 5 }).setOrigin(0, 0.55));
     root.add(txt(this, 128, 98, `FAMILLE ${fam.name.toUpperCase()}`, 18, fam.hex, { fontStyle: 'bold' }).setOrigin(0, 0.5));
 
     // Colonne de gauche : accroche, passif, butin

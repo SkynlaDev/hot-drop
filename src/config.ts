@@ -23,6 +23,8 @@ export const BAG_RESERVE = { x: 508, y: 960, w: 192, h: 150, slots: 3 };
 export const BUTTON = { x: 20, y: 1124, w: 680, h: 92 };
 
 export const FONT = 'Oswald, "Arial Narrow", system-ui, sans-serif';
+/** Police des titres et des boutons : lettres militaires au pochoir (Black Ops One, licence OFL). */
+export const TITLE_FONT = '"Black Ops One", Oswald, "Arial Narrow", sans-serif';
 export const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 export const C = {
