@@ -10,6 +10,7 @@ import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
 import { DuelReport, ItemReport, duelReport, itemWeight } from '../logic/report';
 import { SfxId, sfx, warmSfx } from '../audio/sfx';
+import { P } from '../ui/palette';
 import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
   cellsOf, dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
@@ -1723,7 +1724,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const p = this.params!;
     const head = p.type === 'goulag' ? 'GOULAG · DERNIÈRE CHANCE' : p.type === 'final' ? 'DERNIER CERCLE · TOP 1'
       : p.type === 'elite' ? 'ÉLITE · BOT FORT' : 'DUEL SOLO';
-    L.add(txt(this, A.x + 14, A.y + 18, head, 18, p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text, { fontStyle: 'bold' }).setOrigin(0, 0.5));
+    L.add(txt(this, A.x + 18, A.y + 18, head, 16, p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text, { fontFamily: TITLE_FONT, letterSpacing: 1 }).setOrigin(0, 0.5));
     const feet = A.y + A.h - 50;
     const { loadout } = this.loadout();
     const meFig = opFig(this.run.operator);
@@ -1731,7 +1732,13 @@ export default class LoadoutScene extends Phaser.Scene {
     this.me = this.makeActor('a', A.x + 92, feet, p.hp, p.maxHp, loadout.armor, OPERATORS[this.run.operator].name, meFig, FIG_PX);
     this.foe = this.makeActor('b', A.x + A.w - 92, feet, this.botL!.maxHp, this.botL!.maxHp, this.botL!.armor, this.bot!.name, enemyFig, FIG_PX);
     // VS au centre
-    const vs = txt(this, A.x + A.w / 2, A.y + 150, 'VS', 40, C.accentStr, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5);
+    const vs = this.add.container(A.x + A.w / 2, A.y + 150);
+    const slash = this.add.graphics();
+    slash.fillStyle(P.braise, 0.9);
+    slash.fillPoints([new Phaser.Math.Vector2(-30, 34), new Phaser.Math.Vector2(-14, 34), new Phaser.Math.Vector2(30, -34), new Phaser.Math.Vector2(14, -34)], true);
+    slash.fillStyle(P.orangeClair, 0.9);
+    slash.fillPoints([new Phaser.Math.Vector2(-10, 34), new Phaser.Math.Vector2(-2, 34), new Phaser.Math.Vector2(42, -34), new Phaser.Math.Vector2(34, -34)], true);
+    vs.add([slash, txt(this, 0, 0, 'VS', 40, C.accentStr, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 8 }).setOrigin(0.5)]);
     vs.setName('vs');
     L.add(vs);
     this.tweens.add({ targets: vs, scale: { from: 2.4, to: 1 }, alpha: { from: 0, to: 1 }, duration: 300, ease: 'Back.Out' });
@@ -1745,9 +1752,20 @@ export default class LoadoutScene extends Phaser.Scene {
     // Le bandeau des stats passe devant les personnages (un corps à terre ne le cache pas).
     L.bringToTop(shade);
     L.bringToTop(this.myStats);
+    // Cadre : coins coupés (le décor est masqué dans les angles), renforts rivetés.
+    const fc = p.type === 'goulag' ? P.braiseSombre : p.type === 'final' ? P.orSombre : C.panelLine;
     const frame = this.add.graphics();
-    frame.lineStyle(4, p.type === 'goulag' ? 0x6e2f27 : p.type === 'final' ? 0xa8843a : C.panelLine, 1);
-    frame.strokeRoundedRect(A.x, A.y, A.w, A.h, 16);
+    const CH = 16;
+    frame.fillStyle(C.bg, 1);
+    frame.fillTriangle(A.x - 1, A.y - 1, A.x + CH, A.y - 1, A.x - 1, A.y + CH);
+    frame.fillTriangle(A.x + A.w + 1, A.y - 1, A.x + A.w - CH, A.y - 1, A.x + A.w + 1, A.y + CH);
+    frame.fillTriangle(A.x - 1, A.y + A.h + 1, A.x + CH, A.y + A.h + 1, A.x - 1, A.y + A.h - CH);
+    frame.fillTriangle(A.x + A.w + 1, A.y + A.h + 1, A.x + A.w - CH, A.y + A.h + 1, A.x + A.w + 1, A.y + A.h - CH);
+    frame.lineStyle(4, fc, 1);
+    frame.strokePoints(chamferPoints(A.x, A.y, A.w, A.h, CH), false, true);
+    frame.fillStyle(fc, 1);
+    frame.fillRect(A.x + 10, A.y + 34, 22, 3);
+    frame.fillRect(A.x + A.w - 32, A.y + 34, 22, 3);
     L.add(frame);
   }
 
@@ -1773,24 +1791,17 @@ export default class LoadoutScene extends Phaser.Scene {
     const bot = this.bot!;
     const bl = this.botL!;
     const q = QUALITY[bot.quality];
-    const g = this.add.graphics();
-    g.fillStyle(0x000000, 0.35);
-    g.fillRoundedRect(E.x, E.y + 4, E.w, E.h, 16);
-    g.fillStyle(0x221e28, 1);
-    g.fillRoundedRect(E.x, E.y, E.w, E.h, 16);
-    g.lineStyle(3, 0x6e2f27, 1);
-    g.strokeRoundedRect(E.x, E.y, E.w, E.h, 16);
-    L.add(g);
-    const name = txt(this, E.x + 14, E.y + 12, bot.name.toUpperCase(), 24, '#ef7b72', { fontStyle: 'bold' });
+    L.add(panel(this, E.x, E.y, E.w, E.h, P.braiseSombre));
+    const name = txt(this, E.x + 30, E.y + 14, bot.name.toUpperCase(), 22, '#ef7b72', { fontFamily: TITLE_FONT });
     L.add(name);
     // Badge de qualité
     const bw = 78;
     const badge = this.add.graphics();
     badge.fillStyle(q.color, 1);
-    badge.fillRoundedRect(E.x + E.w - bw - 12, E.y + 14, bw, 28, 14);
+    badge.fillPoints(chamferPoints(E.x + E.w - bw - 14, E.y + 14, bw, 28, 7), true);
     L.add(badge);
-    L.add(txt(this, E.x + E.w - bw / 2 - 12, E.y + 28, q.label, 16, '#0f0d13', { fontStyle: 'bold' }).setOrigin(0.5));
-    if (name.width > E.w - bw - 40) name.setScale((E.w - bw - 40) / name.width);
+    L.add(txt(this, E.x + E.w - bw / 2 - 14, E.y + 28, q.label, 14, '#0f0d13', { fontFamily: TITLE_FONT }).setOrigin(0.5));
+    if (name.width > E.w - bw - 56) name.setScale((E.w - bw - 56) / name.width);
     L.add(txt(this, E.x + 14, E.y + 46, `${OPERATORS[bot.operator].name} · `, 15, C.quiet));
     const arch = txt(this, 0, E.y + 46, ARCHETYPES[bot.archetype].name.toUpperCase(), 15, C.accentStr, { fontStyle: 'bold' });
     arch.setX(E.x + 14 + (L.list[L.list.length - 1] as Phaser.GameObjects.Text).width);
@@ -1911,7 +1922,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const barX = Phaser.Math.Clamp(x, ARENA.x + barW / 2 + 10, ARENA.x + ARENA.w - barW / 2 - 10);
     const bars = this.add.graphics();
     const hpText = txt(this, barX, barY, '', 13, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
-    const label = txt(this, barX, barY - 30, name.toUpperCase(), 16, side === 'a' ? C.text : '#ef7b72', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    const label = txt(this, barX, barY - 32, name.toUpperCase(), 15, side === 'a' ? C.text : '#ef7b72', { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
     this.arenaLayer.add([fig, bars, hpText, label]);
     const a: Actor = {
       side, x, feet, hp, maxHp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
@@ -1926,18 +1937,34 @@ export default class LoadoutScene extends Phaser.Scene {
     const g = a.bars;
     const x0 = a.barX - a.barW / 2;
     g.clear();
-    g.fillStyle(0x000000, 0.7);
-    g.fillRoundedRect(x0 - 2, y - 10, a.barW + 4, 20, 5);
+    // Barre inclinée (parallélogramme), graduée tous les 10 %.
+    const SK = 6;
+    const bar = (bx: number, by: number, bw: number, bh: number) =>
+      [new Phaser.Math.Vector2(bx + SK, by), new Phaser.Math.Vector2(bx + bw + SK, by), new Phaser.Math.Vector2(bx + bw, by + bh), new Phaser.Math.Vector2(bx, by + bh)];
+    g.fillStyle(P.nuit, 0.85);
+    g.fillPoints(bar(x0 - 3, y - 10, a.barW + 6, 20), true);
     const frac = Math.max(0, a.hp / a.maxHp);
-    g.fillStyle(a.side === 'a' ? (frac > 0.3 ? C.good : C.danger) : C.danger, 1);
-    g.fillRoundedRect(x0, y - 8, Math.max(0, a.barW * frac), 16, 4);
-    g.fillStyle(0xffffff, 0.18);
-    g.fillRect(x0 + 2, y - 7, Math.max(0, a.barW * frac - 4), 5);
+    if (frac > 0) {
+      g.fillStyle(a.side === 'a' ? (frac > 0.3 ? C.good : C.danger) : C.danger, 1);
+      g.fillPoints(bar(x0, y - 8, a.barW * frac, 16), true);
+      g.fillStyle(P.blanc, 0.2);
+      g.fillPoints(bar(x0 + 1, y - 7, Math.max(0, a.barW * frac - 2), 5), true);
+    }
+    g.lineStyle(1, P.nuit, 0.8);
+    for (let k = 1; k < 10; k++) {
+      const tx = x0 + (a.barW * k) / 10;
+      g.lineBetween(tx + SK * 0.9, y - 8, tx + SK * 0.1, y + 8);
+    }
+    g.lineStyle(2, a.side === 'a' ? P.traitClair : P.braiseSombre, 1);
+    g.strokePoints(bar(x0 - 3, y - 10, a.barW + 6, 20), false, true);
     if (a.maxArmor > 0) {
-      g.fillStyle(0x000000, 0.7);
-      g.fillRect(x0, y - 18, a.barW, 7);
-      g.fillStyle(C.armor, 1);
-      g.fillRect(x0, y - 18, (a.barW * Math.max(0, a.armor)) / a.maxArmor, 7);
+      g.fillStyle(P.nuit, 0.85);
+      g.fillPoints(bar(x0 + 4, y - 19, a.barW - 2, 7), true);
+      const af = Math.max(0, a.armor) / a.maxArmor;
+      if (af > 0) {
+        g.fillStyle(C.armor, 1);
+        g.fillPoints(bar(x0 + 4, y - 19, (a.barW - 2) * af, 7), true);
+      }
     }
     a.hpText.setText(`${Math.ceil(a.hp)}`);
   }
