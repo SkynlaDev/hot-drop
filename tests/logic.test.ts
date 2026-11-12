@@ -13,7 +13,7 @@ import {
   BAG_RESERVE_MAX, DuelParams, FINAL_ROUND, RESERVE_MAX, RunState, addBags, addDrops, buyOffer, clearRun, currentDuel,
   dropInZone, endAction, finalDuelParams, goulagParams, loadRun, newRun, placeBag, playCard, rerollShop, reserve,
   CRATES, ELITE_PICKS, closeResupply, DUEL_PICKS, craftedPool, duelCredits, finishLoot, lootItem, swapLoot, resolveDuel, resolveGoulag, roundMaxHp, sanitizeLayout, saveRun, selectableZones, shopOffers,
-  unplaceBag, LANDING_PRICE_CAP, canPlayCard,
+  unplaceBag, LANDING_PRICE_CAP, canPlayCard, toggleLock,
 } from '../src/logic/run';
 import {
   ACTIONS_PER_ZONE, CARDS_BY_SIZE, EPIC_CRATE_CHANCE, MapZone, ROUNDS, ZONE_COUNT, circle, dist, drawCards, genMap, isFight, isGassed, zonesInCircle, ZONE_THEMES, ZoneTheme, themeFits,
@@ -558,6 +558,53 @@ describe('run', () => {
       sawBag = run.shop!.offers.some((o) => o.bag);
     }
     expect(sawBag).toBe(true);
+  });
+
+  it('verrou : l’offre verrouillée survit aux relances et passe à la boutique suivante ; une seule à la fois', () => {
+    const run = startRun('viper', 8);
+    dropInZone(run, selectableZones(run)[0].id);
+    run.cards[0] = { type: 'shop', duels: 0 };
+    run.cards[1] = { type: 'shop', duels: 0 };
+    playCard(run, 0);
+    const offers = shopOffers(run);
+    run.credits = 100;
+    expect(toggleLock(run, 2)).toBe(true);
+    const kept = JSON.stringify({ ...offers[2] });
+    expect(toggleLock(run, 3)).toBe(true); // verrouiller une autre libère la 1re
+    expect(run.shop!.offers.filter((o) => o.locked).length).toBe(1);
+    expect(toggleLock(run, 3)).toBe(true); // re-toucher déverrouille
+    expect(run.shop!.offers.some((o) => o.locked)).toBe(false);
+    toggleLock(run, 2);
+    for (let k = 0; k < 5; k++) {
+      rerollShop(run);
+      expect(run.shop!.offers.length).toBe(5);
+      expect(run.shop!.offers.filter((o) => JSON.stringify(o) === kept).length).toBe(1);
+    }
+    // Boutique suivante (autre carte) : l'offre verrouillée est toujours là, encore verrouillée.
+    endAction(run);
+    playCard(run, 1);
+    const next = shopOffers(run);
+    expect(next.length).toBe(5);
+    expect(next.some((o) => JSON.stringify(o) === kept)).toBe(true);
+    // Achetée : elle n'est plus verrouillée et ne suit plus.
+    const i = next.findIndex((o) => o.locked);
+    buyOffer(run, i);
+    expect(next[i].locked).toBe(false);
+    rerollShop(run);
+    expect(run.shop!.offers.some((o) => o.locked)).toBe(false);
+  });
+
+  it('verrou : l’offre verrouillée au ravitaillement passe à la boutique suivante', () => {
+    const run = startRun('sentinelle', 3);
+    run.resupply = true;
+    shopOffers(run);
+    toggleLock(run, 0);
+    const kept = JSON.stringify({ ...run.shop!.offers[0] });
+    closeResupply(run);
+    dropInZone(run, selectableZones(run)[0].id);
+    run.cards[0] = { type: 'shop', duels: 0 };
+    playCard(run, 0);
+    expect(shopOffers(run).some((o) => JSON.stringify(o) === kept)).toBe(true);
   });
 
   it('le butin en trop est revendu quand la réserve est pleine', () => {

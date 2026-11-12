@@ -51,8 +51,14 @@ qui sont en cause (grenades assemblées qui ignorent l'armure, pistolets jumelé
 Mesures après 1b (40 runs) : prudent 38 % de Top 1 gagné (68 % des duels finaux), agressif 48 % (83 %). La politique
 choisit la meilleure arme au largage, d'où une légère hausse : la courbe de difficulté (1d) reste à faire.
 
+## Étape 1c : verrou de boutique (fait)
+
+La boutique de fin de zone existait déjà : c'est le **ravitaillement** (une zone par cercle). Ajouté : le **verrou**.
+Un cadenas sur chaque offre ; une seule offre verrouillée à la fois. Elle garde sa place aux relances, puis passe à la
+boutique suivante (carte Boutique ou ravitaillement), jusqu'à ce qu'on l'achète ou la déverrouille (`toggleLock`,
+`keepLockedOffer`). On peut ainsi viser une pièce chère sur deux boutiques.
+
 ## Étapes suivantes
 
-1. **1c** Boutique à la fin de chaque zone, verrou d'une offre.
-2. **1d** Courbe de difficulté : la menace monte jusqu'au Top 1 (cible : politique agressive autour de 30 à 35 % de
+1. **1d** Courbe de difficulté : la menace monte jusqu'au Top 1 (cible : politique agressive autour de 30 à 35 % de
    Top 1 gagné, duels du cercle 5 autour de 70 %).

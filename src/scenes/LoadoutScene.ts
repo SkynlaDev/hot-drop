@@ -20,7 +20,7 @@ import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
   BAG_RESERVE_MAX, CrateKind, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
-  finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
+  finalDuelParams, goulagParams, placeBag, rerollShop, toggleLock, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
   closeResupply, finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
 import { PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
@@ -59,6 +59,16 @@ const SHOT_SFX: Record<string, SfxId> = {
 };
 const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
 const ARMOR_STR = '#a9bfcc';
+/** Petit cadenas centré en (x, y) : ouvert ou fermé. */
+function drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number, closed: boolean) {
+  g.lineStyle(3, color, 1);
+  g.beginPath();
+  if (closed) g.arc(x, y - 4, 7, Math.PI, 0);
+  else g.arc(x + 7, y - 7, 7, Math.PI, -0.3);
+  g.strokePath();
+  g.fillStyle(color, 1);
+  g.fillRoundedRect(x - 10, y - 3, 20, 15, 3);
+}
 const fmt1 = (v: number) => (Math.round(v * 10) / 10).toString().replace('.', ',');
 
 /** Étoile à 5 branches centrée en (x, y), pleine ou creuse. */
@@ -1180,7 +1190,7 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   /** Carte d'offre (boutique) : objet ou sacoche. */
-  private offerCard(m: Container, x0: number, y0: number, w: number, h: number, o: { item?: ItemInst; bag?: BagId; price: number; sold: boolean }, onTap: () => void, delay: number) {
+  private offerCard(m: Container, x0: number, y0: number, w: number, h: number, o: { item?: ItemInst; bag?: BagId; price: number; sold: boolean; locked?: boolean }, onTap: () => void, delay: number, onLock?: () => void) {
     const cc = this.add.container(x0, y0);
     m.add(cc);
     if (delay >= 0) {
@@ -1194,7 +1204,7 @@ export default class LoadoutScene extends Phaser.Scene {
     g.fillRoundedRect(0, 4, w, h, 14);
     g.fillStyle(C.panel, 1);
     g.fillRoundedRect(0, 0, w, h, 14);
-    g.lineStyle(3, stroke, o.sold ? 0.3 : 1);
+    g.lineStyle(o.locked ? 5 : 3, o.locked ? 0x6fb0ff : stroke, o.sold ? 0.3 : 1);
     g.strokeRoundedRect(0, 0, w, h, 14);
     cc.add(g);
     const area = 104;
@@ -1233,6 +1243,19 @@ export default class LoadoutScene extends Phaser.Scene {
       onTap();
     });
     cc.add(z);
+    // Verrou : en bas à droite, au-dessus de la carte (il prend le toucher en premier).
+    if (onLock && !o.sold) {
+      const lx = w - 34;
+      const ly = h - 26;
+      const lg = this.add.graphics();
+      lg.fillStyle(o.locked ? 0x2f80ed : 0x000000, o.locked ? 1 : 0.45);
+      lg.fillRoundedRect(lx - 24, ly - 22, 48, 44, 10);
+      drawPadlock(lg, lx, ly, o.locked ? 0xffffff : 0x9a9c88, !!o.locked);
+      cc.add(lg);
+      const lz = this.add.zone(lx, ly, 56, 52).setInteractive({ useHandCursor: true });
+      lz.on('pointerup', () => onLock());
+      cc.add(lz);
+    }
   }
 
   private openShop() {
@@ -1258,7 +1281,13 @@ export default class LoadoutScene extends Phaser.Scene {
         this.coinBurst(x + cw / 2, y + ch - 30);
         this.reopenShop(true);
         toast(this, `Acheté : ${o.item ? ITEMS[o.item.defId].name : BAGS[o.bag!].name} → réserve`, C.goodStr, 1000);
-      }, this.shopAnimated ? -1 : i * 70);
+      }, this.shopAnimated ? -1 : i * 70, () => {
+        if (!toggleLock(this.run, i)) return;
+        sfx(o.locked ? 'pickup' : 'rotate');
+        vibrate(8);
+        this.reopenShop(true);
+        if (o.locked) toast(this, 'Verrouillée : elle reste après une relance et passe à la boutique suivante', '#6fb0ff', 1000);
+      });
     });
     const by = 220 + 3 * (ch + 16) + 8;
     m.add(button(this, 30, by, 320, 88, `Relancer · ${REROLL_COST} cr`, () => {
@@ -1271,6 +1300,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.refresh();
     }, { size: 24, primary: true }).root);
     m.add(txt(this, W / 2, by + 112, this.run.resupply ? 'Les achats vont en réserve. « Terminer » ramène à la carte.' : 'Les achats vont en réserve. « Terminer » clôt l\'action.', 17, C.quiet).setOrigin(0.5));
+    m.add(txt(this, W / 2, by + 138, 'Cadenas : garde une offre pour plus tard (relance et boutique suivante).', 17, '#6fb0ff').setOrigin(0.5));
     this.modal = m;
     this.updateButtons();
     saveRun(this.run);

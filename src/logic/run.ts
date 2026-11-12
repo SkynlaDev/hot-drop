@@ -60,6 +60,8 @@ export interface ShopOffer {
   bag?: BagId;
   price: number;
   sold: boolean;
+  /** Verrouillée : survit aux relances et passe à la boutique suivante (une seule à la fois). */
+  locked?: boolean;
 }
 
 export type FightKind = 'solo' | 'elite' | 'final';
@@ -238,7 +240,7 @@ export function dropInZone(run: RunState, zoneId: number): boolean {
   run.cards = drawCards(run.seed, run.round, zone);
   run.played = [];
   run.actionsLeft = ACTIONS_PER_ZONE;
-  run.shop = undefined;
+  keepLockedOffer(run);
   return true;
 }
 
@@ -470,7 +472,7 @@ export function resolveGoulag(run: RunState, win: boolean): void {
 export function endAction(run: RunState): { nextRound: boolean; final: boolean } | null {
   if (run.over || run.fight || run.pendingGoulag || run.pendingLoot || run.zoneId === null || run.actionsLeft <= 0) return null;
   run.actionsLeft--;
-  run.shop = undefined;
+  keepLockedOffer(run);
   if (run.actionsLeft > 0) return { nextRound: false, final: false };
   run.round++;
   run.zoneId = null;
@@ -714,32 +716,53 @@ function shopKey(run: RunState): string {
   return `${run.round}:${run.zoneId}:${run.played[run.played.length - 1] ?? -1}`;
 }
 
+/** Ferme la boutique en cours : seule l'offre verrouillée reste, pour la boutique suivante. */
+function keepLockedOffer(run: RunState): void {
+  const carry = run.shop?.offers.filter((o) => o.locked && !o.sold) ?? [];
+  run.shop = carry.length ? { key: 'verrou', rerolls: 0, offers: carry } : undefined;
+}
+
 /** Ferme la boutique du ravitaillement : place à la carte (ou au Top 1). */
 export function closeResupply(run: RunState): void {
   run.resupply = false;
-  run.shop = undefined;
+  keepLockedOffer(run);
 }
 
 /** Offres de la boutique ouverte (tirées à la première ouverture pour cette carte). */
 export function shopOffers(run: RunState): ShopOffer[] {
   const key = shopKey(run);
   if (run.shop && run.shop.key === key) return run.shop.offers;
-  run.shop = { key, rerolls: 0, offers: [] };
+  // L'offre verrouillée de la boutique précédente nous suit.
+  const carry = run.shop?.offers.filter((o) => o.locked && !o.sold) ?? [];
+  run.shop = { key, rerolls: 0, offers: carry };
   rollShop(run);
   return run.shop.offers;
 }
 
+/** Tire les offres de la boutique ; une offre verrouillée (et pas encore achetée) garde sa place. */
 export function rollShop(run: RunState): void {
   if (!run.shop) return;
+  const kept = run.shop.offers.filter((o) => o.locked && !o.sold);
   const rng = rngFor(run.seed, 'shop', run.shop.key, run.shop.rerolls);
-  const hasBag = rng() < SHOP_BAG_CHANCE;
-  const items = randomItems(run, rng, hasBag ? SHOP_OFFERS - 1 : SHOP_OFFERS);
-  const offers: ShopOffer[] = items.map((item) => ({ item, price: itemPrice(item.defId), sold: false }));
+  const hasBag = !kept.some((o) => o.bag) && rng() < SHOP_BAG_CHANCE;
+  const nItems = SHOP_OFFERS - kept.length - (hasBag ? 1 : 0);
+  const items = randomItems(run, rng, Math.max(0, nItems));
+  const fresh: ShopOffer[] = items.map((item) => ({ item, price: itemPrice(item.defId), sold: false }));
   if (hasBag) {
     const bag = rollBag(rng, run.round);
-    offers.push({ bag, price: BAGS[bag].price, sold: false });
+    fresh.push({ bag, price: BAGS[bag].price, sold: false });
   }
-  run.shop.offers = offers;
+  run.shop.offers = [...kept, ...fresh];
+}
+
+/** Verrouille (ou déverrouille) une offre ; verrouiller une offre libère l'autre. Faux si l'offre est invalide. */
+export function toggleLock(run: RunState, index: number): boolean {
+  const o = run.shop?.offers[index];
+  if (!o || o.sold) return false;
+  const on = !o.locked;
+  for (const x of run.shop!.offers) x.locked = false;
+  o.locked = on;
+  return true;
 }
 
 /** Relance la boutique (REROLL_COST crédits). */
@@ -759,12 +782,14 @@ export function buyOffer(run: RunState, index: number): ItemInst | BagInst | nul
     if (reserve(run).length >= RESERVE_MAX) return null;
     run.credits -= o.price;
     o.sold = true;
+    o.locked = false;
     return takeItem(run, o.item);
   }
   if (o.bag) {
     if (reserveBags(run).length >= BAG_RESERVE_MAX) return null;
     run.credits -= o.price;
     o.sold = true;
+    o.locked = false;
     const b = makeBag(run, o.bag);
     run.bags.push(b);
     return b;
