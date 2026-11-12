@@ -15,6 +15,7 @@ export type Side = 'a' | 'b';
  *   `mark` (Marque de Sentinelle) : ce critique marque l'adversaire.
  *   `marked` : cette touche consomme la marque (dégâts majorés, déjà comptés dans `amount`).
  *   `melee` : coup d'arme de mêlée, sans balle ; `bleed` : saignement ajouté à la cible.
+ *   `absorbed` (shot, taser, frag) : part de `amount` prise par l'armure de la cible, absent si nulle.
  * - reload : `side` recharge l'arme `uid` (sans fin : un chargeur adjacent accélère la recharge).
  * - bleed : `side` perd `amount` PV de saignement (cumulés sur une demi-seconde), hp = après.
  * - taser : `side` immobilise l'adversaire jusqu'à `until` et lui inflige `amount` ; hp/armor = ceux de l'adversaire.
@@ -26,12 +27,12 @@ export type Side = 'a' | 'b';
  * - death : `side` est mort.
  */
 export type DuelEvent =
-  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; heat?: number; mark?: boolean; marked?: boolean; melee?: 'lame'; bleed?: number; hp: number; armor: number }
+  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; heat?: number; mark?: boolean; marked?: boolean; melee?: 'lame'; bleed?: number; absorbed?: number; hp: number; armor: number }
   | { t: number; kind: 'reload'; side: Side; uid: number }
   | { t: number; kind: 'bleed'; side: Side; amount: number; hp: number }
-  | { t: number; kind: 'taser'; side: Side; uid: number; amount: number; until: number; hp: number; armor: number }
+  | { t: number; kind: 'taser'; side: Side; uid: number; amount: number; until: number; absorbed?: number; hp: number; armor: number }
   | { t: number; kind: 'bandage'; side: Side; uid: number; amount: number; cured: number; hp: number }
-  | { t: number; kind: 'frag'; side: Side; uid: number; amount: number; hp: number; armor: number }
+  | { t: number; kind: 'frag'; side: Side; uid: number; amount: number; absorbed?: number; hp: number; armor: number }
   | { t: number; kind: 'smoke'; side: Side; uid: number; until: number }
   | { t: number; kind: 'flash'; side: Side; uid: number; until: number }
   | { t: number; kind: 'adrenaline'; side: Side; uid: number; until: number }
@@ -97,6 +98,7 @@ function applyDamage(b: Fighter, amount: number, pierce = 0): number {
 }
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
+const absField = (abs: number) => (abs > 0.05 ? { absorbed: round1(abs) } : {});
 
 /**
  * Duel 1v1. `opts.hpA` : PV de départ du joueur (PV gardés entre les duels d'une escouade).
@@ -139,12 +141,12 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
   /** Coup de mêlée : toujours au but, pas de critique. Renvoie le camp mort, s'il y en a un. */
   const strike = (me: Fighter, foe: Fighter, t: number, uid: number, dmg: number, pierce: number, bleed: number): Side | null => {
     const amount = Math.max(1, Math.round(dmg - Math.min(foe.l.flatReduce, dmg * MAX_FLAT_REDUCE)));
-    applyDamage(foe, amount, pierce);
+    const abs = applyDamage(foe, amount, pierce);
     me.dealt += amount;
     if (bleed > 0) foe.bleed += bleed;
     events.push({
       t, kind: 'shot', from: me.side, uid, amount, crit: false, miss: false, pierce: pierce > 0, melee: 'lame',
-      ...(bleed > 0 ? { bleed } : {}), hp: round1(foe.hp), armor: round1(foe.armor),
+      ...(bleed > 0 ? { bleed } : {}), ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor),
     });
     if (foe.hp <= 0) {
       events.push({ t, kind: 'death', side: foe.side });
@@ -208,7 +210,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           // Le bonus de Marque s'ajoute au multiplicateur (critique marqué ×2 → ×2,5), il ne le multiplie pas.
           const raw = s.w.dmg * ((crit ? me.l.critMult : 1) + (marked ? me.l.markBonus + s.w.markBoost : 0));
           amount = Math.max(1, Math.round(raw - Math.min(foe.l.flatReduce, raw * MAX_FLAT_REDUCE)));
-          applyDamage(foe, amount, s.w.armorPierce);
+          const abs = applyDamage(foe, amount, s.w.armorPierce);
           if (s.w.trueDmg > 0) {
             foe.hp = Math.max(0, foe.hp - Math.round(s.w.trueDmg));
             amount += Math.round(s.w.trueDmg);
@@ -218,7 +220,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           events.push({
             t, kind: 'shot', from: me.side, uid: s.w.uid, amount, crit, miss: false,
             pierce: s.w.armorPierce > 0, ...(n > 0 ? { double: true } : {}), ...heatField,
-            ...(mark ? { mark: true } : {}), ...(marked ? { marked: true } : {}),
+            ...(mark ? { mark: true } : {}), ...(marked ? { marked: true } : {}), ...absField(abs),
             hp: round1(foe.hp), armor: round1(foe.armor),
           });
           if (foe.hp <= 0) {
@@ -254,10 +256,10 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         // Quand l'adversaire recharge (ou au plus tard à TASER_FALLBACK) : dégâts et immobilisation.
         if (!foe.ws.some((w) => w.reloadUntil > t) && t < TASER_FALLBACK) continue;
         const amount = Math.round(ac.value);
-        applyDamage(foe, amount);
+        const abs = applyDamage(foe, amount);
         me.dealt += amount;
         stun(foe, t, ac.duration);
-        events.push({ t, kind: 'taser', side: me.side, uid: ac.uid, amount, until: t + ac.duration, hp: round1(foe.hp), armor: round1(foe.armor) });
+        events.push({ t, kind: 'taser', side: me.side, uid: ac.uid, amount, until: t + ac.duration, ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor) });
         s.charges--;
         s.next = t + ac.cooldown;
         if (foe.hp <= 0) {
@@ -279,9 +281,9 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
       }
       if (ac.kind === 'frag') {
         const amount = Math.round(ac.value);
-        applyDamage(foe, amount, ac.ignoreArmor ? 1 : 0);
+        const abs = applyDamage(foe, amount, ac.ignoreArmor ? 1 : 0);
         me.dealt += amount;
-        events.push({ t, kind: 'frag', side: me.side, uid: ac.uid, amount, hp: round1(foe.hp), armor: round1(foe.armor) });
+        events.push({ t, kind: 'frag', side: me.side, uid: ac.uid, amount, ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor) });
         if (foe.hp <= 0) {
           events.push({ t, kind: 'death', side: foe.side });
           return foe.side;

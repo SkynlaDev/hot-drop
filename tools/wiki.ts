@@ -112,7 +112,8 @@ p('## Le combat',
   `- **Mêlée** : frappe pendant tout le duel, à côté des armes à feu. Dans un sac **sans aucune arme à feu**, elle frappe ${String(MELEE_ONLY_SPEED).replace('.', ',')} fois plus vite (build Lame).`,
   `- **Saignement** : dégâts qui ignorent l'armure, versés peu à peu (${pct(BLEED_RATE)} de la réserve par seconde).`,
   '- **Objets actifs** (grenades, fumigène, soins, taser, bandage…) : se déclenchent seuls, avec des charges et un délai.',
-  `- **Temps limite** : ${MAX_TIME} s. Au-delà, gagne celui qui a la plus grande part de ses PV max.`);
+  `- **Temps limite** : ${MAX_TIME} s. Au-delà, gagne celui qui a la plus grande part de ses PV max.`,
+  '- **Rapport de duel** : après chaque duel, chaque objet du sac affiche ce qu\'il a apporté (dégâts en orange, soins en vert, armure absorbée en bleu-gris, le plus utile entouré d\'or). Le bouton « Rapport » détaille les deux sacs : touches, critiques, saignement, déclenchements, et les objets liés à chacun.');
 
 // ---------- Liens ----------
 p('## Les liens : étoiles et accessoires',

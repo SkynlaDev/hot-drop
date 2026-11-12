@@ -88,6 +88,8 @@ export interface PlayerLoadout {
   /** Marque (passif de Sentinelle) : bonus de dégâts de la touche qui consomme la marque (0 = pas de Marque). */
   markBonus: number;
   families: FamilyState[];
+  /** Armure apportée par chaque objet (uid → points, avant le bonus de famille), pour le rapport de duel. */
+  armorBy?: Record<number, number>;
 }
 
 export interface SynergyLink {
@@ -136,6 +138,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
   const actives: ActiveRt[] = [];
   let armor = 0;
   let flatReduce = 0;
+  const armorBy: Record<number, number> = {};
 
   // Étoiles : effets génériques (objets à étoiles), cumulés par objet touché.
   const stars = bagStars(placed);
@@ -257,7 +260,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     }
 
     if (d.armor) flatReduce += d.flatReduce ?? 0;
-    armor += (d.armor ?? 0) + sb.armor;
+    const own = (d.armor ?? 0) + sb.armor;
+    armor += own;
+    if (own > 0) armorBy[it.uid] = own;
 
     if (d.active) {
       const cd = d.active.cooldown;
@@ -293,6 +298,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       flatReduce,
       markBonus: operator === 'sentinelle' ? MARK_BONUS : 0,
       families,
+      armorBy,
     },
     links,
     stars,

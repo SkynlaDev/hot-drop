@@ -93,6 +93,7 @@ Le duel se joue seul, sac contre sac, et dure en général 12 à 20 secondes.
 - **Saignement** : dégâts qui ignorent l'armure, versés peu à peu (35 % de la réserve par seconde).
 - **Objets actifs** (grenades, fumigène, soins, taser, bandage…) : se déclenchent seuls, avec des charges et un délai.
 - **Temps limite** : 90 s. Au-delà, gagne celui qui a la plus grande part de ses PV max.
+- **Rapport de duel** : après chaque duel, chaque objet du sac affiche ce qu'il a apporté (dégâts en orange, soins en vert, armure absorbée en bleu-gris, le plus utile entouré d'or). Le bouton « Rapport » détaille les deux sacs : touches, critiques, saignement, déclenchements, et les objets liés à chacun.
 
 ## Les liens : étoiles et accessoires
 

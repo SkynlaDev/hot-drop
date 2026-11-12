@@ -7,6 +7,7 @@ import { FAMILY_INFO, ITEMS } from '../data/items';
 import { OPERATORS } from '../data/operators';
 import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
+import { DuelReport, ItemReport, duelReport, itemWeight } from '../logic/report';
 import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
   cellsOf, dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
@@ -20,7 +21,7 @@ import {
   finalDuelParams, goulagParams, placeBag, rerollShop, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
   closeResupply, finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
-import { PlayerLoadout, computeLoadout, describe, estimateDps } from '../logic/stats';
+import { PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
 import { Button, bagView, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
 
@@ -50,6 +51,8 @@ interface DragState {
 const HEAT_COLORS = ['#ffd27a', '#ff9a3c', '#ff5a36'];
 /** Or des étoiles. */
 const GOLD_HEX = 0xf2c94c;
+const ARMOR_STR = '#a9bfcc';
+const fmt1 = (v: number) => (Math.round(v * 10) / 10).toString().replace('.', ',');
 
 /** Étoile à 5 branches centrée en (x, y), pleine ou creuse. */
 function drawStar(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, filled: boolean, color: number, alpha: number) {
@@ -148,6 +151,9 @@ export default class LoadoutScene extends Phaser.Scene {
   private ammo = new Map<string, { ammo: number; mag: number }>();
   /** Sacs des deux camps pendant le duel (bonus de Marque affiché). */
   private fightL: Record<Side, PlayerLoadout> | null = null;
+  /** Rapport du dernier duel : ce que chaque objet a apporté, et de quoi le relire (objets et liens figés au combat). */
+  private report: { rep: DuelReport; duration: number; win: boolean; defs: Record<Side, Map<number, string>>; links: Record<Side, SynergyLink[]> } | null = null;
+  private reportLayer!: Container;
   private me: Actor | null = null;
   private foe: Actor | null = null;
   private popUid: number | null = null;
@@ -214,6 +220,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.play = null;
     this.markers = {};
     this.fightL = null;
+    this.report = null;
     this.me = null;
     this.foe = null;
     this.popUid = null;
@@ -234,6 +241,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.linkG = this.add.graphics().setDepth(5);
     this.unfedLayer = this.add.container(0, 0).setDepth(6);
     this.starLayer = this.add.container(0, 0).setDepth(6);
+    this.reportLayer = this.add.container(0, 0).setDepth(6.5);
     this.previewG = this.add.graphics().setDepth(40);
     this.starG = this.add.graphics().setDepth(45);
     this.sellG = this.add.graphics().setDepth(1.2);
@@ -459,6 +467,8 @@ export default class LoadoutScene extends Phaser.Scene {
       this.starLayer.add([g, txt(this, bx - 8, by + 11, `${n}`, 15, GOLD, { fontStyle: 'bold' }).setOrigin(1, 0.5)]);
     }
 
+    this.drawReportBadges();
+
     this.drawTray();
     this.drawStatus();
     // En duel, les vues des objets viennent d'être recréées : on y remet les compteurs de munitions.
@@ -614,7 +624,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.mainBtn.root.setVisible(!fighting);
     this.speedBtn.setLabel(`×${this.speed}`);
     let alt = '';
-    if (p === 'prep' || p === 'result') alt = 'Son sac';
+    if (p === 'prep') alt = 'Son sac';
+    else if ((p === 'result' || p === 'over') && this.report) alt = 'Rapport';
     else if (p === 'edit' && this.mode === 'shop') alt = 'Boutique';
     this.altBtn.root.setVisible(!fighting && alt !== '');
     this.altBtn.setLabel(alt);
@@ -1499,7 +1510,8 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private onAlt() {
     if (this.modal) return;
-    if (this.phase === 'prep' || this.phase === 'result') return this.openEnemy();
+    if (this.phase === 'prep') return this.openEnemy();
+    if ((this.phase === 'result' || this.phase === 'over') && this.report) return this.openReport();
     if (this.phase === 'edit' && this.mode === 'shop') this.openShop();
   }
 
@@ -1574,6 +1586,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.phase = 'prep';
     this.post = null;
     this.play = null;
+    this.report = null;
     this.clearDuelFx();
     this.stripLayer.removeAll(true);
     this.buildArena();
@@ -2313,6 +2326,174 @@ export default class LoadoutScene extends Phaser.Scene {
     this.finishFight();
   }
 
+  // ---------------------------------------------------------------- duel : rapport
+
+  /** Fige le rapport du duel qui vient de finir (objets et liens tels qu'au combat : on peut revendre ensuite). */
+  private keepReport(res: DuelResult) {
+    if (!this.fightL || !this.bot) return;
+    const mine = this.run.items.filter((i) => i.placed);
+    this.report = {
+      rep: duelReport(res, this.fightL.a, this.fightL.b),
+      duration: res.duration,
+      win: res.win,
+      defs: { a: new Map(mine.map((i) => [i.uid, i.defId])), b: new Map(this.bot.items.map((i) => [i.uid, i.defId])) },
+      links: {
+        a: computeLoadout(this.run.items, this.run.operator, this.fightL.a.maxHp).links,
+        b: computeLoadout(this.bot.items, this.bot.operator, this.bot.maxHp).links,
+      },
+    };
+  }
+
+  /** Valeur principale d'un objet dans le rapport : texte court et couleur (dégâts, soins, armure, effet). */
+  private reportValue(r: ItemReport): { s: string; color: string } | null {
+    if (r.dmg > 0) return { s: `${r.dmg}`, color: C.accentStr };
+    if (r.heal > 0) return { s: `+${r.heal}`, color: C.goodStr };
+    if (r.absorbed > 0) return { s: `${r.absorbed}`, color: ARMOR_STR };
+    if (r.stun > 0) return { s: `${fmt1(r.stun)} s`, color: C.text };
+    if (r.dodged > 0) return { s: `${r.dodged} ratés`, color: C.text };
+    if (r.uses > 0) return { s: `×${r.uses}`, color: C.text };
+    return null;
+  }
+
+  /** Après un duel : pastille de valeur sur chaque objet du sac qui a compté (le plus utile en doré). */
+  private drawReportBadges() {
+    this.reportLayer.removeAll(true);
+    const R = this.report;
+    if (!R || (this.phase !== 'result' && this.phase !== 'over')) return;
+    const best = R.rep.a.items[0]?.uid;
+    for (const r of R.rep.a.items) {
+      const inst = this.run.items.find((i) => i.uid === r.uid && i.placed);
+      const val = this.reportValue(r);
+      if (!inst || !val || this.drag?.item?.uid === r.uid || this.hidden.has(r.uid)) continue;
+      // Case de l'objet la plus proche du centre de sa forme, pastille à son pied.
+      const cells = cellsAt(inst, inst.x, inst.y);
+      const mx = cells.reduce((t, c) => t + c[0], 0) / cells.length;
+      const my = cells.reduce((t, c) => t + c[1], 0) / cells.length;
+      const [cx, cy] = cells.reduce((a, c) => (Math.hypot(c[0] - mx, c[1] - my) < Math.hypot(a[0] - mx, a[1] - my) ? c : a));
+      const x = GRID_X + (cx + 0.5) * CELL;
+      const y = GRID_Y + (cy + 0.5) * CELL;
+      const t = txt(this, x, y, val.s, 17, val.color, { fontStyle: 'bold', fontFamily: MONO }).setOrigin(0.5);
+      const w = Math.max(40, t.width + 16);
+      const g = this.add.graphics();
+      g.fillStyle(0x000000, 0.78);
+      g.fillRoundedRect(x - w / 2, y - 12, w, 24, 12);
+      if (r.uid === best) {
+        g.lineStyle(2, GOLD_HEX, 1);
+        g.strokeRoundedRect(x - w / 2, y - 12, w, 24, 12);
+      }
+      this.reportLayer.add([g, t]);
+    }
+  }
+
+  /** Lignes de détail d'un objet du rapport. */
+  private reportDetail(side: Side, r: ItemReport): string {
+    const R = this.report!;
+    const parts: string[] = [];
+    if (r.shots > 0 && !r.uses) {
+      parts.push(`${r.hits}/${r.shots} touches`);
+      if (r.crits) parts.push(`${r.crits} crit.`);
+    }
+    if (r.bleed > 0) parts.push(`dont ${r.bleed} saignement`);
+    if (r.uses > 0) parts.push(r.uses > 1 ? `${r.uses} fois` : '1 fois');
+    if (r.dmg > 0 && r.uses > 0) parts.push(`${r.dmg} dégâts`);
+    if (r.heal > 0) parts.push(`+${r.heal} PV`);
+    if (r.stun > 0) parts.push(`${fmt1(r.stun)} s d'étourdissement`);
+    if (r.dodged > 0) parts.push(`${r.dodged} tirs adverses ratés dessous`);
+    if (r.absorbed > 0) parts.push(`${r.absorbed} dégâts pris par l'armure`);
+    // Ce qui l'a renforcé : les objets liés à lui.
+    const names = new Set<string>();
+    for (const l of R.links[side]) {
+      const o = l.a === r.uid ? l.b : l.b === r.uid ? l.a : null;
+      const d = o !== null ? R.defs[side].get(o) : undefined;
+      if (d) names.add(ITEMS[d].short);
+    }
+    if (names.size) parts.push(`lié à ${[...names].join(', ')}`);
+    return parts.join(' · ');
+  }
+
+  /** Rapport de duel : pour chaque camp, ce que chaque objet a infligé, soigné ou encaissé. */
+  private openReport() {
+    const R = this.report;
+    if (this.modal || !R) return;
+    const m = modalBase(this, () => this.closeModal());
+    this.modal = m;
+    this.updateButtons();
+    const top = 70;
+    const PH = 1140;
+    m.add(panel(this, 24, top, W - 48, PH, R.win ? 0x3f7a46 : 0x7a3a32));
+    m.add(txt(this, 54, top + 24, 'RAPPORT DE DUEL', 34, R.win ? C.goodStr : '#ffb4a8', { fontStyle: 'bold' }));
+    m.add(txt(this, W - 54, top + 34, `${fmt1(R.duration)} s`, 22, C.quiet, { fontFamily: MONO }).setOrigin(1, 0));
+    const A = R.rep.a;
+    const sum = `Infligés ${A.dealt} · Reçus ${A.tookHp + A.tookArmor} (armure ${A.tookArmor})${A.healed ? ` · Soignés ${A.healed}` : ''}`;
+    m.add(txt(this, 54, top + 72, sum, 19, C.text, { wordWrap: { width: W - 108 } }));
+    // Légende des couleurs des valeurs et des barres.
+    let lx = 54;
+    for (const [s, col] of [['■ dégâts', C.accentStr], ['■ soins', C.goodStr], ['■ armure absorbée', ARMOR_STR], ['■ effets', C.text]] as const) {
+      const t = txt(this, lx, top + 102, s, 16, col);
+      m.add(t);
+      lx += t.width + 18;
+    }
+
+    const maxW = Math.max(1, ...[...R.rep.a.items, ...R.rep.b.items].map(itemWeight));
+    const ROW = 70;
+    const rows = (side: Side, y0: number, cap: number, title: string, color: string): number => {
+      const list = R.rep[side].items;
+      m.add(txt(this, 54, y0, title, 20, color, { fontStyle: 'bold' }));
+      let y = y0 + 34;
+      if (!list.length) {
+        m.add(txt(this, 54, y, 'Aucun objet n\'a servi.', 18, C.quiet));
+        return y + 40;
+      }
+      for (const r of list.slice(0, cap)) {
+        const def = R.defs[side].get(r.uid);
+        if (!def) continue;
+        // Icône réduite à 56 × 52
+        const mask = maskOf(def, 0);
+        const cell = Math.floor(Math.min(56 / mask[0].length, 52 / mask.length));
+        const v = itemView(this, { defId: def, rot: 0 }, cell);
+        v.setPosition(54 + (56 - mask[0].length * cell) / 2, y + (52 - mask.length * cell) / 2);
+        m.add(v);
+        const x1 = 122;
+        m.add(txt(this, x1, y + 2, ITEMS[def].short, 19, C.text, { fontStyle: 'bold' }));
+        const val = this.reportValue(r);
+        if (val) m.add(txt(this, W - 54, y + 2, val.s, 20, val.color, { fontStyle: 'bold', fontFamily: MONO }).setOrigin(1, 0));
+        // Barre : dégâts, soins et armure empilés, à l'échelle du meilleur objet des deux sacs.
+        const bw = W - 54 - 96 - (x1 + 120);
+        const bx = x1 + 120;
+        const g = this.add.graphics();
+        g.fillStyle(0x000000, 0.35);
+        g.fillRoundedRect(bx, y + 8, bw, 12, 6);
+        let off = 0;
+        for (const [v2, c] of [[r.dmg, C.accent], [r.heal, C.good], [r.absorbed, C.armor]] as const) {
+          if (v2 <= 0) continue;
+          const w = Math.max(3, (bw * v2) / maxW);
+          g.fillStyle(c, 1);
+          g.fillRect(bx + off, y + 8, Math.min(w, bw - off), 12);
+          off += w;
+        }
+        m.add(g);
+        m.add(txt(this, x1, y + 30, this.reportDetail(side, r), 15, C.quiet, { wordWrap: { width: W - 54 - x1 }, maxLines: 2 }));
+        y += ROW;
+      }
+      if (list.length > cap) {
+        m.add(txt(this, 54, y - 4, `+ ${list.length - cap} autre${list.length - cap > 1 ? 's' : ''}`, 16, C.quiet));
+        y += 22;
+      }
+      return y;
+    };
+    let y = rows('a', top + 140, 8, 'TON SAC', C.accentStr);
+    const botName = this.bot?.name?.toUpperCase() ?? 'ADVERSAIRE';
+    rows('b', y + 14, Math.max(2, Math.floor((top + PH - 110 - (y + 48)) / ROW)), `SAC DE ${botName}`, '#ffb4a8');
+
+    const by = top + PH - 96;
+    const enemyBtn = button(this, 54, by, 300, 72, 'Son sac', () => {
+      this.closeModal();
+      this.openEnemy();
+    }, { size: 24 });
+    const closeBtn = button(this, W - 54 - 300, by, 300, 72, 'Fermer', () => this.closeModal(), { primary: true, size: 26 });
+    m.add([enemyBtn.root, closeBtn.root]);
+  }
+
   // ---------------------------------------------------------------- duel : résultat
 
   private finishFight() {
@@ -2322,6 +2503,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.play = null;
     this.freeze = 0;
     this.resetPulses();
+    this.keepReport(P.result);
     this.clearDuelFx();
     const res = P.result;
     const r = this.run;
