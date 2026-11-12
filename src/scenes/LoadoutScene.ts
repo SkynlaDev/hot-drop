@@ -1207,7 +1207,7 @@ export default class LoadoutScene extends Phaser.Scene {
     g.fillStyle(stroke, 0.1);
     g.fillPoints(chamferPoints(0, 0, w, 112, 14), true);
     g.lineStyle(o.locked ? 5 : 3, o.locked ? 0x5fb3e0 : stroke, o.sold ? 0.3 : 1);
-    g.strokePoints(chamferPoints(0, 0, w, h, 14), true, true);
+    g.strokePoints(chamferPoints(0, 0, w, h, 14), false, true);
     cc.add(g);
     const area = 104;
     const inst = o.item ?? { defId: o.bag!, rot: 0 as Rot };

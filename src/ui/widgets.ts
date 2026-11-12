@@ -37,14 +37,20 @@ export interface Button {
   setEnabled(on: boolean): void;
 }
 
-/** Polygone d'un rectangle aux coins coupés (chanfrein `c`), style plaque militaire. */
+/**
+ * Polygone d'un rectangle aux coins coupés (chanfrein `c`), style plaque militaire. Pour le contour,
+ * `strokePoints(points, false, true)` : refermer sans répéter le premier point.
+ */
 export function chamferPoints(x: number, y: number, w: number, h: number, c: number): Phaser.Math.Vector2[] {
   const k = Math.min(c, w / 2, h / 2);
-  return [
+  const pts = [
     new Phaser.Math.Vector2(x + k, y), new Phaser.Math.Vector2(x + w - k, y), new Phaser.Math.Vector2(x + w, y + k),
     new Phaser.Math.Vector2(x + w, y + h - k), new Phaser.Math.Vector2(x + w - k, y + h), new Phaser.Math.Vector2(x + k, y + h),
     new Phaser.Math.Vector2(x, y + h - k), new Phaser.Math.Vector2(x, y + k),
   ];
+  // Pas de points confondus : un segment de longueur nulle fait partir la jointure des traits épais à l'infini
+  // (une « pointe » qui traverse l'écran sur certains GPU).
+  return pts.filter((p, i) => !p.equals(pts[(i + pts.length - 1) % pts.length]));
 }
 
 function fillChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
@@ -52,7 +58,7 @@ function fillChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: nu
 }
 
 function strokeChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
-  g.strokePoints(chamferPoints(x, y, w, h, c), true, true);
+  g.strokePoints(chamferPoints(x, y, w, h, c), false, true);
 }
 
 /** Rivet : tête sombre, reflet clair en haut à gauche. */

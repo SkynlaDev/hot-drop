@@ -235,9 +235,9 @@ export default class ZoneScene extends Phaser.Scene {
     const hh = h * 0.6;
     for (let hx = l - hh; hx < l + w; hx += 14) g.lineBetween(Math.max(l, hx), t + Math.max(0, l - hx), Math.min(l + w, hx + hh), t + Math.min(hh, l + w - hx));
     g.lineStyle(3, frame, 0.95);
-    g.strokePoints(chamferPoints(l, t, w, h, CH), true, true);
+    g.strokePoints(chamferPoints(l, t, w, h, CH), false, true);
     g.lineStyle(1, frame, 0.45);
-    g.strokePoints(chamferPoints(l + 6, t + 6, w - 12, h - 12, CH - 4), true, true);
+    g.strokePoints(chamferPoints(l + 6, t + 6, w - 12, h - 12, CH - 4), false, true);
     // Coins ornés
     g.fillStyle(frame, 1);
     for (const [cx, cy] of [[l + 10, t + 10], [l + w - 10, t + 10], [l + 10, t + h - 10], [l + w - 10, t + h - 10]]) {
@@ -330,7 +330,7 @@ export default class ZoneScene extends Phaser.Scene {
     // Contour de sélection
     const sel = this.add.graphics();
     sel.lineStyle(5, 0xffffff, 1);
-    sel.strokePoints(chamferPoints(l - 4, t - 4, w + 8, h + 8, 19), true, true);
+    sel.strokePoints(chamferPoints(l - 4, t - 4, w + 8, h + 8, 19), false, true);
     sel.setVisible(false);
     root.add(sel);
     root.setSize(w, h);
@@ -354,9 +354,9 @@ export default class ZoneScene extends Phaser.Scene {
     g.lineStyle(2, P.trait, 0.7);
     for (let hx = l - h; hx < l + w; hx += 16) g.lineBetween(Math.max(l, hx), t + Math.max(0, l - hx), Math.min(l + w, hx + h), t + Math.min(h, l + w - hx));
     g.lineStyle(4, P.orange, 1);
-    g.strokePoints(chamferPoints(l, t, w, h, 16), true, true);
+    g.strokePoints(chamferPoints(l, t, w, h, 16), false, true);
     g.lineStyle(2, P.braise, 1);
-    g.strokePoints(chamferPoints(l + 10, t + 10, w - 20, h - 20, 12), true, true);
+    g.strokePoints(chamferPoints(l + 10, t + 10, w - 20, h - 20, 12), false, true);
     g.fillStyle(P.nuit, 1);
     g.fillCircle(0, 0, Math.min(w, h) * 0.26);
     g.lineStyle(3, P.orange, 1);

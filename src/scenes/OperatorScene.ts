@@ -57,7 +57,7 @@ export default class OperatorScene extends Phaser.Scene {
     g.fillStyle(fam.color, 1);
     g.fillRect(6, 20, 8, CARD.h - 40);
     g.lineStyle(2, C.panelLine, 1);
-    g.strokePoints(chamferPoints(0, 0, CARD.w, CARD.h, 20), true, true);
+    g.strokePoints(chamferPoints(0, 0, CARD.w, CARD.h, 20), false, true);
     // Coins renforcés de la couleur de la famille
     g.fillStyle(fam.color, 1);
     for (const [cx, cy] of [[0, 0], [CARD.w, 0], [0, CARD.h], [CARD.w, CARD.h]]) {
@@ -147,7 +147,7 @@ export default class OperatorScene extends Phaser.Scene {
     // Contour de sélection
     const sel = this.add.graphics();
     sel.lineStyle(5, C.accent, 1);
-    sel.strokePoints(chamferPoints(-3, -3, CARD.w + 6, CARD.h + 6, 22), true, true);
+    sel.strokePoints(chamferPoints(-3, -3, CARD.w + 6, CARD.h + 6, 22), false, true);
     sel.setVisible(false);
     root.add(sel);
     const check = this.add.container(CARD.w - 34, 34).setVisible(false);
