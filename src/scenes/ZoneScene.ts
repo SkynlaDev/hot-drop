@@ -8,7 +8,8 @@ import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from
 import { DANGER_RAMP } from '../logic/bots';
 import { CRATES, DUEL_PICKS, ELITE_PICKS } from '../logic/run';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, THEME_INFO, statusPills } from '../ui/hud';
-import { Button, button, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
+import { Button, button, chamferPoints, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
+import { P } from '../ui/palette';
 
 const GRID = { x: 20, y: 344, w: 680, h: 690, gap: 14 };
 const RISK_PIPS = 5;
@@ -146,11 +147,11 @@ export default class ZoneScene extends Phaser.Scene {
     txt(this, 26 + cw + 14, 236, botLabel, 18, C.quiet, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0, 0.5);
     if (zone.theme) {
       const ti = THEME_INFO[zone.theme];
-      txt(this, W - 24, 296, `${ti.name.toUpperCase()} · ${ti.loot}`, 18, ti.hex, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(1, 0.5);
+      txt(this, 26, 270, `${ti.name.toUpperCase()} · ${ti.loot}`, 18, ti.hex, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0, 0.5);
     }
 
     // Compteur d'actions restantes
-    txt(this, 24, 296, `ACTIONS : ${run.actionsLeft}/${ACTIONS_PER_ZONE}`, 28, C.accentStr, { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    txt(this, 24, 308, `ACTIONS : ${run.actionsLeft}/${ACTIONS_PER_ZONE}`, 26, C.accentStr, { fontFamily: TITLE_FONT }).setOrigin(0, 0.5);
     this.pips = this.add.container(0, 0);
     for (let i = 0; i < ACTIONS_PER_ZONE; i++) {
       const on = i < run.actionsLeft;
@@ -160,10 +161,10 @@ export default class ZoneScene extends Phaser.Scene {
       g.fillRoundedRect(-17, -17, 34, 34, 8);
       g.lineStyle(3, on ? 0xf4b06a : C.cellLine, 1);
       g.strokeRoundedRect(-17, -17, 34, 34, 8);
-      g.setPosition(px, 296);
+      g.setPosition(px, 308);
       this.pips.add(g);
     }
-    txt(this, W - 44 - (ACTIONS_PER_ZONE - 1) * 46 - 30, 296, 'restantes', 18, C.quiet).setOrigin(1, 0.5);
+    txt(this, W - 44 - (ACTIONS_PER_ZONE - 1) * 46 - 30, 308, 'restantes', 18, C.quiet).setOrigin(1, 0.5);
   }
 
   // ---------------------------------------------------------------- cartes
@@ -185,11 +186,18 @@ export default class ZoneScene extends Phaser.Scene {
       this.views.push(v);
       if (fresh) {
         // Distribution : les cartes volent depuis le bas, de dos, puis se retournent.
-        v.root.setPosition(W / 2, H + 200).setScale(0.4, 0.4).setAngle(-20);
+        const back = this.cardBack(cw, ch);
+        v.root.add(back);
+        v.root.setPosition(W / 2, H + 200).setScale(0.5, 0.5).setAngle(-20);
+        this.tweens.add({ targets: v.root, x, y, angle: 0, scaleX: 1, scaleY: 1, duration: 420, delay: 150 + i * 90, ease: 'Cubic.Out' });
         this.tweens.add({
-          targets: v.root, x, y, angle: 0, scaleY: 1, duration: 420, delay: 150 + i * 80, ease: 'Cubic.Out',
+          targets: v.root, scaleX: 0, duration: 140, delay: 600 + i * 90, ease: 'Quad.In',
+          onComplete: () => {
+            back.destroy();
+            sfx('rotate', { vol: 0.5 });
+            this.tweens.add({ targets: v.root, scaleX: 1, duration: 200, ease: 'Back.Out' });
+          },
         });
-        this.tweens.add({ targets: v.root, scaleX: 1, duration: 260, delay: 400 + i * 80, ease: 'Back.Out' });
       }
       if (justPlayed.includes(i)) this.time.delayedCall(300, () => this.stamp(v, true));
     });
@@ -203,40 +211,52 @@ export default class ZoneScene extends Phaser.Scene {
     const t = -h / 2;
     const small = w < 200;
     const epic = card.type === 'caisse_epique';
-    if (epic && !played) {
-      // Halo violet et or qui pulse derrière la carte.
+    const rare = card.type === 'elite';
+    if ((epic || rare) && !played) {
+      // Halo qui pulse derrière la carte : violet et or (épique), rouge (Élite).
       const glow = this.add.graphics();
       for (let k = 4; k >= 1; k--) {
-        glow.fillStyle(k % 2 ? info.color : EPIC_GOLD, 0.1);
-        glow.fillRoundedRect(l - k * 5, t - k * 5, w + k * 10, h + k * 10, 18 + k * 5);
+        glow.fillStyle(epic ? (k % 2 ? info.color : EPIC_GOLD) : P.danger, epic ? 0.1 : 0.08);
+        glow.fillPoints(chamferPoints(l - k * 5, t - k * 5, w + k * 10, h + k * 10, 16 + k * 4), true);
       }
       root.add(glow);
-      this.tweens.add({ targets: glow, alpha: { from: 0.35, to: 1 }, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: glow, alpha: { from: 0.35, to: 1 }, duration: epic ? 750 : 1000, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     }
-    // Corps
-    g.fillStyle(0x000000, 0.45);
-    g.fillRoundedRect(l, t + 6, w, h, 18);
-    g.fillStyle(0x221e28, 1);
-    g.fillRoundedRect(l, t, w, h, 18);
-    g.fillStyle(info.color, 0.16);
-    g.fillRoundedRect(l, t, w, h * 0.62, { tl: 18, tr: 18, bl: 0, br: 0 });
-    g.fillStyle(info.color, 1);
-    g.fillRoundedRect(l, t, w, 10, { tl: 18, tr: 18, bl: 0, br: 0 });
-    g.lineStyle(3, info.color, 0.9);
-    g.strokeRoundedRect(l, t, w, h, 18);
-    if (epic) {
-      // Liseré or, bandeau or en haut.
-      g.fillStyle(EPIC_GOLD, 1);
-      g.fillRoundedRect(l, t, w, 10, { tl: 18, tr: 18, bl: 0, br: 0 });
-      g.lineStyle(3, EPIC_GOLD, 1);
-      g.strokeRoundedRect(l + 5, t + 5, w - 10, h - 10, 14);
+    // Corps : carte aux coins coupés, en-tête teinté hachuré, cadre intérieur.
+    const CH = 16;
+    const frame = epic ? EPIC_GOLD : info.color;
+    g.fillStyle(P.noir, 0.45);
+    g.fillPoints(chamferPoints(l + 2, t + 6, w, h, CH), true);
+    g.fillStyle(P.panneau, 1);
+    g.fillPoints(chamferPoints(l, t, w, h, CH), true);
+    g.fillStyle(info.color, 0.18);
+    g.fillPoints(chamferPoints(l, t, w, h * 0.6, CH), true);
+    g.lineStyle(2, info.color, 0.08);
+    const hh = h * 0.6;
+    for (let hx = l - hh; hx < l + w; hx += 14) g.lineBetween(Math.max(l, hx), t + Math.max(0, l - hx), Math.min(l + w, hx + hh), t + Math.min(hh, l + w - hx));
+    g.lineStyle(3, frame, 0.95);
+    g.strokePoints(chamferPoints(l, t, w, h, CH), true, true);
+    g.lineStyle(1, frame, 0.45);
+    g.strokePoints(chamferPoints(l + 6, t + 6, w - 12, h - 12, CH - 4), true, true);
+    // Coins ornés
+    g.fillStyle(frame, 1);
+    for (const [cx, cy] of [[l + 10, t + 10], [l + w - 10, t + 10], [l + 10, t + h - 10], [l + w - 10, t + h - 10]]) {
+      g.fillTriangle(cx - 5, cy, cx, cy - 5, cx + 5, cy);
+      g.fillTriangle(cx - 5, cy, cx, cy + 5, cx + 5, cy);
     }
     root.add(g);
 
-    // Titre
-    const title = txt(this, 0, t + 38, epic ? 'ÉPIQUE' : info.name.toUpperCase(), small ? 26 : 32, info.hex, { fontStyle: 'bold italic', padding: { left: 6, right: 6 } }).setOrigin(0.5);
-    if (epic) title.setStroke('#3a2a4e', 4).setShadow(0, 0, '#e9c46a', 10, true, true);
-    root.add(title);
+    // Titre au pochoir, sur un bandeau
+    const title = txt(this, 0, t + 38, epic ? 'ÉPIQUE' : info.name.toUpperCase(), small ? 22 : 28, epic ? '#e9c46a' : C.text, { fontFamily: TITLE_FONT, padding: { left: 6, right: 6 } }).setOrigin(0.5);
+    if (title.width > w - 30) title.setScale((w - 30) / title.width);
+    const band = this.add.graphics();
+    const bw = Math.min(w - 16, title.displayWidth + 34);
+    band.fillStyle(epic ? P.violetSombre : P.nuit, 0.85);
+    band.fillPoints(chamferPoints(-bw / 2, t + 22, bw, 32, 8), true);
+    band.fillStyle(frame, 1);
+    band.fillRect(-bw / 2 + 6, t + 30, 4, 16);
+    band.fillRect(bw / 2 - 10, t + 30, 4, 16);
+    root.add([band, title]);
 
     // Illustration
     const iy = t + h * 0.38;
@@ -310,7 +330,7 @@ export default class ZoneScene extends Phaser.Scene {
     // Contour de sélection
     const sel = this.add.graphics();
     sel.lineStyle(5, 0xffffff, 1);
-    sel.strokeRoundedRect(l - 4, t - 4, w + 8, h + 8, 21);
+    sel.strokePoints(chamferPoints(l - 4, t - 4, w + 8, h + 8, 19), true, true);
     sel.setVisible(false);
     root.add(sel);
     root.setSize(w, h);
@@ -323,15 +343,38 @@ export default class ZoneScene extends Phaser.Scene {
     return v;
   }
 
+  /** Dos de carte : tôle sombre hachurée, cadre orange, emblème « HD » au pochoir. */
+  private cardBack(w: number, h: number): Phaser.GameObjects.Container {
+    const c = this.add.container(0, 0);
+    const g = this.add.graphics();
+    const l = -w / 2;
+    const t = -h / 2;
+    g.fillStyle(P.fond2, 1);
+    g.fillPoints(chamferPoints(l, t, w, h, 16), true);
+    g.lineStyle(2, P.trait, 0.7);
+    for (let hx = l - h; hx < l + w; hx += 16) g.lineBetween(Math.max(l, hx), t + Math.max(0, l - hx), Math.min(l + w, hx + h), t + Math.min(h, l + w - hx));
+    g.lineStyle(4, P.orange, 1);
+    g.strokePoints(chamferPoints(l, t, w, h, 16), true, true);
+    g.lineStyle(2, P.braise, 1);
+    g.strokePoints(chamferPoints(l + 10, t + 10, w - 20, h - 20, 12), true, true);
+    g.fillStyle(P.nuit, 1);
+    g.fillCircle(0, 0, Math.min(w, h) * 0.26);
+    g.lineStyle(3, P.orange, 1);
+    g.strokeCircle(0, 0, Math.min(w, h) * 0.26);
+    const hd = txt(this, 0, 0, 'HD', Math.round(Math.min(w, h) * 0.22), '#e8894a', { fontFamily: TITLE_FONT }).setOrigin(0.5);
+    c.add([g, hd]);
+    return c;
+  }
+
   /** Carte jouée : grisée, tampon « JOUÉE ». */
   private stamp(v: CardView, animate: boolean) {
     const w = v.root.width;
     const h = v.root.height;
     const veil = this.add.graphics();
     veil.fillStyle(0x0f0d13, 0.62);
-    veil.fillRoundedRect(-w / 2, -h / 2, w, h, 18);
+    veil.fillPoints(chamferPoints(-w / 2, -h / 2, w, h, 16), true);
     const st = this.add.container(0, -h * 0.05).setAngle(-14);
-    const label = txt(this, 0, 0, 'JOUÉE', w < 200 ? 30 : 40, '#ece2cf', { fontStyle: 'bold' }).setOrigin(0.5);
+    const label = txt(this, 0, 0, 'JOUÉE', w < 200 ? 26 : 34, '#ece2cf', { fontFamily: TITLE_FONT }).setOrigin(0.5);
     const bw = label.width + 30;
     const bg = this.add.graphics();
     bg.lineStyle(4, 0xece2cf, 0.9);
