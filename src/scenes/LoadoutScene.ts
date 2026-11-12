@@ -60,6 +60,12 @@ const SHOT_SFX: Record<string, SfxId> = {
 };
 const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
 const ARMOR_STR = '#a9bccb';
+/** Icône du type d'objet qu'attend une étoile (affichée sous l'étoile vide). */
+const TAG_ICON: Record<string, string> = {
+  arme: 'ic-rifle', arme_longue: 'ic-sniper', melee: 'ic-hand', munition: 'ic-mag', accessoire: 'ic-scope',
+  protection: 'ic-plate', explosif: 'ic-frag', medical: 'ic-medkit',
+};
+
 /** Petit cadenas centré en (x, y) : ouvert ou fermé. */
 function drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number, closed: boolean) {
   g.lineStyle(3, color, 1);
@@ -469,22 +475,58 @@ export default class LoadoutScene extends Phaser.Scene {
       this.unfedLayer.add([g, txt(this, bx + 29, by + 10, 'RECH ×2', 12, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
     }
 
-    // Étoiles remplies : pastille « ★ n » en haut à droite de l'objet porteur.
+    // Étoiles, visibles en permanence :
+    // - étoile précise vide : étoile creuse sur sa case libre, avec l'icône du type attendu ;
+    // - étoile allumée : étoile dorée sur la jointure entre les deux objets ;
+    // - pastille « ★ allumées/total » en haut à droite de chaque objet qui a des étoiles.
     this.starLayer.removeAll(true);
-    const lit = new Map<number, number>();
-    for (const f of stars) if (f.by.length) lit.set(f.uid, (lit.get(f.uid) ?? 0) + f.by.length);
-    for (const [uid, n] of lit) {
-      const inst = this.run.items.find((i) => i.uid === uid);
-      if (!inst || this.drag?.item?.uid === uid || this.hidden.has(uid)) continue;
+    const placedNow = this.run.items.filter((i) => i.placed);
+    const occupiedNow = new Set(placedNow.flatMap((o) => cellsOf(o).map(([x, y]) => `${x},${y}`)));
+    const useNow = usable(this.run);
+    const sg = this.add.graphics();
+    this.starLayer.add(sg);
+    const counts = new Map<number, [number, number]>();
+    for (const f of stars) {
+      const holder = placedNow.find((o) => o.uid === f.uid);
+      if (!holder || this.drag?.item?.uid === f.uid || this.hidden.has(f.uid)) continue;
+      const spec = starSpecs(holder.defId)[f.spec];
+      const c = counts.get(f.uid) ?? [0, 0];
+      c[1]++;
+      if (f.by.length) c[0]++;
+      counts.set(f.uid, c);
+      const mine = new Set(cellsOf(holder).map(([x, y]) => `${x},${y}`));
+      for (const cell of f.cells) {
+        if (cell.by !== null) {
+          // Jointure avec la case du porteur la plus proche
+          const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].find(([dx, dy]) => mine.has(`${cell.x + dx},${cell.y + dy}`));
+          if (!n) continue;
+          const ex = GRID_X + (cell.x + 0.5 + n[0] * 0.5) * CELL;
+          const ey = GRID_Y + (cell.y + 0.5 + n[1] * 0.5) * CELL;
+          drawStar(sg, ex, ey, CELL * 0.15, true, GOLD_HEX, 1);
+        } else if (spec.at && spec.want && !occupiedNow.has(`${cell.x},${cell.y}`) && useNow.has(`${cell.x},${cell.y}`)) {
+          const px = GRID_X + (cell.x + 0.5) * CELL;
+          const py = GRID_Y + (cell.y + 0.5) * CELL;
+          drawStar(sg, px, py - CELL * 0.1, CELL * 0.2, false, GOLD_HEX, 0.7);
+          const key = TAG_ICON[spec.want[0]];
+          if (key && this.textures.exists(key)) {
+            this.starLayer.add(this.add.image(px, py + CELL * 0.24, key).setDisplaySize(CELL * 0.26, CELL * 0.26).setTint(GOLD_HEX).setAlpha(0.7));
+          }
+        }
+      }
+    }
+    for (const [uid, [lit, total]] of counts) {
+      const inst = placedNow.find((i) => i.uid === uid)!;
       const row = maskOf(inst.defId, inst.rot)[0];
       const rx = row.length - 1 - [...row].reverse().findIndex(Boolean);
       const bx = GRID_X + (inst.x + rx + 1) * CELL - 6;
       const by = GRID_Y + inst.y * CELL + 6;
+      const label = `${lit}/${total}`;
+      const pw = 30 + label.length * 9;
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.65);
-      g.fillRoundedRect(bx - 40, by, 40, 22, 11);
-      drawStar(g, bx - 28, by + 11, 8, true, GOLD_HEX, 1);
-      this.starLayer.add([g, txt(this, bx - 8, by + 11, `${n}`, 15, GOLD, { fontStyle: 'bold' }).setOrigin(1, 0.5)]);
+      g.fillRoundedRect(bx - pw, by, pw, 22, 11);
+      drawStar(g, bx - pw + 12, by + 11, 8, lit > 0, GOLD_HEX, lit > 0 ? 1 : 0.8);
+      this.starLayer.add([g, txt(this, bx - 7, by + 11, label, 14, lit >= total ? GOLD : lit > 0 ? C.text : C.quiet, { fontStyle: 'bold' }).setOrigin(1, 0.5)]);
     }
 
     this.drawReportBadges();

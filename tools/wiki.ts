@@ -118,7 +118,7 @@ p('## Le combat',
 // ---------- Liens ----------
 p('## Les liens : étoiles et accessoires',
   'Les objets se renforcent quand ils se touchent dans le sac (bords partagés). Tout lien se voit dans le sac :',
-  '- **Étoiles** : certains objets ont des étoiles sur des cases précises autour d’eux. Une étoile s’allume quand un objet du bon type occupe une de ses cases. Quand on tient un objet, les cases où il se lierait s’affichent en étoiles creuses, et les objets qu’il attend sont entourés en vert. Chaque objet posé affiche « ★ n », son nombre d’étoiles allumées.',
+  '- **Étoiles** : certains objets ont des étoiles sur des cases précises autour d’eux. Une étoile s’allume quand un objet du bon type occupe une de ses cases. Quand on tient un objet, les cases où il se lierait s’affichent en étoiles creuses, et les objets qu’il attend sont entourés en vert. Dans le sac, en permanence : une étoile creuse marque chaque case précise encore libre, avec l’icône du type d’objet attendu ; une étoile dorée marque chaque lien allumé ; chaque objet affiche « ★ allumées/total ».',
   '- **Accessoires et chargeurs** : ils ont une étoile tout autour d’eux qui attend une arme compatible (calibre pour les chargeurs, arme longue pour la lunette et le bipied, arme courte pour le viseur holo).',
   '- En boutique, en caisse et au butin : « ★ » signale un objet qui se lierait au sac, « ⚗ » un objet qui complète une recette.',
   '- *Max* : au plus ce nombre d’objets comptent pour une même étoile.');
