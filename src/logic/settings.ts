@@ -8,9 +8,11 @@ export interface Settings {
   speed: number;
   /** Vibrations sur mobile. */
   vibration: boolean;
+  /** Effets sonores. */
+  sound: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { speed: 1, vibration: true };
+export const DEFAULT_SETTINGS: Settings = { speed: 1, vibration: true, sound: true };
 const KEY = 'hotdrop.settings.v1';
 
 let cache: Settings | null = null;
@@ -28,6 +30,7 @@ export function getSettings(): Settings {
   cache = {
     speed: (SPEEDS as readonly number[]).includes(s.speed ?? -1) ? s.speed! : DEFAULT_SETTINGS.speed,
     vibration: typeof s.vibration === 'boolean' ? s.vibration : DEFAULT_SETTINGS.vibration,
+    sound: typeof s.sound === 'boolean' ? s.sound : DEFAULT_SETTINGS.sound,
   };
   return cache;
 }

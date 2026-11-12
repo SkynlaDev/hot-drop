@@ -4,6 +4,7 @@ import { C, FONT, H, W } from '../config';
 import { CATEGORY_COLORS, FAMILY_INFO, ITEMS } from '../data/items';
 import { ItemInst, Mask, maskOf } from '../logic/grid';
 import { getSettings } from '../logic/settings';
+import { sfx } from '../audio/sfx';
 import { TIER_COLORS, tierOf } from '../logic/tier';
 
 type Scene = Phaser.Scene;
@@ -88,7 +89,10 @@ export function button(
   zone.on('pointerout', () => draw());
   zone.on('pointerup', () => {
     draw();
-    if (enabled) onClick();
+    if (enabled) {
+      sfx('click');
+      onClick();
+    }
   });
   root.add([g, t, zone]);
   return {

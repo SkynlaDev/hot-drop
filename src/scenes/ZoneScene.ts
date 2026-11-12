@@ -1,5 +1,6 @@
 // Zone où le joueur s'est largué : les cartes tirées sont face visible, il en joue 3, dans l'ordre qu'il veut.
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { PX_SIZE, pxFigure, zoneBg } from '../art';
 import { C, H, W } from '../config';
 import { RunState, currentZone, playCard, saveRun } from '../logic/run';
@@ -358,6 +359,7 @@ export default class ZoneScene extends Phaser.Scene {
       this.play();
       return;
     }
+    sfx('pickup', { pitch: 0.8 });
     vibrate(8);
     const prev = this.views.find((v) => v.index === this.selected);
     if (prev) {

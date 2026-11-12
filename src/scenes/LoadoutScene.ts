@@ -8,6 +8,7 @@ import { OPERATORS } from '../data/operators';
 import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
 import { DuelReport, ItemReport, duelReport, itemWeight } from '../logic/report';
+import { SfxId, sfx, warmSfx } from '../audio/sfx';
 import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
   cellsOf, dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
@@ -51,6 +52,11 @@ interface DragState {
 const HEAT_COLORS = ['#ffd27a', '#ff9a3c', '#ff5a36'];
 /** Or des étoiles. */
 const GOLD_HEX = 0xf2c94c;
+/** Son de tir de chaque classe d'arme. */
+const SHOT_SFX: Record<string, SfxId> = {
+  Pistolet: 'shot_pistol', SMG: 'shot_smg', "Fusil d'assaut": 'shot_rifle', 'Fusil de précision': 'shot_sniper', 'Fusil à pompe': 'shot_shotgun',
+};
+const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
 const ARMOR_STR = '#a9bfcc';
 const fmt1 = (v: number) => (Math.round(v * 10) / 10).toString().replace('.', ',');
 
@@ -408,6 +414,7 @@ export default class LoadoutScene extends Phaser.Scene {
     for (const l of fresh) this.synergyBurst(l);
     if (fresh.length) {
       toast(this, `Synergie : ${fresh[0].label}`, C.accentStr, 600);
+      sfx('link');
       vibrate([12, 40, 12]);
     }
     const tiers = new Map(loadout.families.map((f) => [f.family, f.tier] as [string, number]));
@@ -417,6 +424,7 @@ export default class LoadoutScene extends Phaser.Scene {
           const fi = FAMILY_INFO[f.family];
           this.time.delayedCall(fresh.length ? 700 : 0, () => toast(this, `${fi.name} palier ${f.tier === 2 ? 4 : 2} : ${f.tier === 2 ? fi.tier4 : fi.tier2}`, fi.hex, 660));
           this.cameras.main.flash(160, 255, 210, 140);
+          sfx('craft', { pitch: 1.25 });
           vibrate([20, 50, 20]);
         }
       }
@@ -722,6 +730,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.makeGhost(d);
       if (d.item) (d.from === 'grid' ? this.views : this.trayViews).get(d.item.uid)?.setVisible(false);
       if (d.bag) (d.from === 'grid' ? this.bagViews : this.trayBagViews).get(d.bag.uid)?.setVisible(false);
+      sfx('pickup');
       vibrate(6);
     }
     if (d.moved) this.updateGhost(p.x, p.y);
@@ -889,12 +898,14 @@ export default class LoadoutScene extends Phaser.Scene {
       const v = sellItem(this.run, inst.uid);
       toast(this, `Vendu : +${v} cr`, C.accentStr, 880);
       this.coinBurst(p.x, p.y);
+      sfx('sell');
       vibrate(10);
     } else if (a.overGrid) {
       if (canPlace(this.run.items, inst, a.ax, a.ay, d.rot, usable(this.run))) {
         Object.assign(inst, { x: a.ax, y: a.ay, rot: d.rot, placed: true });
         this.popUid = inst.uid;
         this.dust(inst);
+        sfx('place');
         vibrate(8);
       } else {
         toast(this, this.outsideUsable(inst, a.ax, a.ay, d.rot) ? 'Hors du sac : pose une sacoche ici' : 'Pas la place ici', C.dangerStr, 880);
@@ -925,12 +936,14 @@ export default class LoadoutScene extends Phaser.Scene {
       if (v) {
         toast(this, `Sacoche vendue : +${v} cr`, C.accentStr, 880);
         this.coinBurst(p.x, p.y);
+        sfx('sell');
         vibrate(10);
       } else toast(this, 'Les autres sacoches seraient détachées', C.dangerStr, 880);
     } else if (a.overGrid) {
       if (placeBag(this.run, b.uid, a.ax, a.ay, d.rot)) {
         this.popBag = b.uid;
         this.cameras.main.shake(90, 0.003);
+        sfx('place', { pitch: 0.8 });
         vibrate(12);
       } else {
         toast(this, this.bagFailReason(b, a.ax, a.ay, d.rot), C.dangerStr, 880);
@@ -1019,6 +1032,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.cameras.main.shake(180, 0.006);
       this.cameras.main.flash(140, 255, 230, 160);
       this.freezeFor(70);
+      sfx('craft');
       vibrate([20, 40, 30]);
       if (out) {
         this.hidden.delete(out.uid);
@@ -1080,6 +1094,7 @@ export default class LoadoutScene extends Phaser.Scene {
         if (canPlace(this.run.items, inst, inst.x - dx, inst.y - dy, nr, u)) {
           Object.assign(inst, { x: inst.x - dx, y: inst.y - dy, rot: nr });
           this.popUid = inst.uid;
+          sfx('rotate');
           vibrate(8);
           this.afterDrop();
           return;
@@ -1103,6 +1118,7 @@ export default class LoadoutScene extends Phaser.Scene {
       for (let dx = 0; dx < nd.w; dx++) {
         if (placeBag(this.run, b.uid, b.x - dx, b.y - dy, nr)) {
           this.popBag = b.uid;
+          sfx('rotate');
           vibrate(8);
           this.refresh();
           return;
@@ -1236,6 +1252,7 @@ export default class LoadoutScene extends Phaser.Scene {
         if (o.bag && reserveBags(this.run).length >= BAG_RESERVE_MAX) return this.shopError('Réserve de sacoches pleine');
         const got = buyOffer(this.run, i);
         if (!got) return this.shopError('Achat impossible');
+        sfx('coin');
         vibrate([10, 30, 10]);
         this.coinBurst(x + cw / 2, y + ch - 30);
         this.reopenShop(true);
@@ -1260,6 +1277,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private shopError(s: string) {
     toast(this, s, C.dangerStr, 1000);
+    sfx('hit_armor', { vol: 0.5, pitch: 0.6 });
     this.cameras.main.shake(100, 0.003);
     vibrate([10, 30, 10]);
   }
@@ -1388,6 +1406,8 @@ export default class LoadoutScene extends Phaser.Scene {
       this.cameras.main.shake(epic ? 380 : 220, epic ? 0.014 : 0.008);
       if (epic) this.cameras.main.flash(260, 200, 150, 255);
       else this.cameras.main.flash(160, 255, 236, 180);
+      sfx('frag', { vol: epic ? 0.7 : 0.45, pitch: 1.4 });
+      if (epic) sfx('craft');
       vibrate(epic ? [40, 40, 40, 40, 80] : [30, 40, 30]);
       const entries: { v: Container; label: string; col: string; w: number; h: number }[] = [];
       // Les objets proposés jaillissent (on les choisira ensuite) ; l'objet assemblé en premier.
@@ -1593,6 +1613,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.buildEnemyPanel();
     this.refresh();
     saveRun(this.run);
+    warmSfx(DUEL_SFX);
     // Annonce du duel
     const title = p.type === 'goulag' ? 'GOULAG' : p.type === 'final' ? 'TOP 1' : p.type === 'elite' ? 'ÉLITE' : 'DUEL SOLO';
     const col = p.type === 'goulag' ? C.dangerStr : p.type === 'final' ? GOLD : C.text;
@@ -1608,6 +1629,7 @@ export default class LoadoutScene extends Phaser.Scene {
       targets: t, scale: 1, alpha: 1, duration: 220, ease: 'Quad.In',
       onComplete: () => {
         this.cameras.main.shake(160, 0.008);
+        sfx('place', { pitch: 0.6, vary: 0 });
         vibrate(25);
       },
     });
@@ -2135,6 +2157,22 @@ export default class LoadoutScene extends Phaser.Scene {
     this.tweens.add({ targets: g, scale: 1.2, alpha: 0, duration: 380 / this.speed, ease: 'Quad.Out', onComplete: () => g.destroy() });
   }
 
+  /** Son de tir selon la classe de l'arme ; le camp adverse est un peu plus discret et à droite. */
+  private shotSfx(side: Side, uid: number) {
+    const items = side === 'a' ? this.run.items : this.bot?.items ?? [];
+    const def = items.find((i) => i.uid === uid)?.defId;
+    const id: SfxId = (def ? SHOT_SFX[ITEMS[def].wclass ?? ''] : undefined) ?? 'shot_pistol';
+    sfx(id, { vol: side === 'a' ? 0.75 : 0.55, pan: side === 'a' ? -0.25 : 0.25 });
+  }
+
+  /** Son d'impact : critique, armure (plus de la moitié absorbée) ou chair. */
+  private hitSfx(to: Side, crit: boolean, amount: number, absorbed = 0) {
+    const pan = to === 'a' ? -0.3 : 0.3;
+    if (crit) sfx('crit', { vol: 0.8, pan });
+    else if (absorbed > amount / 2) sfx('hit_armor', { vol: 0.45, pan });
+    else sfx('hit', { vol: to === 'a' ? 0.7 : 0.5, pan });
+  }
+
   private applyEvent(e: DuelEvent, animate: boolean) {
     switch (e.kind) {
       case 'shot': {
@@ -2153,6 +2191,7 @@ export default class LoadoutScene extends Phaser.Scene {
         if (e.melee) {
           if (!animate) break;
           this.trigger(e.from, e.uid, 0xffffff);
+          sfx('melee', { vol: 0.7, pan: to.side === 'a' ? -0.3 : 0.3 });
           this.slash(to);
           this.floatText(to, `${e.amount}`, to.side === 'a' ? C.dangerStr : C.text, 24);
           if (e.bleed) this.floatText(to, `+${e.bleed} saignement`, BLEED_COLOR, 16, 30);
@@ -2162,6 +2201,11 @@ export default class LoadoutScene extends Phaser.Scene {
         }
         if (!animate) break;
         this.tracer(from, to, !e.double, e.miss);
+        if (!e.double) this.shotSfx(e.from, e.uid);
+        if (e.miss) {
+          if (!e.double) sfx('miss', { vol: 0.5 });
+        } else this.hitSfx(to.side, e.crit || !!e.marked, e.amount, e.absorbed);
+        if (e.mark) sfx('mark', { vol: 0.6 });
         if (!e.double) {
           this.trigger(e.from, e.uid, e.crit ? C.accent : 0xffffff);
           this.setHeat(e.from, e.uid, e.heat ?? 0);
@@ -2194,6 +2238,7 @@ export default class LoadoutScene extends Phaser.Scene {
         if (animate) {
           const v = this.viewOf(e.side, e.uid);
           if (v) flashItem(this, v, 0x4f9bff);
+          sfx('reload', { vol: e.side === 'a' ? 0.6 : 0.4, pan: e.side === 'a' ? -0.3 : 0.3 });
           this.setHeat(e.side, e.uid, 0); // la recharge éteint le Feu continu
         }
         break;
@@ -2212,6 +2257,7 @@ export default class LoadoutScene extends Phaser.Scene {
         this.drawBars(to);
         if (animate) {
           this.trigger(e.side, e.uid, 0x7fd8ff);
+          sfx('taser', { vol: 0.7 });
           this.tracer(this.actor(e.side), to, false, false);
           this.hitReact(to);
           this.floatText(to, `TASER ${e.amount}`, '#7fd8ff', 22);
@@ -2227,6 +2273,7 @@ export default class LoadoutScene extends Phaser.Scene {
         this.drawBars(a);
         if (animate) {
           this.trigger(e.side, e.uid, C.good);
+          sfx('heal', { vol: 0.6 });
           this.floatText(a, `+${e.amount}`, C.goodStr, 26);
           if (e.cured > 0) this.floatText(a, 'BANDAGE', C.goodStr, 16, 30);
         }
@@ -2239,6 +2286,7 @@ export default class LoadoutScene extends Phaser.Scene {
         this.drawBars(to);
         if (animate) {
           this.trigger(e.side, e.uid, C.accent);
+          sfx('frag', { vol: 0.9 });
           this.boom(to, e.side === 'a' ? C.accent : C.danger);
           this.hitReact(to);
           this.floatText(to, `${e.amount}`, C.accentStr, 32);
@@ -2251,6 +2299,7 @@ export default class LoadoutScene extends Phaser.Scene {
       case 'smoke':
         if (animate) {
           this.trigger(e.side, e.uid, 0xaaaaaa);
+          sfx('smoke', { vol: 0.7 });
           const a = this.actor(e.side);
           const g = this.add.graphics().setDepth(24);
           g.fillStyle(0xcfcfcf, 0.4);
@@ -2268,12 +2317,14 @@ export default class LoadoutScene extends Phaser.Scene {
           const foe = this.actor(e.side === 'a' ? 'b' : 'a');
           if (foe.hp > 0) this.floatText(foe, 'ÉTOURDI', '#ffffff', 20);
           this.cameras.main.flash(120, 255, 255, 255);
+          sfx('flash', { vol: 0.8 });
           vibrate(15);
         }
         break;
       case 'adrenaline':
         if (animate) {
           this.trigger(e.side, e.uid, C.good);
+          sfx('adrenaline', { vol: 0.6 });
           this.floatText(this.actor(e.side), 'ADRÉNALINE', C.goodStr, 20);
         }
         break;
@@ -2283,6 +2334,7 @@ export default class LoadoutScene extends Phaser.Scene {
         this.drawBars(a);
         if (animate) {
           this.trigger(e.side, e.uid, C.good);
+          sfx('heal', { vol: 0.6, pitch: 0.9 });
           this.floatText(a, `+${e.amount}`, C.goodStr, 30);
         }
         break;
@@ -2297,6 +2349,7 @@ export default class LoadoutScene extends Phaser.Scene {
           this.tweens.killTweensOf(a.fig);
           this.tweens.add({ targets: a.fig, alpha: 0.3, angle: ang, y: a.feet - 16, duration: 340 / this.speed, ease: 'Quad.In' });
           this.impact('large');
+          sfx('death');
           this.boom(a, e.side === 'a' ? C.danger : 0xffffff);
           this.cameras.main.flash(200, e.side === 'a' ? 160 : 255, e.side === 'a' ? 20 : 240, e.side === 'a' ? 20 : 200);
           vibrate(e.side === 'a' ? [60, 40, 120] : [30, 30, 60]);
@@ -2514,6 +2567,7 @@ export default class LoadoutScene extends Phaser.Scene {
       resolveGoulag(r, res.win);
       if (res.win) {
         banner(this, 'DE RETOUR !', C.goodStr, GRID_Y + 160);
+        sfx('win');
         vibrate([40, 40, 80]);
         const e = endAction(r);
         this.post = e?.nextRound ? { label: 'Ravitaillement →', go: () => this.route() } : { label: 'Continuer', go: () => this.route() };
@@ -2530,6 +2584,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     if (out.goulag) {
       banner(this, 'ÉLIMINÉ', C.dangerStr, GRID_Y + 160);
+      sfx('lose');
       vibrate([80, 60, 160]);
       this.post = { label: 'Goulag →', go: () => this.showGoulag() };
       this.refresh();
@@ -2537,6 +2592,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     // Victoire : crédits (et sacoche après une Élite) tout de suite, puis on fouille le sac du vaincu.
     banner(this, 'VICTOIRE', C.goodStr, GRID_Y + 160);
+    sfx('win');
     vibrate([30, 30, 60]);
     this.post = null;
     this.refresh(); // sauvegarde : un rechargement reprend au choix du butin
@@ -2625,6 +2681,7 @@ export default class LoadoutScene extends Phaser.Scene {
       flashItem(this, v, 0xf2c94c);
       this.tweens.add({ targets: v, alpha: 0.15, duration: 250 });
       flown.push({ item, from: centerOf(srcUid) });
+      sfx('pickup');
       vibrate(15);
       toast(this, to === 'reserve' ? `${ITEMS[item.defId].short} → réserve` : `Réserve pleine : ${ITEMS[item.defId].short} rangé dans le sac`, C.goodStr, top + 110);
       current = null;
@@ -2794,9 +2851,12 @@ export default class LoadoutScene extends Phaser.Scene {
     if (win) {
       this.slam('TOP 1 !', GOLD, GRID_Y + 160, 88);
       this.confetti();
+      sfx('win', { pitch: 0.9 });
+      this.time.delayedCall(500, () => sfx('craft'));
       vibrate([40, 40, 40, 40, 120]);
     } else {
       banner(this, 'ÉLIMINÉ', C.dangerStr, GRID_Y + 160);
+      sfx('lose');
       this.cameras.main.shake(400, 0.01);
       vibrate([120, 60, 200]);
       this.time.delayedCall(1300, () => toast(this, 'Fin de la run', C.dangerStr, GRID_Y + 260));

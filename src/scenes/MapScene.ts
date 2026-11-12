@@ -1,6 +1,7 @@
 // Carte battle royale : zones de tailles différentes, cercle de gaz qui se resserre à chaque manche.
 // Le joueur choisit une zone dans le cercle et s'y largue.
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { C, H, W } from '../config';
 import { rngFor } from '../logic/rng';
 import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
@@ -316,6 +317,7 @@ export default class MapScene extends Phaser.Scene {
 
   private animateShrink(from: Circle, to: Circle, final: boolean) {
     toast(this, final ? 'Dernier cercle !' : 'Le cercle se resserre !', '#d4ec6a', MAP.y + 70);
+    sfx('smoke', { pitch: 0.5, vol: 0.8, vary: 0 });
     vibrate([20, 40, 20]);
     const st = { t: 0 };
     let marked = false;
@@ -473,6 +475,7 @@ export default class MapScene extends Phaser.Scene {
     this.busy = true;
     saveRun(this.run);
     this.goBtn.setEnabled(false);
+    sfx('drop');
     vibrate(15);
     const tx = this.sx(z.x);
     const ty = this.sy(z.y);

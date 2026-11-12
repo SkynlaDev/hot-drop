@@ -123,4 +123,10 @@ Parties simulées (`tests/runsim.ts 40`) : Top 1 atteint 57 à 63 %, gagné 48 �
 **Fait (étape 7, sprites)** : 57 sprites d'objets PixelLab dans `public/art/items` (32 px par case, forme non tournée,
 palette des personnages imposée, découpés au masque par `tools/art/clip-items.py` ; consignes dans
 `tools/art/item-sprites.json`). Armes en L ou en T : silhouette de la forme en image de départ (force 40) ; Lynx et DMR
-assemblés à partir de pièces réussies. Le sprite tourne avec l'objet ; les icônes SVG restent en secours. Reste : le son.
+assemblés à partir de pièces réussies. Le sprite tourne avec l'objet ; les icônes SVG restent en secours.
+
+**Fait (étape 7, son)** : 30 effets synthétisés dans le code (`src/audio/synth.ts`, Web Audio, aucun fichier) : un tir par
+classe d'arme, impacts (chair, armure, critique), mêlée, recharge, grenades et objets actifs, mort, jingles de victoire
+et de défaite, interface (glisser, poser, tourner, vendre, acheter, assembler, lien), largage et gaz. Variation de
+hauteur, limite de répétition pour les combats ×4, camps panoramiqués. Réglage « Son » dans les paramètres.
+(Les effets sonores PixelLab demandent l'abonnement Tier 2.)

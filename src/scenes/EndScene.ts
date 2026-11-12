@@ -1,5 +1,6 @@
 // Fin de run : Top 1 (duel final gagné) ou élimination.
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { C, FONT, W } from '../config';
 import { OPERATORS } from '../data/operators';
 import { RunState, clearRun } from '../logic/run';
@@ -51,7 +52,10 @@ export default class EndScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScale(2.2)
       .setAlpha(0);
-    this.tweens.add({ targets: title, scale: 1, alpha: 1, duration: 380, delay: 150, ease: 'Back.Out', onComplete: () => this.cameras.main.shake(160, 0.006) });
+    this.tweens.add({ targets: title, scale: 1, alpha: 1, duration: 380, delay: 150, ease: 'Back.Out', onComplete: () => {
+      this.cameras.main.shake(160, 0.006);
+      sfx(win ? 'win' : 'lose', { vary: 0 });
+    } });
     txt(this, W / 2, 790, win ? 'Dernier debout. La zone est à toi.' : 'Le gaz se referme sans toi.', 28, C.text).setOrigin(0.5);
 
     // Cercles survécus : la manche atteinte (le duel final compte comme le dernier palier).

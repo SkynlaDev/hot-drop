@@ -3,11 +3,12 @@ import Phaser from 'phaser';
 import { C, W } from '../config';
 import { SPEEDS, getSettings, setSettings } from '../logic/settings';
 import { button, modalBase, panel, txt, vibrate } from './widgets';
+import { sfx } from '../audio/sfx';
 
 /** Ouvre les paramètres par-dessus la scène ; chaque choix est enregistré tout de suite. */
 export function openSettings(scene: Phaser.Scene, onClose?: () => void): void {
   const top = 300;
-  const PH = 640;
+  const PH = 790;
   let root: Phaser.GameObjects.Container | null = null;
   const close = () => {
     root?.destroy();
@@ -44,6 +45,16 @@ export function openSettings(scene: Phaser.Scene, onClose?: () => void): void {
       draw();
     }, { primary: s.vibration, size: 28 });
     m.add(vb.root);
+
+    // Son
+    y += 150;
+    m.add(txt(scene, 72, y, 'Son', 26, C.text, { fontStyle: 'bold' }));
+    const sb = button(scene, 72, y + 50, W - 144, 84, s.sound ? 'Activé' : 'Coupé', () => {
+      setSettings({ sound: !getSettings().sound });
+      sfx('coin');
+      draw();
+    }, { primary: s.sound, size: 28 });
+    m.add(sb.root);
 
     const ok = button(scene, 72, top + PH - 120, W - 144, 90, 'Fermer', close, { size: 28 });
     m.add(ok.root);
