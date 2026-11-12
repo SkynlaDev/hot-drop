@@ -1,11 +1,13 @@
 // Fin de run : Top 1 (duel final gagné) ou élimination.
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { C, FONT, TITLE_FONT, W } from '../config';
+import { C, TITLE_FONT, W } from '../config';
 import { OPERATORS } from '../data/operators';
 import { RunState, clearRun } from '../logic/run';
 import { ROUNDS } from '../logic/zone';
-import { button, fadeIn, txt } from '../ui/widgets';
+import { bagView, button, fadeIn, itemView, panel, plate, txt } from '../ui/widgets';
+import { P } from '../ui/palette';
+import { usableCells } from '../logic/grid';
 import { opFig, pxFigure } from '../art';
 
 export default class EndScene extends Phaser.Scene {
@@ -39,7 +41,7 @@ export default class EndScene extends Phaser.Scene {
     fade.fillRect(0, 620, W, 700);
 
     const title = this.add
-      .text(W / 2, 680, win ? 'TOP 1' : 'ÉLIMINÉ', {
+      .text(W / 2, 672, win ? 'TOP 1' : 'ÉLIMINÉ', {
         fontFamily: TITLE_FONT,
         fontSize: win ? '130px' : '96px',
         stroke: '#000000',
@@ -55,24 +57,85 @@ export default class EndScene extends Phaser.Scene {
       this.cameras.main.shake(160, 0.006);
       sfx(win ? 'win' : 'lose', { vary: 0 });
     } });
-    txt(this, W / 2, 790, win ? 'Dernier debout. La zone est à toi.' : 'Le gaz se referme sans toi.', 28, C.text).setOrigin(0.5);
+    txt(this, W / 2, 770, win ? 'Dernier debout. La zone est à toi.' : 'Le gaz se referme sans toi.', 26, C.text).setOrigin(0.5);
 
-    // Cercles survécus : la manche atteinte (le duel final compte comme le dernier palier).
+    // Rapport de mission : stats à gauche, sac final en miniature à droite, tampon par-dessus.
+    const PX = 30;
+    const PY = 810;
+    const PW = W - 60;
+    const PH = 250;
+    panel(this, PX, PY, PW, PH, win ? P.orSombre : P.braiseSombre);
+    plate(this, W / 2, PY, 'Rapport de mission', win ? P.or : P.danger, 18);
     const reached = win ? ROUNDS : Math.min(run.round, ROUNDS);
     const lines: [string, string][] = [
       ['Opérateur', OPERATORS[run.operator].name],
-      ['Cercles survécus', `${reached}/${ROUNDS}${run.round >= ROUNDS && !win ? ' · tombé au Top 1' : ''}`],
-      ['Goulag', run.goulagUsed ? 'utilisé' : 'pas utilisé'],
-      ['Objets dans le sac', `${run.items.filter((i) => i.placed).length}`],
+      ['Cercles', `${reached}/${ROUNDS}${run.round >= ROUNDS && !win ? ' · Top 1' : ''}`],
+      ['Goulag', run.goulagUsed ? 'utilisé' : 'intact'],
+      ['Objets', `${run.items.filter((i) => i.placed).length}`],
       ['Crédits', `${run.credits}`],
     ];
     lines.forEach(([k, v], i) => {
-      const y = 850 + i * 40;
-      const a = txt(this, 150, y, k, 24, C.quiet).setOrigin(0, 0.5).setAlpha(0);
-      const b = txt(this, W - 150, y, v, 24, C.text, { fontStyle: 'bold' }).setOrigin(1, 0.5).setAlpha(0);
-      this.tweens.add({ targets: [a, b], alpha: 1, x: '+=0', duration: 220, delay: 500 + i * 90 });
+      const y = PY + 50 + i * 38;
+      const a = txt(this, PX + 30, y, k, 20, C.quiet).setOrigin(0, 0.5).setAlpha(0);
+      const b = txt(this, PX + 300, y, v, 21, C.text, { fontStyle: 'bold' }).setOrigin(1, 0.5).setAlpha(0);
+      this.tweens.add({ targets: [a, b], alpha: 1, duration: 220, delay: 500 + i * 90 });
     });
-    button(this, 120, 1068, 480, 100, 'Nouvelle run', () => this.scene.start('operator'), { primary: true, size: 30 });
-    button(this, 220, 1180, 280, 80, 'Menu', () => this.scene.start('menu'), { size: 24 });
+    this.miniBag(run, PX + 330, PY + 30, PW - 350, PH - 50);
+
+    // Tampon
+    const st = this.add.container(PX + PW - 150, PY + PH - 46).setAngle(-12).setAlpha(0).setScale(2.4);
+    const stLabel = txt(this, 0, 0, win ? 'MISSION ACCOMPLIE' : 'K.I.A.', win ? 22 : 30, win ? '#e9c46a' : '#ef7b72', { fontFamily: TITLE_FONT }).setOrigin(0.5);
+    const sg = this.add.graphics();
+    sg.lineStyle(4, win ? P.or : P.dangerClair, 0.9);
+    sg.strokeRect(-stLabel.width / 2 - 14, -stLabel.height / 2 - 6, stLabel.width + 28, stLabel.height + 12);
+    st.add([sg, stLabel]);
+    this.tweens.add({ targets: st, alpha: 0.85, scale: 1, duration: 260, delay: 1150, ease: 'Back.Out', onComplete: () => this.cameras.main.shake(90, 0.004) });
+
+    // Ambiance : étincelles d'or (victoire) ou cendres qui tombent (défaite).
+    for (let i = 0; i < 24; i++) this.particle(win, true);
+
+    button(this, 60, 1090, 380, 96, 'Nouvelle run', () => this.scene.start('operator'), { primary: true, size: 28, icon: 'ic-reroll' });
+    button(this, 460, 1090, 200, 96, 'Menu', () => this.scene.start('menu'), { size: 24, icon: 'ic-menu' });
+  }
+
+  /** Sac final en miniature, centré dans la boîte (x, y, w, h). */
+  private miniBag(run: RunState, x: number, y: number, w: number, h: number) {
+    const bags = run.bags.filter((b) => b.placed);
+    const items = run.items.filter((i) => i.placed);
+    const cells = [...usableCells(run.bags)].map((k) => k.split(',').map(Number));
+    if (!cells.length) return;
+    const x0 = Math.min(...cells.map((c) => c[0]));
+    const y0 = Math.min(...cells.map((c) => c[1]));
+    const cw = Math.max(...cells.map((c) => c[0])) - x0 + 1;
+    const chh = Math.max(...cells.map((c) => c[1])) - y0 + 1;
+    const cell = Math.floor(Math.min(w / cw, h / chh, 34));
+    const gx = x + (w - cw * cell) / 2;
+    const gy = y + (h - chh * cell) / 2;
+    const root = this.add.container(0, 0).setAlpha(0);
+    const g = this.add.graphics();
+    g.fillStyle(P.nuit, 0.8);
+    g.fillRect(gx - 4, gy - 4, cw * cell + 8, chh * cell + 8);
+    g.fillStyle(C.canvas, 1);
+    for (const [cx, cy] of cells) g.fillRect(gx + (cx - x0) * cell + 1, gy + (cy - y0) * cell + 1, cell - 2, cell - 2);
+    root.add(g);
+    for (const b of bags) root.add(bagView(this, b, cell).setPosition(gx + (b.x - x0) * cell, gy + (b.y - y0) * cell).setAlpha(0.6));
+    for (const it of items) root.add(itemView(this, it, cell).setPosition(gx + (it.x - x0) * cell, gy + (it.y - y0) * cell));
+    this.tweens.add({ targets: root, alpha: 1, duration: 300, delay: 700 });
+  }
+
+  /** Étincelle d'or qui monte, ou cendre qui tombe ; renaît à la fin. */
+  private particle(win: boolean, first = false) {
+    const x = Phaser.Math.Between(0, W);
+    const y0 = win ? Phaser.Math.Between(first ? 100 : 600, 700) : Phaser.Math.Between(first ? -20 : -40, first ? 600 : -10);
+    const p = this.add.rectangle(x, y0, win ? 3 : 4, win ? 3 : 4, win ? P.or : P.gris).setAlpha(0);
+    if (win) p.setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: p, y: win ? y0 - Phaser.Math.Between(200, 420) : y0 + Phaser.Math.Between(300, 600), x: x + Phaser.Math.Between(-50, 50),
+      alpha: { from: 0.9, to: 0 }, angle: win ? 0 : 180, duration: Phaser.Math.Between(3000, 6000), delay: first ? Phaser.Math.Between(0, 3000) : 0,
+      onComplete: () => {
+        p.destroy();
+        if (this.scene.isActive()) this.particle(win);
+      },
+    });
   }
 }
