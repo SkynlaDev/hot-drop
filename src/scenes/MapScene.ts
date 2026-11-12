@@ -7,7 +7,7 @@ import { rngFor } from '../logic/rng';
 import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
 import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, EPIC_CRATE_CHANCE, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, THEME_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
-import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate } from '../ui/widgets';
+import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
 const MAP = { x: 20, y: 150, w: 680, h: 680 };
 const K = MAP.w / MAP_SIZE;
@@ -352,7 +352,7 @@ export default class MapScene extends Phaser.Scene {
   private startFinal() {
     finalDuelParams(this.run);
     saveRun(this.run);
-    this.cameras.main.fadeOut(220, 20, 22, 15);
+    this.cameras.main.fadeOut(220, ...FADE_RGB);
     this.time.delayedCall(240, () => this.scene.start('loadout', { mode: 'duel' }));
   }
 
@@ -498,7 +498,7 @@ export default class MapScene extends Phaser.Scene {
       const cam = this.cameras.main;
       cam.pan(tx, ty, 450, Phaser.Math.Easing.Cubic.In);
       cam.zoomTo(2.2, 450, Phaser.Math.Easing.Cubic.In);
-      cam.fadeOut(420, 20, 22, 15);
+      cam.fadeOut(420, ...FADE_RGB);
     });
     this.time.delayedCall(1150, () => this.scene.start('zone'));
   }

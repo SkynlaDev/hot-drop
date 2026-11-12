@@ -412,9 +412,42 @@ export function vibrate(ms: number | number[]) {
   }
 }
 
-/** Fondu d'entrée commun à toutes les scènes. */
+/** Couleur de fondu des sorties d'écran (fond de la palette), en composantes pour camera.fadeOut. */
+export const FADE_RGB: [number, number, number] = [(P.nuit >> 16) & 255, (P.nuit >> 8) & 255, P.nuit & 255];
+
+/**
+ * Entrée commune à toutes les scènes : une porte blindée en deux plaques (bande de danger, rivets,
+ * « HOT DROP » au pochoir sur la jointure) qui s'ouvre vers le haut et vers le bas.
+ */
 export function fadeIn(scene: Scene) {
-  scene.cameras.main.fadeIn(220, 20, 22, 15);
+  const root = scene.add.container(0, 0).setDepth(10000).setScrollFactor(0);
+  const half = H / 2;
+  const door = (top: boolean) => {
+    const c = scene.add.container(0, top ? 0 : half);
+    const g = scene.add.graphics();
+    g.fillStyle(P.fond2, 1);
+    g.fillRect(0, 0, W, half);
+    // Tôle : quelques plis horizontaux
+    g.fillStyle(P.blanc, 0.025);
+    for (let y = 18; y < half; y += 46) g.fillRect(0, y, W, 3);
+    // Bande de danger sur le bord qui s'ouvre
+    const ey = top ? half - 26 : 0;
+    g.fillStyle(P.nuit, 1);
+    g.fillRect(0, ey, W, 26);
+    g.fillStyle(P.orange, 1);
+    for (let x = -26; x < W + 26; x += 36) g.fillPoints([new Phaser.Math.Vector2(x, ey + 26), new Phaser.Math.Vector2(x + 18, ey + 26), new Phaser.Math.Vector2(x + 44, ey), new Phaser.Math.Vector2(x + 26, ey)], true);
+    // Rivets le long de la bande
+    for (let x = 24; x < W; x += 64) rivet(g, x, top ? ey - 14 : ey + 40, 3.5);
+    c.add(g);
+    return c;
+  };
+  const top = door(true);
+  const bottom = door(false);
+  const tag = plate(scene, W / 2, half, 'HOT DROP', P.orange, 24);
+  root.add([top, bottom, tag]);
+  scene.tweens.add({ targets: tag, alpha: 0, scale: 0.8, duration: 160, delay: 90 });
+  scene.tweens.add({ targets: top, y: -half - 30, duration: 340, delay: 110, ease: 'Cubic.In' });
+  scene.tweens.add({ targets: bottom, y: H + 30, duration: 340, delay: 110, ease: 'Cubic.In', onComplete: () => root.destroy() });
 }
 
 /** Teinte de chaque sacoche (cuir, toile, sangle). */

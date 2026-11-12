@@ -6,7 +6,7 @@ import { opFig, pxFigure } from '../art';
 import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
 import { clearRun, newRun, saveRun } from '../logic/run';
-import { Button, button, fadeIn, itemView, pop, txt, vibrate } from '../ui/widgets';
+import { Button, button, fadeIn, itemView, pop, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
 const CARD = { x: 20, w: 680, h: 452 };
 const CARD_Y = [168, 640];
@@ -189,7 +189,7 @@ export default class OperatorScene extends Phaser.Scene {
     saveRun(run);
     this.registry.set('run', run);
     this.registry.remove('mapSeen');
-    this.cameras.main.fadeOut(220, 20, 22, 15);
+    this.cameras.main.fadeOut(220, ...FADE_RGB);
     this.time.delayedCall(240, () => this.scene.start('map'));
   }
 }

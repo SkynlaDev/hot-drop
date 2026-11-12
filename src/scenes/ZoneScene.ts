@@ -8,7 +8,7 @@ import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, MapZone, ROUNDS, isFight } from
 import { DANGER_RAMP } from '../logic/bots';
 import { CRATES, DUEL_PICKS, ELITE_PICKS } from '../logic/run';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, THEME_INFO, statusPills } from '../ui/hud';
-import { Button, button, chamferPoints, fadeIn, pop, toast, txt, vibrate } from '../ui/widgets';
+import { Button, button, chamferPoints, fadeIn, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
 import { P } from '../ui/palette';
 
 const GRID = { x: 20, y: 344, w: 680, h: 690, gap: 14 };
@@ -439,7 +439,7 @@ export default class ZoneScene extends Phaser.Scene {
     this.tweens.add({ targets: v.root, x: W / 2, y: H / 2, scale: 1.5, duration: 320, ease: 'Cubic.Out' });
     this.views.forEach((w) => w !== v && this.tweens.add({ targets: w.root, alpha: 0.2, duration: 200 }));
     const data = res.kind === 'shop' ? { mode: 'shop' } : res.kind === 'caisse' ? { mode: 'caisse', loot: res.loot, crate: res.crate } : { mode: 'duel' };
-    this.time.delayedCall(380, () => this.cameras.main.fadeOut(200, 20, 22, 15));
+    this.time.delayedCall(380, () => this.cameras.main.fadeOut(200, ...FADE_RGB));
     this.time.delayedCall(600, () => this.scene.start('loadout', data));
   }
 

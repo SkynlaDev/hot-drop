@@ -25,7 +25,7 @@ import {
 } from '../logic/run';
 import { PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
-import { Button, bagView, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate } from '../ui/widgets';
+import { Button, bagView, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
 export type LoadoutMode = 'manage' | 'shop' | 'caisse' | 'duel';
 /** edit : rangement libre · prep : avant le duel · combat : lecture · result : après le duel · over : run finie. */
@@ -1572,7 +1572,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const r = this.run;
     const target = r.over ? 'end' : r.zoneId !== null && r.actionsLeft > 0 ? 'zone' : 'map';
     this.input.enabled = false;
-    this.cameras.main.fadeOut(200, 20, 22, 15);
+    this.cameras.main.fadeOut(200, ...FADE_RGB);
     this.cameras.main.once('camerafadeoutcomplete', () => this.scene.start(target));
   }
 
