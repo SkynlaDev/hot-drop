@@ -27,7 +27,7 @@ export default class MenuScene extends Phaser.Scene {
     // Lueur du cercle de gaz (à gauche de l'horizon) qui pulse.
     const glow = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
     for (let i = 6; i > 0; i--) {
-      glow.fillStyle(0xff5a1a, 0.035);
+      glow.fillStyle(0xe8894a, 0.035);
       glow.fillCircle(150, 300, 70 + i * 26);
     }
     this.tweens.add({ targets: glow, alpha: 0.35, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
@@ -81,7 +81,7 @@ export default class MenuScene extends Phaser.Scene {
     const x = Phaser.Math.Between(0, W);
     const y0 = first ? Phaser.Math.Between(300, 760) : Phaser.Math.Between(640, 780);
     const s = Phaser.Math.Between(2, 4);
-    const e = this.add.rectangle(x, y0, s, s, Phaser.Math.RND.pick([0xff8c1a, 0xffb347, 0xff5a1a])).setBlendMode(Phaser.BlendModes.ADD);
+    const e = this.add.rectangle(x, y0, s, s, Phaser.Math.RND.pick([0xe8894a, 0xf4b06a, 0xe8894a])).setBlendMode(Phaser.BlendModes.ADD);
     e.setAlpha(0);
     this.tweens.add({
       targets: e,

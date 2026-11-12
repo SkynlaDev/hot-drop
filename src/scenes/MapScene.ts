@@ -12,7 +12,7 @@ import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate } from 
 const MAP = { x: 20, y: 150, w: 680, h: 680 };
 const K = MAP.w / MAP_SIZE;
 const PANEL = { x: 20, y: 846, w: 680, h: 414 };
-const GAS = 0x9bbf3a;
+const GAS = 0xb5d65a;
 
 const HEAT_DESC: Record<MapZone['size'], string> = {
   petite: 'Zone calme : peu d’Élites, des bots sans bonus. Plus de caisses et de boutiques.',
@@ -114,9 +114,9 @@ export default class MapScene extends Phaser.Scene {
   private drawTerrain() {
     const rng = rngFor(this.run.seed, 'terrain');
     const g = this.add.graphics();
-    g.fillStyle(0x2a3122, 1);
+    g.fillStyle(0x342e3c, 1);
     g.fillRect(MAP.x, MAP.y, MAP.w, MAP.h);
-    const tones = [0x323a28, 0x262c1e, 0x353d2a, 0x2d3524];
+    const tones = [0x3e3746, 0x2b2632, 0x3e3746, 0x342e3c];
     for (let i = 0; i < 30; i++) {
       g.fillStyle(tones[i % tones.length], 0.9);
       g.fillEllipse(MAP.x + rng() * MAP.w, MAP.y + rng() * MAP.h, 60 + rng() * 200, 40 + rng() * 140);
@@ -125,7 +125,7 @@ export default class MapScene extends Phaser.Scene {
     for (let i = 0; i < 9; i++) {
       const fx = MAP.x + rng() * MAP.w;
       const fy = MAP.y + rng() * MAP.h;
-      g.fillStyle(0x1f2818, 0.9);
+      g.fillStyle(0x2b2632, 0.9);
       for (let j = 0; j < 14; j++) g.fillCircle(fx + (rng() - 0.5) * 90, fy + (rng() - 0.5) * 70, 7 + rng() * 9);
     }
     // Rivière
@@ -133,9 +133,9 @@ export default class MapScene extends Phaser.Scene {
     const x0 = MAP.x + MAP.w * (0.25 + rng() * 0.5);
     const ph = rng() * 6;
     for (let i = 0; i <= 14; i++) pts.push(new Phaser.Math.Vector2(x0 + Math.sin(i * 0.7 + ph) * 60, MAP.y + (i / 14) * MAP.h));
-    g.lineStyle(22, 0x1d3340, 1);
+    g.lineStyle(22, 0x22465a, 1);
     g.strokePoints(pts, false);
-    g.lineStyle(10, 0x27485a, 1);
+    g.lineStyle(10, 0x22465a, 1);
     g.strokePoints(pts, false);
     // Quadrillage tactique
     g.lineStyle(1, 0x000000, 0.2);
@@ -152,9 +152,9 @@ export default class MapScene extends Phaser.Scene {
         const key = [a.id, b.id].sort().join('/');
         if (done.has(key)) continue;
         done.add(key);
-        g.lineStyle(9, 0x1a1e14, 1);
+        g.lineStyle(9, 0x1c1822, 1);
         g.lineBetween(this.sx(a.x), this.sy(a.y), this.sx(b.x), this.sy(b.y));
-        g.lineStyle(5, 0x484e3c, 1);
+        g.lineStyle(5, 0x4b4354, 1);
         g.lineBetween(this.sx(a.x), this.sy(a.y), this.sx(b.x), this.sy(b.y));
       }
     }
@@ -183,7 +183,7 @@ export default class MapScene extends Phaser.Scene {
     }
     g.lineStyle(10, GAS, 0.25);
     g.strokeCircle(cx, cy, R + 5);
-    g.lineStyle(4, 0xd4ec6a, 0.95);
+    g.lineStyle(4, 0xb5d65a, 0.95);
     g.strokeCircle(cx, cy, R);
   }
 
@@ -220,7 +220,7 @@ export default class MapScene extends Phaser.Scene {
         root.add(glow);
         this.tweens.add({ targets: glow, scale: 1.12, alpha: 0.4, yoyo: true, repeat: -1, duration: 900, ease: 'Sine.InOut' });
       }
-      g.fillStyle(0x15180f, 0.85);
+      g.fillStyle(0x17141c, 0.85);
       g.fillCircle(0, 0, r);
       g.fillStyle(si.color, 0.16);
       g.fillCircle(0, 0, r);
@@ -232,9 +232,9 @@ export default class MapScene extends Phaser.Scene {
         const d = Math.sqrt(rng()) * r * 0.62;
         const bw = 7 + rng() * 11;
         const bh = 6 + rng() * 9;
-        g.fillStyle(0x0a0c07, 0.8);
+        g.fillStyle(0x0f0d13, 0.8);
         g.fillRect(Math.cos(a) * d - bw / 2 + 2, Math.sin(a) * d - bh / 2 + 2, bw, bh);
-        g.fillStyle(0x6b705c, 1);
+        g.fillStyle(0x6b6370, 1);
         g.fillRect(Math.cos(a) * d - bw / 2, Math.sin(a) * d - bh / 2, bw, bh);
       }
       g.lineStyle(3, si.color, 1);
@@ -242,18 +242,18 @@ export default class MapScene extends Phaser.Scene {
       root.add(g);
       // Nom et nombre de cartes
       // Le nom est sur un calque au-dessus de toutes les zones, pour ne pas être masqué par une voisine.
-      const name = txt(this, x, y + r + 6, z.name.toUpperCase(), 17, C.text, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 5 }).setOrigin(0.5, 0).setDepth(7);
+      const name = txt(this, x, y + r + 6, z.name.toUpperCase(), 17, C.text, { fontStyle: 'bold', stroke: '#0f0d13', strokeThickness: 5 }).setOrigin(0.5, 0).setDepth(7);
       name.x = Phaser.Math.Clamp(x, MAP.x + name.width / 2 + 6, MAP.x + MAP.w - name.width / 2 - 6);
       if (y + r + 28 > MAP.y + MAP.h) name.setY(y - r - 30);
       root.setData('label', name);
       if (z.theme) {
         const ti = THEME_INFO[z.theme];
-        const th = txt(this, name.x, name.y + (name.originY === 0 ? 22 : -16), ti.name.toUpperCase(), 14, ti.hex, { fontStyle: 'bold', stroke: '#0d0f0a', strokeThickness: 4 }).setOrigin(0.5, 0).setDepth(7);
+        const th = txt(this, name.x, name.y + (name.originY === 0 ? 22 : -16), ti.name.toUpperCase(), 14, ti.hex, { fontStyle: 'bold', stroke: '#0f0d13', strokeThickness: 4 }).setOrigin(0.5, 0).setDepth(7);
         if (name.y < y) th.setY(name.y - 18);
         root.setData('theme', th);
       }
       const chip = this.add.graphics();
-      chip.fillStyle(0x0d0f0a, 1);
+      chip.fillStyle(0x0f0d13, 1);
       chip.fillRoundedRect(-22, -14, 44, 28, 14);
       chip.lineStyle(2, si.color, 1);
       chip.strokeRoundedRect(-22, -14, 44, 28, 14);
@@ -272,7 +272,7 @@ export default class MapScene extends Phaser.Scene {
     if (root.getData('gassed')) return;
     root.setData('gassed', true);
     const veil = this.add.graphics();
-    veil.fillStyle(0x0d0f0a, 0.55);
+    veil.fillStyle(0x0f0d13, 0.55);
     veil.fillCircle(0, 0, root.getData('r') as number);
     root.add(veil);
     if (animate) {
@@ -316,7 +316,7 @@ export default class MapScene extends Phaser.Scene {
   // ---------------------------------------------------------------- animation du cercle
 
   private animateShrink(from: Circle, to: Circle, final: boolean) {
-    toast(this, final ? 'Dernier cercle !' : 'Le cercle se resserre !', '#d4ec6a', MAP.y + 70);
+    toast(this, final ? 'Dernier cercle !' : 'Le cercle se resserre !', '#b5d65a', MAP.y + 70);
     sfx('smoke', { pitch: 0.5, vol: 0.8, vary: 0 });
     vibrate([20, 40, 20]);
     const st = { t: 0 };
@@ -363,7 +363,7 @@ export default class MapScene extends Phaser.Scene {
     if (!selectableZones(this.run).includes(z)) {
       vibrate(20);
       this.cameras.main.shake(100, 0.003);
-      toast(this, 'Zone dans le gaz', '#d4ec6a', MAP.y + MAP.h - 60);
+      toast(this, 'Zone dans le gaz', '#b5d65a', MAP.y + MAP.h - 60);
       return;
     }
     if (this.selected === z) {
@@ -413,7 +413,7 @@ export default class MapScene extends Phaser.Scene {
     }
     const si = SIZE_INFO[z.size];
     I.add(txt(this, x0, y0 - 4, z.name, 36, C.text, { fontStyle: 'bold' }));
-    const chipT = txt(this, 0, 0, `${si.name.toUpperCase()} · ${si.heat.toUpperCase()}`, 18, '#0d0f0a', { fontStyle: 'bold' }).setOrigin(1, 0.5);
+    const chipT = txt(this, 0, 0, `${si.name.toUpperCase()} · ${si.heat.toUpperCase()}`, 18, '#0f0d13', { fontStyle: 'bold' }).setOrigin(1, 0.5);
     const cw = chipT.width + 26;
     const chip = this.add.graphics();
     chip.fillStyle(si.color, 1);

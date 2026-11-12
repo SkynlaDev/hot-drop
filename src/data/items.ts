@@ -264,20 +264,20 @@ export const ITEM_IDS: string[] = DEFS.map((d) => d.id);
 export const LOOT_IDS: string[] = DEFS.filter((d) => !d.crafted).map((d) => d.id);
 
 export const FAMILY_INFO: Record<Family, { name: string; color: number; hex: string; tier2: string; tier4: string }> = {
-  rafale: { name: 'Rafale', color: 0xe8a33d, hex: '#f0b252', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 3 touche deux fois' },
-  precision: { name: 'Précision', color: 0x4fc3f7, hex: '#6fd0fa', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,25 au lieu de ×2' },
-  demolition: { name: 'Démolition', color: 0xe5484d, hex: '#ff6b6b', tier2: '+1 charge pour chaque explosif', tier4: "Explosions et fusils à pompe ignorent l'armure" },
-  rempart: { name: 'Rempart', color: 0x9fb3c0, hex: '#b4c6d2', tier2: "+20 % d'armure", tier4: "L'armure se régénère de 2 par seconde" },
-  tactique: { name: 'Tactique', color: 0x9bbf3a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Prévu avec la radio et le drone' },
+  rafale: { name: 'Rafale', color: 0xf4b06a, hex: '#f4b06a', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 3 touche deux fois' },
+  precision: { name: 'Précision', color: 0x5fb3e0, hex: '#9ad3f2', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,25 au lieu de ×2' },
+  demolition: { name: 'Démolition', color: 0xc94a4a, hex: '#ef7b72', tier2: '+1 charge pour chaque explosif', tier4: "Explosions et fusils à pompe ignorent l'armure" },
+  rempart: { name: 'Rempart', color: 0xa9bccb, hex: '#a9bccb', tier2: "+20 % d'armure", tier4: "L'armure se régénère de 2 par seconde" },
+  tactique: { name: 'Tactique', color: 0xb5d65a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Prévu avec la radio et le drone' },
 };
 
 export const CATEGORY_COLORS: Record<Category, number> = {
-  arme: 0x4b5338,
-  munition: 0x5e4c36,
-  accessoire: 0x3c4a52,
-  protection: 0x4d565c,
-  explosif: 0x5c3b36,
-  medical: 0x3b5847,
+  arme: 0x4a4d3a,
+  munition: 0x6f5238,
+  accessoire: 0x30343a,
+  protection: 0x565b61,
+  explosif: 0x6e2f27,
+  medical: 0x3f5a35,
 };
 
 export const CATEGORY_NAMES: Record<Category, string> = {

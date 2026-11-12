@@ -26,10 +26,10 @@ export default class EndScene extends Phaser.Scene {
     this.registry.remove('zoneSeen');
 
     const hero = this.add.image(W / 2, 0, win ? 'bg-port' : 'bg-industrie').setOrigin(0.5, 0);
-    hero.setScale(620 / hero.height).setTint(win ? 0xffffff : 0x8a6a6a);
+    hero.setScale(620 / hero.height).setTint(win ? 0xffffff : 0x6b6370);
     const fig = pxFigure(this, W / 2, 600, opFig(run.operator), 3.6);
     // Défaite : l'opérateur est à terre.
-    if (!win) fig.setTint(0x6a5a5a).setAngle(-82).setY(584);
+    if (!win) fig.setTint(0x6b6370).setAngle(-82).setY(584);
     const fade = this.add.graphics();
     for (let i = 0; i < 24; i++) {
       fade.fillStyle(C.bg, (i / 24) * 0.95);

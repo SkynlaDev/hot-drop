@@ -9,18 +9,18 @@ type Scene = Phaser.Scene;
 
 /** Couleur et libellé de chaque taille de zone (les grandes sont « chaudes »). */
 export const SIZE_INFO: Record<ZoneSize, { name: string; color: number; hex: string; heat: string }> = {
-  petite: { name: 'Petite', color: 0x5fbf6a, hex: '#7ddc86', heat: 'Calme' },
-  moyenne: { name: 'Moyenne', color: 0xf2c94c, hex: '#f5d46e', heat: 'Disputée' },
-  grande: { name: 'Grande', color: 0xe5484d, hex: '#ff6b6b', heat: 'Chaude' },
+  petite: { name: 'Petite', color: 0x86a95a, hex: '#a8c97a', heat: 'Calme' },
+  moyenne: { name: 'Moyenne', color: 0xe9c46a, hex: '#e9c46a', heat: 'Disputée' },
+  grande: { name: 'Grande', color: 0xc94a4a, hex: '#ef7b72', heat: 'Chaude' },
 };
 
 /** Thème d'une zone : nom, couleur et ce qu'on y trouve. */
 export const THEME_INFO: Record<ZoneTheme, { name: string; color: number; hex: string; loot: string }> = {
-  armurerie: { name: 'Armurerie', color: 0xe5a04d, hex: '#f0b46a', loot: 'Butin : armes' },
-  hopital: { name: 'Hôpital', color: 0x5fbf6a, hex: '#7ddc86', loot: 'Butin : soins et protections' },
-  chantier: { name: 'Chantier', color: 0xe5484d, hex: '#ff8a80', loot: 'Butin : explosifs et fusils à pompe' },
-  commissariat: { name: 'Commissariat', color: 0x4fa3ff, hex: '#7dbcff', loot: 'Butin : accessoires et chargeurs' },
-  marche: { name: 'Marché noir', color: 0x9b51e0, hex: '#c08cff', loot: 'Deux fois plus de boutiques' },
+  armurerie: { name: 'Armurerie', color: 0xf4b06a, hex: '#f4b06a', loot: 'Butin : armes' },
+  hopital: { name: 'Hôpital', color: 0x86a95a, hex: '#a8c97a', loot: 'Butin : soins et protections' },
+  chantier: { name: 'Chantier', color: 0xc94a4a, hex: '#ef7b72', loot: 'Butin : explosifs et fusils à pompe' },
+  commissariat: { name: 'Commissariat', color: 0x5fb3e0, hex: '#5fb3e0', loot: 'Butin : accessoires et chargeurs' },
+  marche: { name: 'Marché noir', color: 0x8f6bb8, hex: '#8f6bb8', loot: 'Deux fois plus de boutiques' },
 };
 
 /** Pastille arrondie avec icône optionnelle ; (x, y) = bord droit (align 'right') ou gauche, centre vertical. */
@@ -33,7 +33,7 @@ export function pill(scene: Scene, x: number, y: number, label: string, opts: { 
   const w = t.width + iw + 30;
   const x0 = opts.align === 'right' ? x - w : x;
   const g = scene.add.graphics();
-  g.fillStyle(opts.fill ?? 0x0d0f0a, 0.9);
+  g.fillStyle(opts.fill ?? 0x0f0d13, 0.9);
   g.fillRoundedRect(x0, y - h / 2, w, h, h / 2);
   g.lineStyle(2, opts.color ?? C.panelLine, 1);
   g.strokeRoundedRect(x0, y - h / 2, w, h, h / 2);
@@ -54,7 +54,7 @@ export function statusPills(scene: Scene, run: RunState, y: number, right = W - 
   const cr = pill(scene, right, y, `${run.credits}`, { icon: 'ic-credit', color: C.accent, align: 'right' });
   const crW = cr.getData('w') as number;
   const gl = run.goulagUsed
-    ? pill(scene, right - crW - 10, y, 'Goulag utilisé', { icon: 'ic-lock', color: 0x6a6e5c, text: C.quiet, align: 'right', size: 18 })
+    ? pill(scene, right - crW - 10, y, 'Goulag utilisé', { icon: 'ic-lock', color: 0x6b6370, text: C.quiet, align: 'right', size: 18 })
     : pill(scene, right - crW - 10, y, 'Goulag dispo', { icon: 'ic-heart', color: C.good, text: C.goodStr, align: 'right', size: 18 });
   const c = scene.add.container(0, 0, [cr, gl]);
   c.setData('w', crW + 10 + (gl.getData('w') as number));
@@ -76,13 +76,13 @@ export function roundTrack(scene: Scene, x: number, y: number, round: number): P
       g.lineBetween(cx - step + 11, y, cx - 11, y);
     }
     if (final) {
-      g.fillStyle(cur ? C.accent : 0x0d0f0a, 1);
+      g.fillStyle(cur ? C.accent : 0x0f0d13, 1);
       g.fillPoints([new Phaser.Math.Vector2(cx, y - 13), new Phaser.Math.Vector2(cx + 13, y), new Phaser.Math.Vector2(cx, y + 13), new Phaser.Math.Vector2(cx - 13, y)], true);
       g.lineStyle(2, cur ? 0xffffff : C.accent, 1);
       g.strokePoints([new Phaser.Math.Vector2(cx, y - 13), new Phaser.Math.Vector2(cx + 13, y), new Phaser.Math.Vector2(cx, y + 13), new Phaser.Math.Vector2(cx - 13, y)], true);
       continue;
     }
-    g.fillStyle(done ? C.accent : cur ? 0xffffff : 0x0d0f0a, 1);
+    g.fillStyle(done ? C.accent : cur ? 0xffffff : 0x0f0d13, 1);
     g.fillCircle(cx, y, cur ? 10 : 8);
     g.lineStyle(2, done ? C.accent : cur ? C.accent : C.cellLine, 1);
     g.strokeCircle(cx, y, cur ? 12 : 8);
@@ -93,16 +93,16 @@ export function roundTrack(scene: Scene, x: number, y: number, round: number): P
 
 /** Présentation de chaque type de carte de zone. */
 export const CARD_INFO: Record<CardType, { name: string; color: number; hex: string; icon: string }> = {
-  elite: { name: 'Élite', color: 0xe5484d, hex: '#ff6b6b', icon: 'ic-t-assaut' },
-  solo: { name: 'Solo', color: 0xff8c1a, hex: '#ffa64d', icon: 'ic-p-contrat' },
-  caisse: { name: 'Caisse', color: 0x5fbf6a, hex: '#7ddc86', icon: 'ic-p-caisse' },
-  caisse_renforcee: { name: 'Caisse renforcée', color: 0x2f80ed, hex: '#6fb0ff', icon: 'ic-p-caisse' },
-  shop: { name: 'Boutique', color: 0x4fa3ff, hex: '#7dbcff', icon: 'ic-p-marchand' },
+  elite: { name: 'Élite', color: 0xc94a4a, hex: '#ef7b72', icon: 'ic-t-assaut' },
+  solo: { name: 'Solo', color: 0xe8894a, hex: '#e8894a', icon: 'ic-p-contrat' },
+  caisse: { name: 'Caisse', color: 0x86a95a, hex: '#a8c97a', icon: 'ic-p-caisse' },
+  caisse_renforcee: { name: 'Caisse renforcée', color: 0x5fb3e0, hex: '#5fb3e0', icon: 'ic-p-caisse' },
+  shop: { name: 'Boutique', color: 0x5fb3e0, hex: '#5fb3e0', icon: 'ic-p-marchand' },
   // Violet, liseré or (voir EPIC_GOLD).
-  caisse_epique: { name: 'Caisse épique', color: 0x9b51e0, hex: '#c08cff', icon: 'ic-p-caisse' },
+  caisse_epique: { name: 'Caisse épique', color: 0x8f6bb8, hex: '#8f6bb8', icon: 'ic-p-caisse' },
 };
 /** Or des bordures et reflets de la caisse épique. */
-export const EPIC_GOLD = 0xf2c94c;
+export const EPIC_GOLD = 0xe9c46a;
 
 /** Bouton rond à icône (menu, retour…) centré en (x, y). */
 export function iconButton(scene: Scene, x: number, y: number, icon: string, onClick: () => void, r = 30) {
@@ -110,11 +110,11 @@ export function iconButton(scene: Scene, x: number, y: number, icon: string, onC
   const g = scene.add.graphics();
   g.fillStyle(0x000000, 0.4);
   g.fillRoundedRect(-r, -r + 4, 2 * r, 2 * r, 14);
-  g.fillStyle(0x2c3224, 1);
+  g.fillStyle(0x342e3c, 1);
   g.fillRoundedRect(-r, -r, 2 * r, 2 * r, 14);
-  g.lineStyle(2, 0x4a5240, 1);
+  g.lineStyle(2, 0x5a5162, 1);
   g.strokeRoundedRect(-r, -r, 2 * r, 2 * r, 14);
-  const ic = scene.add.image(0, 0, icon).setDisplaySize(r, r).setTint(0xece8d8);
+  const ic = scene.add.image(0, 0, icon).setDisplaySize(r, r).setTint(0xece2cf);
   const z = scene.add.zone(0, 0, 2 * r + 12, 2 * r + 12).setInteractive({ useHandCursor: true });
   z.on('pointerdown', () => c.setScale(0.92));
   z.on('pointerout', () => c.setScale(1));

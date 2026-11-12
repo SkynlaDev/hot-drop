@@ -50,15 +50,15 @@ interface DragState {
 }
 
 /** Couleurs du Feu continu (Viper), du plus froid au plafond. */
-const HEAT_COLORS = ['#ffd27a', '#ff9a3c', '#ff5a36'];
+const HEAT_COLORS = ['#e9c46a', '#e8894a', '#c94a4a'];
 /** Or des étoiles. */
-const GOLD_HEX = 0xf2c94c;
+const GOLD_HEX = 0xe9c46a;
 /** Son de tir de chaque classe d'arme. */
 const SHOT_SFX: Record<string, SfxId> = {
   Pistolet: 'shot_pistol', SMG: 'shot_smg', "Fusil d'assaut": 'shot_rifle', 'Fusil de précision': 'shot_sniper', 'Fusil à pompe': 'shot_shotgun',
 };
 const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
-const ARMOR_STR = '#a9bfcc';
+const ARMOR_STR = '#a9bccb';
 /** Petit cadenas centré en (x, y) : ouvert ou fermé. */
 function drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number, closed: boolean) {
   g.lineStyle(3, color, 1);
@@ -91,7 +91,7 @@ function drawStar(g: Phaser.GameObjects.Graphics, x: number, y: number, r: numbe
 }
 
 /** Saignement : dégâts lents qui ignorent l'armure. */
-const BLEED_COLOR = '#d0343a';
+const BLEED_COLOR = '#c94a4a';
 /** Couleur de la Marque (Sentinelle) : celle de la famille Précision. */
 const MARK_COLOR = FAMILY_INFO.precision.hex;
 const MARK_HEX = FAMILY_INFO.precision.color;
@@ -123,15 +123,15 @@ interface DuelPlay {
 const LONG_PRESS_MS = 450;
 const DRAG_THRESHOLD = 12;
 const QUALITY: Record<BotBuild['quality'], { label: string; color: number; hex: string }> = {
-  faible: { label: 'FAIBLE', color: 0x5fbf6a, hex: '#7ddc86' },
-  normal: { label: 'NORMAL', color: 0xd9a441, hex: '#f2c94c' },
-  fort: { label: 'FORT', color: 0xe5484d, hex: '#ff6b6b' },
+  faible: { label: 'FAIBLE', color: 0x86a95a, hex: '#a8c97a' },
+  normal: { label: 'NORMAL', color: 0xe9c46a, hex: '#e9c46a' },
+  fort: { label: 'FORT', color: 0xc94a4a, hex: '#ef7b72' },
 };
-const GOLD = '#f2c94c';
+const GOLD = '#e9c46a';
 const CRATE_TITLE: Record<CrateKind, string> = { caisse: 'CAISSE DE RAVITAILLEMENT', caisse_renforcee: 'CAISSE RENFORCÉE', caisse_epique: 'CAISSE ÉPIQUE', largage: 'LARGAGE : TON ARME' };
 /** Violet de la caisse épique (ancienne couleur Épique). */
-const EPIC_HEX = '#b57bf0';
-const EPIC_COLOR = 0x9b51e0;
+const EPIC_HEX = '#8f6bb8';
+const EPIC_COLOR = 0x8f6bb8;
 
 const inRect = (px: number, py: number, r: { x: number; y: number; w: number; h: number }) => px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
 
@@ -302,7 +302,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private drawStatic() {
     const g = this.add.graphics();
-    g.fillStyle(0x0f110c, 1);
+    g.fillStyle(0x0f0d13, 1);
     g.fillRect(STATUS.x, STATUS.y, STATUS.w, STATUS.h);
     g.lineStyle(2, C.panelLine, 1);
     g.lineBetween(0, STATUS.h, W, STATUS.h);
@@ -337,7 +337,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const g = this.gridG;
     g.clear();
     // Cadre de la zone de pose (9 × 8)
-    g.fillStyle(0x0d0f0a, 0.6);
+    g.fillStyle(0x0f0d13, 0.6);
     g.fillRoundedRect(GRID_X - 6, GRID_Y - 6, COLS * CELL + 12, ROWS * CELL + 12, 14);
     // Cases hors du sac : à peine visibles (les sacoches s'y posent)
     for (let y = 0; y < ROWS; y++) {
@@ -367,9 +367,9 @@ export default class LoadoutScene extends Phaser.Scene {
       g.fillRect(bx + bw - 11, by + t, 2, 6);
     }
     for (const sx of [bx + bw * 0.28, bx + bw * 0.72]) {
-      g.fillStyle(0x2a3120, 1);
+      g.fillStyle(0x342e3c, 1);
       g.fillRoundedRect(sx - 9, by - 4, 18, 22, 4);
-      g.lineStyle(2, 0xa59c78, 1);
+      g.lineStyle(2, 0x969678, 1);
       g.strokeRoundedRect(sx - 6, by + 4, 12, 10, 2);
     }
     for (let y = BASE_Y0; y <= BASE_Y1; y++) {
@@ -531,7 +531,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.trayLayer.add(v);
       this.trayBagViews.set(b.uid, v);
       if (this.hiddenBags.has(b.uid) || (this.drag?.bag?.uid === b.uid && this.drag.moved)) v.setVisible(false);
-      this.trayLayer.add(txt(this, sx + bw / 2, BAG_RESERVE.y + BAG_RESERVE.h - 16, BAGS[b.defId as BagId].short, 12, '#d8b98c', { fontStyle: 'bold' }).setOrigin(0.5));
+      this.trayLayer.add(txt(this, sx + bw / 2, BAG_RESERVE.y + BAG_RESERVE.h - 16, BAGS[b.defId as BagId].short, 12, '#f8d9ab', { fontStyle: 'bold' }).setOrigin(0.5));
     });
     this.reserveLabel.setText(`RÉSERVE ${this.trayItems.length}/${RESERVE_MAX}`);
     this.bagLabel.setText(`SACOCHES ${this.trayBags.length}/${BAG_RESERVE_MAX}`);
@@ -621,7 +621,7 @@ export default class LoadoutScene extends Phaser.Scene {
     } else if (this.mode === 'caisse') {
       const l = this.loot;
       if (l?.credits) lines.push([`Cash ramassé : +${l.credits} cr`, C.accentStr]);
-      for (const b of l?.bags ?? []) lines.push([`${BAGS[b.defId as BagId].name} : +${cellCount(b.defId)} cases`, '#d8b98c']);
+      for (const b of l?.bags ?? []) lines.push([`${BAGS[b.defId as BagId].name} : +${cellCount(b.defId)} cases`, '#f8d9ab']);
       lines.push(['Range le butin puis termine.', C.quiet]);
     }
     lines.push(['Glisse objets et sacoches.', C.quiet]);
@@ -825,7 +825,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (d.item) this.drawStarHints(d.item, d.rot, a.overGrid && this.validDrop(d, a.ax, a.ay) ? a : null);
     if (!a.overGrid) return;
     const valid = this.validDrop(d, a.ax, a.ay);
-    const col = valid ? (d.bag ? 0xd8a25e : C.good) : C.danger;
+    const col = valid ? (d.bag ? 0xf4b06a : C.good) : C.danger;
     for (const [cx, cy] of cellsAt((d.item ?? d.bag)!, a.ax, a.ay, d.rot)) {
       if (cx < 0 || cy < 0 || cx >= COLS || cy >= ROWS) continue;
       this.previewG.fillStyle(col, 0.3);
@@ -1029,14 +1029,14 @@ export default class LoadoutScene extends Phaser.Scene {
     this.time.delayedCall(520, () => {
       // Éclair et onde de choc
       const g = this.add.graphics().setDepth(56).setPosition(tx, ty);
-      g.fillStyle(0xfff3c4, 0.95);
+      g.fillStyle(0xf8d9ab, 0.95);
       g.fillCircle(0, 0, 46);
-      g.lineStyle(6, 0xf2c94c, 1);
+      g.lineStyle(6, 0xe9c46a, 1);
       g.strokeCircle(0, 0, 60);
       g.setScale(0.3);
       this.tweens.add({ targets: g, scale: 1.9, alpha: 0, duration: 420, ease: 'Quad.Out', onComplete: () => g.destroy() });
       for (let k = 0; k < 10; k++) {
-        const s = this.add.rectangle(tx, ty, 6, 6, 0xf2c94c).setDepth(56);
+        const s = this.add.rectangle(tx, ty, 6, 6, 0xe9c46a).setDepth(56);
         const ang = (k / 10) * Math.PI * 2;
         this.tweens.add({ targets: s, x: tx + Math.cos(ang) * 90, y: ty + Math.sin(ang) * 90, alpha: 0, angle: 180, duration: 480, ease: 'Quad.Out', onComplete: () => s.destroy() });
       }
@@ -1074,7 +1074,7 @@ export default class LoadoutScene extends Phaser.Scene {
       const x = GRID_X + (cx + 0.5) * CELL;
       const y = GRID_Y + (cy + 1) * CELL - 8;
       for (const dir of [-1, 1]) {
-        const s = this.add.circle(x + dir * 10, y, 4, 0xd8d2b8, 0.6).setDepth(44);
+        const s = this.add.circle(x + dir * 10, y, 4, 0xc8c5a5, 0.6).setDepth(44);
         this.tweens.add({ targets: s, x: x + dir * 34, y: y - 6, alpha: 0, scale: 0.3, duration: 280, ease: 'Quad.Out', onComplete: () => s.destroy() });
       }
     }
@@ -1181,7 +1181,7 @@ export default class LoadoutScene extends Phaser.Scene {
   private showBagInfo(b: BagInst) {
     const def = BAGS[b.defId as BagId];
     const n = cellCount(b.defId);
-    this.infoModal(def.name, `Sacoche · ${n} cases`, '#d8b98c', [
+    this.infoModal(def.name, `Sacoche · ${n} cases`, '#f8d9ab', [
       `Agrandit le sac de ${n} cases.`,
       'Pose-la contre le sac ou contre une autre sacoche.',
       'Elle ne se déplace que vide.',
@@ -1204,7 +1204,7 @@ export default class LoadoutScene extends Phaser.Scene {
     g.fillRoundedRect(0, 4, w, h, 14);
     g.fillStyle(C.panel, 1);
     g.fillRoundedRect(0, 0, w, h, 14);
-    g.lineStyle(o.locked ? 5 : 3, o.locked ? 0x6fb0ff : stroke, o.sold ? 0.3 : 1);
+    g.lineStyle(o.locked ? 5 : 3, o.locked ? 0x5fb3e0 : stroke, o.sold ? 0.3 : 1);
     g.strokeRoundedRect(0, 0, w, h, 14);
     cc.add(g);
     const area = 104;
@@ -1223,16 +1223,16 @@ export default class LoadoutScene extends Phaser.Scene {
       cc.add(desc);
     } else {
       const def = BAGS[o.bag!];
-      cc.add(txt(this, w / 2, 118, def.name, 20, '#d8b98c', { fontStyle: 'bold' }).setOrigin(0.5, 0));
+      cc.add(txt(this, w / 2, 118, def.name, 20, '#f8d9ab', { fontStyle: 'bold' }).setOrigin(0.5, 0));
       cc.add(txt(this, w / 2, 144, `Sacoche · +${cellCount(o.bag!)} cases`, 16, C.text).setOrigin(0.5, 0));
       cc.add(txt(this, w / 2, 166, 'Agrandit ton sac', 14, C.quiet).setOrigin(0.5, 0));
     }
     const pill = this.add.graphics();
-    const col = o.sold ? 0x3a3f33 : afford ? C.accent : 0x5a2a2a;
+    const col = o.sold ? 0x3e3746 : afford ? C.accent : 0x6e2f27;
     pill.fillStyle(col, 1);
     pill.fillRoundedRect(w / 2 - 56, h - 42, 112, 32, 16);
     cc.add(pill);
-    cc.add(txt(this, w / 2, h - 26, o.sold ? 'VENDU' : `◆ ${o.price} cr`, 18, o.sold ? C.quiet : afford ? '#1a1206' : C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5));
+    cc.add(txt(this, w / 2, h - 26, o.sold ? 'VENDU' : `◆ ${o.price} cr`, 18, o.sold ? C.quiet : afford ? '#17141c' : C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5));
     if (o.sold) v.setAlpha(0.3);
     if (o.item && !o.sold) this.affinityBadges(cc, 10, 10, w - 10, o.item.defId);
     const z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
@@ -1248,9 +1248,9 @@ export default class LoadoutScene extends Phaser.Scene {
       const lx = w - 34;
       const ly = h - 26;
       const lg = this.add.graphics();
-      lg.fillStyle(o.locked ? 0x2f80ed : 0x000000, o.locked ? 1 : 0.45);
+      lg.fillStyle(o.locked ? 0x5fb3e0 : 0x000000, o.locked ? 1 : 0.45);
       lg.fillRoundedRect(lx - 24, ly - 22, 48, 44, 10);
-      drawPadlock(lg, lx, ly, o.locked ? 0xffffff : 0x9a9c88, !!o.locked);
+      drawPadlock(lg, lx, ly, o.locked ? 0xffffff : 0xa39a8c, !!o.locked);
       cc.add(lg);
       const lz = this.add.zone(lx, ly, 56, 52).setInteractive({ useHandCursor: true });
       lz.on('pointerup', () => onLock());
@@ -1286,7 +1286,7 @@ export default class LoadoutScene extends Phaser.Scene {
         sfx(o.locked ? 'pickup' : 'rotate');
         vibrate(8);
         this.reopenShop(true);
-        if (o.locked) toast(this, 'Verrouillée : elle reste après une relance et passe à la boutique suivante', '#6fb0ff', 1000);
+        if (o.locked) toast(this, 'Verrouillée : elle reste après une relance et passe à la boutique suivante', '#5fb3e0', 1000);
       });
     });
     const by = 220 + 3 * (ch + 16) + 8;
@@ -1300,7 +1300,7 @@ export default class LoadoutScene extends Phaser.Scene {
       this.refresh();
     }, { size: 24, primary: true }).root);
     m.add(txt(this, W / 2, by + 112, this.run.resupply ? 'Les achats vont en réserve. « Terminer » ramène à la carte.' : 'Les achats vont en réserve. « Terminer » clôt l\'action.', 17, C.quiet).setOrigin(0.5));
-    m.add(txt(this, W / 2, by + 138, 'Cadenas : garde une offre pour plus tard (relance et boutique suivante).', 17, '#6fb0ff').setOrigin(0.5));
+    m.add(txt(this, W / 2, by + 138, 'Cadenas : garde une offre pour plus tard (relance et boutique suivante).', 17, '#5fb3e0').setOrigin(0.5));
     this.modal = m;
     this.updateButtons();
     saveRun(this.run);
@@ -1334,10 +1334,10 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
     const cx = W / 2;
     const cy = 760;
-    const head = txt(this, W / 2, 200, CRATE_TITLE[this.crate], epic ? 46 : 36, epic ? EPIC_HEX : this.crate === 'caisse_renforcee' ? '#6fb0ff' : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    const head = txt(this, W / 2, 200, CRATE_TITLE[this.crate], epic ? 46 : 36, epic ? EPIC_HEX : this.crate === 'caisse_renforcee' ? '#5fb3e0' : C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     m.add(head);
     if (epic) {
-      head.setShadow(0, 0, '#f2c94c', 14, true, true);
+      head.setShadow(0, 0, '#e9c46a', 14, true, true);
       head.setScale(0.4).setAlpha(0);
       this.tweens.add({ targets: head, scale: 1, alpha: 1, duration: 420, ease: 'Back.Out' });
       m.add(txt(this, W / 2, 252, 'Un objet assemblé parmi les choix', 24, GOLD, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5));
@@ -1353,7 +1353,7 @@ export default class LoadoutScene extends Phaser.Scene {
     }
     const rays = this.add.graphics().setPosition(cx, cy - 40).setAlpha(0);
     const nRays = epic ? 18 : 12;
-    rays.fillStyle(epic ? EPIC_COLOR : 0xf2c94c, epic ? 0.26 : 0.18);
+    rays.fillStyle(epic ? EPIC_COLOR : 0xe9c46a, epic ? 0.26 : 0.18);
     for (let i = 0; i < nRays; i++) {
       const a = (i / nRays) * Math.PI * 2;
       rays.fillTriangle(0, 0, Math.cos(a - 0.1) * 460, Math.sin(a - 0.1) * 460, Math.cos(a + 0.1) * 460, Math.sin(a + 0.1) * 460);
@@ -1362,7 +1362,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // 2e gerbe de rayons, or, qui tourne en sens inverse (épique).
     const rays2 = this.add.graphics().setPosition(cx, cy - 40).setAlpha(0);
     if (epic) {
-      rays2.fillStyle(0xf2c94c, 0.2);
+      rays2.fillStyle(0xe9c46a, 0.2);
       for (let i = 0; i < 9; i++) {
         const a = (i / 9) * Math.PI * 2 + 0.2;
         rays2.fillTriangle(0, 0, Math.cos(a - 0.05) * 520, Math.sin(a - 0.05) * 520, Math.cos(a + 0.05) * 520, Math.sin(a + 0.05) * 520);
@@ -1372,33 +1372,33 @@ export default class LoadoutScene extends Phaser.Scene {
     // Caisse : corps et couvercle
     const crate = this.add.container(cx, cy);
     const body = this.add.graphics();
-    const cBody = epic ? 0x4b2a6e : 0x4a5530;
-    const cDark = epic ? 0x2a1640 : 0x2e3620;
-    const cBand = epic ? 0x3a2058 : 0x3a4426;
+    const cBody = epic ? 0x3a2a4e : 0x3f5a35;
+    const cDark = epic ? 0x3a2a4e : 0x34362a;
+    const cBand = epic ? 0x3a2a4e : 0x4a4d3a;
     body.fillStyle(0x000000, 0.4);
     body.fillRoundedRect(-130, -64, 260, 150, 10);
     body.fillStyle(cBody, 1);
     body.fillRoundedRect(-130, -70, 260, 150, 10);
-    body.lineStyle(4, epic ? 0xf2c94c : cDark, 1);
+    body.lineStyle(4, epic ? 0xe9c46a : cDark, 1);
     body.strokeRoundedRect(-130, -70, 260, 150, 10);
-    body.fillStyle(epic ? 0xf2c94c : cBand, 1);
+    body.fillStyle(epic ? 0xe9c46a : cBand, 1);
     body.fillRect(-130, -20, 260, epic ? 8 : 14);
     body.fillRect(-130, 40, 260, epic ? 8 : 14);
     if (epic) {
       // Coins renforcés dorés
       for (const [qx, qy] of [[-130, -70], [106, -70], [-130, 56], [106, 56]]) body.fillRect(qx, qy, 24, 24);
     }
-    body.fillStyle(0xf2c94c, 1);
+    body.fillStyle(0xe9c46a, 1);
     body.fillRect(-40, -2, 80, 30);
     crate.add(body);
-    crate.add(txt(this, 0, 13, epic ? '★ ÉPIQUE ★' : 'SUPPLY', epic ? 15 : 18, '#1a1206', { fontStyle: 'bold' }).setOrigin(0.5));
+    crate.add(txt(this, 0, 13, epic ? '★ ÉPIQUE ★' : 'SUPPLY', epic ? 15 : 18, '#17141c', { fontStyle: 'bold' }).setOrigin(0.5));
     const lid = this.add.container(0, -70);
     const lg = this.add.graphics();
-    lg.fillStyle(epic ? 0x5c3486 : 0x56633a, 1);
+    lg.fillStyle(epic ? 0x8f6bb8 : 0x3f5a35, 1);
     lg.fillRoundedRect(-140, -30, 280, 34, 8);
-    lg.lineStyle(4, epic ? 0xf2c94c : cDark, 1);
+    lg.lineStyle(4, epic ? 0xe9c46a : cDark, 1);
     lg.strokeRoundedRect(-140, -30, 280, 34, 8);
-    lg.fillStyle(epic ? 0xf2c94c : 0x8a8f6a, 1);
+    lg.fillStyle(epic ? 0xe9c46a : 0x969678, 1);
     lg.fillRect(-14, -26, 28, 10);
     lid.add(lg);
     crate.add(lid);
@@ -1452,7 +1452,7 @@ export default class LoadoutScene extends Phaser.Scene {
       for (const b of loot.bags) {
         const d = dims(b);
         const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
-        entries.push({ v: bagView(this, b, CELL).setScale(s), label: `${BAGS[b.defId as BagId].name}\n+${cellCount(b.defId)} cases`, col: '#d8b98c', w: d.w * CELL * s, h: d.h * CELL * s });
+        entries.push({ v: bagView(this, b, CELL).setScale(s), label: `${BAGS[b.defId as BagId].name}\n+${cellCount(b.defId)} cases`, col: '#f8d9ab', w: d.w * CELL * s, h: d.h * CELL * s });
       }
       const n = entries.length;
       const sources: { x: number; y: number }[] = [];
@@ -1669,9 +1669,9 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private arenaTheme() {
     const t = this.params?.type;
-    if (t === 'goulag') return { sky: [0x2a0f0f, 0x5a1d18], ground: 0x2a1c18, tint: 0xffb0a0, bg: 'bg-base' };
-    if (t === 'final') return { sky: [0x1c1430, 0x6a3a2a], ground: 0x2b2420, tint: 0xffe0b0, bg: 'bg-base' };
-    return { sky: [0x1d2a33, 0x4a5a52], ground: 0x2c3024, tint: 0xffffff, bg: 'bg-industrie' };
+    if (t === 'goulag') return { sky: [0x6a2226, 0x6a2226], ground: 0x221e28, tint: 0xef7b72, bg: 'bg-base' };
+    if (t === 'final') return { sky: [0x3a2a4e, 0x6e2f27], ground: 0x2b2632, tint: 0xf8d9ab, bg: 'bg-base' };
+    return { sky: [0x2b2632, 0x5a5162], ground: 0x342e3c, tint: 0xffffff, bg: 'bg-industrie' };
   }
 
   private buildArena() {
@@ -1702,9 +1702,9 @@ export default class LoadoutScene extends Phaser.Scene {
     if (this.params?.type === 'goulag') {
       // Voile rouge et barbelés
       const v = this.add.graphics();
-      v.fillStyle(0x6a0f0f, 0.35);
+      v.fillStyle(0x6a2226, 0.35);
       v.fillRect(A.x, A.y, A.w, A.h);
-      v.lineStyle(2, 0x1a1a1a, 0.9);
+      v.lineStyle(2, 0x1c1822, 0.9);
       for (let x = A.x; x < A.x + A.w; x += 18) {
         v.lineBetween(x, A.y + 52, x + 9, A.y + 58);
         v.lineBetween(x + 9, A.y + 58, x + 18, A.y + 52);
@@ -1744,7 +1744,7 @@ export default class LoadoutScene extends Phaser.Scene {
     L.bringToTop(shade);
     L.bringToTop(this.myStats);
     const frame = this.add.graphics();
-    frame.lineStyle(4, p.type === 'goulag' ? 0x8a2a24 : p.type === 'final' ? 0xb08a3a : C.panelLine, 1);
+    frame.lineStyle(4, p.type === 'goulag' ? 0x6e2f27 : p.type === 'final' ? 0xa8843a : C.panelLine, 1);
     frame.strokeRoundedRect(A.x, A.y, A.w, A.h, 16);
     L.add(frame);
   }
@@ -1774,12 +1774,12 @@ export default class LoadoutScene extends Phaser.Scene {
     const g = this.add.graphics();
     g.fillStyle(0x000000, 0.35);
     g.fillRoundedRect(E.x, E.y + 4, E.w, E.h, 16);
-    g.fillStyle(0x261c1a, 1);
+    g.fillStyle(0x221e28, 1);
     g.fillRoundedRect(E.x, E.y, E.w, E.h, 16);
-    g.lineStyle(3, 0x7a3a32, 1);
+    g.lineStyle(3, 0x6e2f27, 1);
     g.strokeRoundedRect(E.x, E.y, E.w, E.h, 16);
     L.add(g);
-    const name = txt(this, E.x + 14, E.y + 12, bot.name.toUpperCase(), 24, '#ffb4a8', { fontStyle: 'bold' });
+    const name = txt(this, E.x + 14, E.y + 12, bot.name.toUpperCase(), 24, '#ef7b72', { fontStyle: 'bold' });
     L.add(name);
     // Badge de qualité
     const bw = 78;
@@ -1787,7 +1787,7 @@ export default class LoadoutScene extends Phaser.Scene {
     badge.fillStyle(q.color, 1);
     badge.fillRoundedRect(E.x + E.w - bw - 12, E.y + 14, bw, 28, 14);
     L.add(badge);
-    L.add(txt(this, E.x + E.w - bw / 2 - 12, E.y + 28, q.label, 16, '#14110c', { fontStyle: 'bold' }).setOrigin(0.5));
+    L.add(txt(this, E.x + E.w - bw / 2 - 12, E.y + 28, q.label, 16, '#0f0d13', { fontStyle: 'bold' }).setOrigin(0.5));
     if (name.width > E.w - bw - 40) name.setScale((E.w - bw - 40) / name.width);
     L.add(txt(this, E.x + 14, E.y + 46, `${OPERATORS[bot.operator].name} · `, 15, C.quiet));
     const arch = txt(this, 0, E.y + 46, ARCHETYPES[bot.archetype].name.toUpperCase(), 15, C.accentStr, { fontStyle: 'bold' });
@@ -1805,9 +1805,9 @@ export default class LoadoutScene extends Phaser.Scene {
     const gx = E.x + (E.w - bwc * cell) / 2;
     const gy = E.y + 72 + (areaH - bhc * cell) / 2;
     const bg = this.add.graphics();
-    bg.fillStyle(0x5a4a3a, 1);
+    bg.fillStyle(0x4b4354, 1);
     bg.fillRoundedRect(gx - 5, gy - 5, bwc * cell + 10, bhc * cell + 10, 10);
-    bg.fillStyle(0x3a3024, 1);
+    bg.fillStyle(0x342e3c, 1);
     bg.fillRoundedRect(gx - 2, gy - 2, bwc * cell + 4, bhc * cell + 4, 8);
     bg.fillStyle(0x000000, 0.2);
     for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 3, gy + (cy - y0) * cell + 3, cell - 6, cell - 6, 4);
@@ -1835,14 +1835,14 @@ export default class LoadoutScene extends Phaser.Scene {
     const bl = this.botL!;
     const m = modalBase(this, () => this.closeModal());
     const q = QUALITY[bot.quality];
-    const pnl = panel(this, 24, 110, W - 48, 1000, 0x7a3a32);
+    const pnl = panel(this, 24, 110, W - 48, 1000, 0x6e2f27);
     m.add(pnl);
-    m.add(txt(this, 54, 140, bot.name.toUpperCase(), 40, '#ffb4a8', { fontStyle: 'bold' }));
+    m.add(txt(this, 54, 140, bot.name.toUpperCase(), 40, '#ef7b72', { fontStyle: 'bold' }));
     const badge = this.add.graphics();
     badge.fillStyle(q.color, 1);
     badge.fillRoundedRect(W - 54 - 110, 148, 110, 36, 18);
     m.add(badge);
-    m.add(txt(this, W - 54 - 55, 166, q.label, 20, '#14110c', { fontStyle: 'bold' }).setOrigin(0.5));
+    m.add(txt(this, W - 54 - 55, 166, q.label, 20, '#0f0d13', { fontStyle: 'bold' }).setOrigin(0.5));
     m.add(txt(this, 54, 196, `${OPERATORS[bot.operator].name} · ♥ ${bl.maxHp} · ARM ${bl.armor} · DPS ${Math.round(estimateDps(bl))}`, 22, C.text));
     const A = ARCHETYPES[bot.archetype];
     m.add(txt(this, 54, 226, `${A.name.toUpperCase()} : ${A.blurb}`, 18, C.accentStr, { wordWrap: { width: W - 108 } }));
@@ -1855,9 +1855,9 @@ export default class LoadoutScene extends Phaser.Scene {
     const gx = (W - bwc * cell) / 2;
     const gy = 290;
     const bg = this.add.graphics();
-    bg.fillStyle(0x5a4a3a, 1);
+    bg.fillStyle(0x4b4354, 1);
     bg.fillRoundedRect(gx - 8, gy - 8, bwc * cell + 16, bhc * cell + 16, 14);
-    bg.fillStyle(0x3a3024, 1);
+    bg.fillStyle(0x342e3c, 1);
     bg.fillRoundedRect(gx - 3, gy - 3, bwc * cell + 6, bhc * cell + 6, 10);
     bg.fillStyle(0x000000, 0.2);
     for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 5, gy + (cy - y0) * cell + 5, cell - 10, cell - 10, 6);
@@ -1882,7 +1882,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const ph = infoY + 170 - 110;
     pnl.clear();
     pnl.destroy();
-    m.addAt(panel(this, 24, 110, W - 48, ph, 0x7a3a32), 1);
+    m.addAt(panel(this, 24, 110, W - 48, ph, 0x6e2f27), 1);
     m.add(txt(this, W / 2, 110 + ph + 34, 'Touche en dehors pour fermer', 20, C.quiet).setOrigin(0.5));
     this.modal = m;
     this.updateButtons();
@@ -1900,7 +1900,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (this.textures.exists(pxKey(figId))) {
       fig.add(pxFigure(this, 0, 0, figId, px, dir < 0));
     } else {
-      fig.add(this.add.rectangle(0, -28 * px, 14 * px, 56 * px, side === 'a' ? 0x6a7a4a : 0x7a4a3a).setOrigin(0.5));
+      fig.add(this.add.rectangle(0, -28 * px, 14 * px, 56 * px, side === 'a' ? 0x6e6f55 : 0x6f5238).setOrigin(0.5));
     }
     const pt = (p: readonly number[]) => ({ x: x + p[0] * px * dir, y: feet + p[1] * px });
     const head = pt(meta.head);
@@ -1909,7 +1909,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const barX = Phaser.Math.Clamp(x, ARENA.x + barW / 2 + 10, ARENA.x + ARENA.w - barW / 2 - 10);
     const bars = this.add.graphics();
     const hpText = txt(this, barX, barY, '', 13, '#ffffff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
-    const label = txt(this, barX, barY - 30, name.toUpperCase(), 16, side === 'a' ? C.text : '#ffb4a8', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
+    const label = txt(this, barX, barY - 30, name.toUpperCase(), 16, side === 'a' ? C.text : '#ef7b72', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
     this.arenaLayer.add([fig, bars, hpText, label]);
     const a: Actor = {
       side, x, feet, hp, maxHp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
@@ -2115,7 +2115,7 @@ export default class LoadoutScene extends Phaser.Scene {
       v.add(t);
       v.setData('ammo', t);
     }
-    t.setText(`${st.ammo}/${st.mag}`).setColor(st.ammo === 0 ? '#ffb36b' : '#ffffff');
+    t.setText(`${st.ammo}/${st.mag}`).setColor(st.ammo === 0 ? '#f4b06a' : '#ffffff');
     t.setVisible(true);
   }
 
@@ -2165,19 +2165,19 @@ export default class LoadoutScene extends Phaser.Scene {
     const ty = to.chest.y + (miss ? Phaser.Math.Between(-40, -24) : Phaser.Math.Between(-8, 8));
     const fx = m.x + (tx - m.x) * 0.45;
     const fy = m.y + (ty - m.y) * 0.45;
-    g.lineStyle(1.5, 0xfff4d0, 0.6);
+    g.lineStyle(1.5, 0xece2cf, 0.6);
     g.lineBetween(m.x, m.y, fx, fy);
-    g.lineStyle(3, from.side === 'b' ? 0xff8a5c : 0xffe7a8, 1);
+    g.lineStyle(3, from.side === 'b' ? 0xe8894a : 0xf8d9ab, 1);
     g.lineBetween(fx, fy, tx, ty);
     if (muzzleFlash) {
       const dir = tx > m.x ? 1 : -1;
-      g.fillStyle(0xfff0c0, 1);
+      g.fillStyle(0xf8d9ab, 1);
       g.fillTriangle(m.x, m.y - 5, m.x, m.y + 5, m.x + 18 * dir, m.y);
-      g.fillStyle(0xffb050, 0.8);
+      g.fillStyle(0xf4b06a, 0.8);
       g.fillCircle(m.x + 3 * dir, m.y, 5);
     }
     if (!miss) {
-      g.fillStyle(0xffe7a8, 1);
+      g.fillStyle(0xf8d9ab, 1);
       for (let i = 0; i < 4; i++) g.fillRect(tx + Phaser.Math.Between(-7, 7), ty + Phaser.Math.Between(-7, 7), 2, 2);
     }
     this.tweens.add({ targets: g, alpha: 0, duration: 160 / this.speed, onComplete: () => g.destroy() });
@@ -2273,7 +2273,7 @@ export default class LoadoutScene extends Phaser.Scene {
         }
         if (animate) {
           const v = this.viewOf(e.side, e.uid);
-          if (v) flashItem(this, v, 0x4f9bff);
+          if (v) flashItem(this, v, 0x5fb3e0);
           sfx('reload', { vol: e.side === 'a' ? 0.6 : 0.4, pan: e.side === 'a' ? -0.3 : 0.3 });
           this.setHeat(e.side, e.uid, 0); // la recharge éteint le Feu continu
         }
@@ -2292,12 +2292,12 @@ export default class LoadoutScene extends Phaser.Scene {
         to.armor = e.armor;
         this.drawBars(to);
         if (animate) {
-          this.trigger(e.side, e.uid, 0x7fd8ff);
+          this.trigger(e.side, e.uid, 0x9ad3f2);
           sfx('taser', { vol: 0.7 });
           this.tracer(this.actor(e.side), to, false, false);
           this.hitReact(to);
-          this.floatText(to, `TASER ${e.amount}`, '#7fd8ff', 22);
-          this.floatText(to, 'IMMOBILISÉ', '#7fd8ff', 16, 30);
+          this.floatText(to, `TASER ${e.amount}`, '#9ad3f2', 22);
+          this.floatText(to, 'IMMOBILISÉ', '#9ad3f2', 16, 30);
           this.impact('small');
           vibrate(15);
         }
@@ -2326,7 +2326,7 @@ export default class LoadoutScene extends Phaser.Scene {
           this.boom(to, e.side === 'a' ? C.accent : C.danger);
           this.hitReact(to);
           this.floatText(to, `${e.amount}`, C.accentStr, 32);
-          this.floatText(this.actor(e.side), 'FRAG !', '#ffd27a', 18);
+          this.floatText(this.actor(e.side), 'FRAG !', '#e9c46a', 18);
           this.impact('medium');
           vibrate(20);
         }
@@ -2334,17 +2334,17 @@ export default class LoadoutScene extends Phaser.Scene {
       }
       case 'smoke':
         if (animate) {
-          this.trigger(e.side, e.uid, 0xaaaaaa);
+          this.trigger(e.side, e.uid, 0xa39a8c);
           sfx('smoke', { vol: 0.7 });
           const a = this.actor(e.side);
           const g = this.add.graphics().setDepth(24);
-          g.fillStyle(0xcfcfcf, 0.4);
+          g.fillStyle(0xece2cf, 0.4);
           const sx = a.x + (e.side === 'a' ? 50 : -50);
           for (let i = 0; i < 5; i++) g.fillCircle(sx + Phaser.Math.Between(-30, 30), a.feet - 40 - Phaser.Math.Between(0, 70), Phaser.Math.Between(26, 40));
           g.setScale(0.4);
           this.tweens.add({ targets: g, scale: 1, duration: 300 / this.speed, ease: 'Quad.Out' });
           this.tweens.add({ targets: g, alpha: 0, delay: 200, duration: Math.max(200, ((e.until - e.t) * 1000) / this.speed), onComplete: () => g.destroy() });
-          this.floatText(a, 'FUMIGÈNE', '#dddddd', 18);
+          this.floatText(a, 'FUMIGÈNE', '#ece2cf', 18);
         }
         break;
       case 'flash':
@@ -2509,8 +2509,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.updateButtons();
     const top = 70;
     const PH = 1140;
-    m.add(panel(this, 24, top, W - 48, PH, R.win ? 0x3f7a46 : 0x7a3a32));
-    m.add(txt(this, 54, top + 24, 'RAPPORT DE DUEL', 34, R.win ? C.goodStr : '#ffb4a8', { fontStyle: 'bold' }));
+    m.add(panel(this, 24, top, W - 48, PH, R.win ? 0x3f5a35 : 0x6e2f27));
+    m.add(txt(this, 54, top + 24, 'RAPPORT DE DUEL', 34, R.win ? C.goodStr : '#ef7b72', { fontStyle: 'bold' }));
     m.add(txt(this, W - 54, top + 34, `${fmt1(R.duration)} s`, 22, C.quiet, { fontFamily: MONO }).setOrigin(1, 0));
     const A = R.rep.a;
     const sum = `Infligés ${A.dealt} · Reçus ${A.tookHp + A.tookArmor} (armure ${A.tookArmor})${A.healed ? ` · Soignés ${A.healed}` : ''}`;
@@ -2572,7 +2572,7 @@ export default class LoadoutScene extends Phaser.Scene {
     };
     let y = rows('a', top + 140, 8, 'TON SAC', C.accentStr);
     const botName = this.bot?.name?.toUpperCase() ?? 'ADVERSAIRE';
-    rows('b', y + 14, Math.max(2, Math.floor((top + PH - 110 - (y + 48)) / ROW)), `SAC DE ${botName}`, '#ffb4a8');
+    rows('b', y + 14, Math.max(2, Math.floor((top + PH - 110 - (y + 48)) / ROW)), `SAC DE ${botName}`, '#ef7b72');
 
     const by = top + PH - 96;
     const enemyBtn = button(this, 54, by, 300, 72, 'Son sac', () => {
@@ -2673,10 +2673,10 @@ export default class LoadoutScene extends Phaser.Scene {
     const top = 96;
     const PH = 1130;
     const crate = pl.crate;
-    const pnl = panel(this, 24, top, W - 48, PH, crate === 'caisse_epique' ? EPIC_COLOR : crate === 'caisse_renforcee' ? 0x2f80ed : crate ? 0x5fbf6a : 0x7a3a32);
+    const pnl = panel(this, 24, top, W - 48, PH, crate === 'caisse_epique' ? EPIC_COLOR : crate === 'caisse_renforcee' ? 0x5fb3e0 : crate ? 0x86a95a : 0x6e2f27);
     m.add(pnl);
     const head = crate ? CRATE_TITLE[crate] : botName ? `SAC DE ${botName.toUpperCase()}` : 'SAC DU VAINCU';
-    m.add(txt(this, 54, top + 26, head, 34, crate === 'caisse_epique' ? EPIC_HEX : crate ? '#bfe8a8' : '#ffb4a8', { fontStyle: 'bold' }));
+    m.add(txt(this, 54, top + 26, head, 34, crate === 'caisse_epique' ? EPIC_HEX : crate ? '#a8c97a' : '#ef7b72', { fontStyle: 'bold' }));
     const counter = txt(this, 54, top + 76, '', 24, GOLD, { fontStyle: 'bold' });
     m.add(counter);
     // Sac du bot : ses cases (ou, à défaut, la boîte englobante de ses objets)
@@ -2689,9 +2689,9 @@ export default class LoadoutScene extends Phaser.Scene {
     const gx = (W - bwc * cell) / 2;
     const gy = top + 130;
     const bg = this.add.graphics();
-    bg.fillStyle(0x5a4a3a, 1);
+    bg.fillStyle(0x4b4354, 1);
     bg.fillRoundedRect(gx - 8, gy - 8, bwc * cell + 16, bhc * cell + 16, 14);
-    bg.fillStyle(0x3a3024, 1);
+    bg.fillStyle(0x342e3c, 1);
     bg.fillRoundedRect(gx - 3, gy - 3, bwc * cell + 6, bhc * cell + 6, 10);
     bg.fillStyle(0x000000, 0.2);
     for (const [cx, cy] of cells) bg.fillRoundedRect(gx + (cx - x0) * cell + 5, gy + (cy - y0) * cell + 5, cell - 10, cell - 10, 6);
@@ -2714,7 +2714,7 @@ export default class LoadoutScene extends Phaser.Scene {
     /** L'objet a quitté le sac du vaincu : il s'efface, la fiche se vide. */
     const taken = (srcUid: number, item: ItemInst, to: 'reserve' | 'sac') => {
       const v = views.get(srcUid)!;
-      flashItem(this, v, 0xf2c94c);
+      flashItem(this, v, 0xe9c46a);
       this.tweens.add({ targets: v, alpha: 0.15, duration: 250 });
       flown.push({ item, from: centerOf(srcUid) });
       sfx('pickup');
@@ -2791,7 +2791,7 @@ export default class LoadoutScene extends Phaser.Scene {
       swapLayer = layer;
       m.add(layer);
       layer.add(this.add.rectangle(0, 0, W, H, 0x000000, 0.75).setOrigin(0).setInteractive());
-      layer.add(panel(this, 24, top, W - 48, PH, 0xd8a25e));
+      layer.add(panel(this, 24, top, W - 48, PH, 0xf4b06a));
       layer.add(txt(this, 54, top + 26, 'TOUT EST PLEIN', 34, GOLD, { fontStyle: 'bold' }));
       layer.add(txt(this, 54, top + 76, `Revends un objet pour prendre : ${ITEMS[src.defId].name}`, 22, C.text, { wordWrap: { width: W - 108 } }));
       const close = () => {
@@ -2855,7 +2855,7 @@ export default class LoadoutScene extends Phaser.Scene {
           current = it;
           vibrate(8);
           sel.clear();
-          sel.lineStyle(5, 0xf2c94c, 1);
+          sel.lineStyle(5, 0xe9c46a, 1);
           for (const [sx, sy] of cellsAt(it, it.x, it.y)) sel.strokeRoundedRect(gx + (sx - x0) * cell + 2, gy + (sy - y0) * cell + 2, cell - 4, cell - 4, 8);
           pop(this, v, 1.08, 160);
           update();
@@ -2881,7 +2881,7 @@ export default class LoadoutScene extends Phaser.Scene {
       const g = this.add.graphics();
       g.fillStyle(0x000000, 0.7);
       g.fillCircle(right - 14, top + 14, 14);
-      c.add([g, txt(this, right - 14, top + 14, '⚗', 18, '#7dd3fc', { fontStyle: 'bold' }).setOrigin(0.5)]);
+      c.add([g, txt(this, right - 14, top + 14, '⚗', 18, '#9ad3f2', { fontStyle: 'bold' }).setOrigin(0.5)]);
     }
   }
 
@@ -2904,7 +2904,7 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private confetti() {
-    const cols = [0xf2c94c, 0xff8c1a, 0x5fbf6a, 0x4f9bff, 0xffffff];
+    const cols = [0xe9c46a, 0xe8894a, 0x86a95a, 0x5fb3e0, 0xffffff];
     for (let i = 0; i < 70; i++) {
       const r = this.add.rectangle(Phaser.Math.Between(0, W), -20, 8, 14, cols[i % cols.length]).setDepth(220);
       this.tweens.add({
@@ -2924,14 +2924,14 @@ export default class LoadoutScene extends Phaser.Scene {
     const m = this.add.container(0, 0).setDepth(150);
     this.modal = m;
     this.updateButtons();
-    const bg = this.add.rectangle(0, 0, W, H, 0x0a0303, 1).setOrigin(0).setInteractive().setAlpha(0);
+    const bg = this.add.rectangle(0, 0, W, H, 0x000000, 1).setOrigin(0).setInteractive().setAlpha(0);
     m.add(bg);
     this.tweens.add({ targets: bg, alpha: 0.96, duration: 250 });
     const g = this.add.graphics();
-    g.fillStyle(0x5a0d0d, 0.5);
+    g.fillStyle(0x6a2226, 0.5);
     g.fillCircle(W / 2, 560, 420);
     // Barbelés
-    g.lineStyle(3, 0x6a6a6a, 1);
+    g.lineStyle(3, 0x6b6370, 1);
     for (const y of [300, 860]) {
       for (let x = 0; x < W; x += 24) {
         g.lineBetween(x, y, x + 12, y + 8);
@@ -2940,7 +2940,7 @@ export default class LoadoutScene extends Phaser.Scene {
       }
     }
     m.add(g);
-    const title = txt(this, W / 2, 470, 'GOULAG', 120, '#ff4b3e', { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 14, padding: { x: 20, y: 10 } })
+    const title = txt(this, W / 2, 470, 'GOULAG', 120, '#c94a4a', { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 14, padding: { x: 20, y: 10 } })
       .setOrigin(0.5).setScale(4).setAlpha(0);
     m.add(title);
     this.tweens.add({
@@ -2954,7 +2954,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const sub = txt(this, W / 2, 590, 'DERNIÈRE CHANCE', 44, C.text, { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
     m.add(sub);
     this.tweens.add({ targets: sub, alpha: 1, delay: 700, duration: 300 });
-    const body = txt(this, W / 2, 680, 'Un duel 1v1 à PV pleins.\nGagne : tu reviens dans la partie.\nPerds : la run est finie.', 26, '#d9c9c0', { align: 'center', lineSpacing: 8 })
+    const body = txt(this, W / 2, 680, 'Un duel 1v1 à PV pleins.\nGagne : tu reviens dans la partie.\nPerds : la run est finie.', 26, '#ece2cf', { align: 'center', lineSpacing: 8 })
       .setOrigin(0.5, 0).setAlpha(0);
     m.add(body);
     this.tweens.add({ targets: body, alpha: 1, delay: 950, duration: 300 });
@@ -2981,20 +2981,20 @@ export default class LoadoutScene extends Phaser.Scene {
     const m = this.add.container(0, 0).setDepth(150);
     this.modal = m;
     this.updateButtons();
-    const bg = this.add.rectangle(0, 0, W, H, 0x07060a, 1).setOrigin(0).setInteractive().setAlpha(0);
+    const bg = this.add.rectangle(0, 0, W, H, 0x000000, 1).setOrigin(0).setInteractive().setAlpha(0);
     m.add(bg);
     this.tweens.add({ targets: bg, alpha: 0.97, duration: 250 });
     // Cercle de gaz qui se referme
     const ring = this.add.graphics().setPosition(W / 2, 560);
-    ring.lineStyle(10, 0xc04bd8, 0.9);
+    ring.lineStyle(10, 0x8f6bb8, 0.9);
     ring.strokeCircle(0, 0, 200);
-    ring.fillStyle(0xc04bd8, 0.08);
+    ring.fillStyle(0x8f6bb8, 0.08);
     ring.fillCircle(0, 0, 200);
     ring.setScale(3);
     m.add(ring);
     this.tweens.add({ targets: ring, scale: 1, duration: 1100, ease: 'Cubic.Out' });
     this.tweens.add({ targets: ring, alpha: 0.5, yoyo: true, repeat: -1, duration: 700, delay: 1100 });
-    const pre = txt(this, W / 2, 440, 'DERNIER CERCLE', 48, '#e6b8ff', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
+    const pre = txt(this, W / 2, 440, 'DERNIER CERCLE', 48, '#c3a6e0', { fontStyle: 'bold', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setAlpha(0);
     m.add(pre);
     this.tweens.add({ targets: pre, alpha: 1, delay: 500, duration: 300 });
     const title = txt(this, W / 2, 560, 'TOP 1', 150, GOLD, { fontStyle: 'bold italic', stroke: '#000000', strokeThickness: 16, padding: { x: 24, y: 10 } })

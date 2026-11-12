@@ -1,3 +1,5 @@
+import { P, hex } from './ui/palette';
+
 // Mise en page portrait de référence 720 × 1280, mise à l'échelle en FIT.
 export const W = 720;
 export const H = 1280;
@@ -24,23 +26,23 @@ export const FONT = 'Oswald, "Arial Narrow", system-ui, sans-serif';
 export const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 export const C = {
-  bg: 0x14160f,
-  panel: 0x22261c,
-  panelLine: 0x454b3a,
-  cell: 0x2b3024,
-  cellLine: 0x3a4031,
+  bg: P.fond,
+  panel: P.panneau,
+  panelLine: P.trait2,
+  cell: P.case,
+  cellLine: P.trait,
   /** Toile du sac de base et cuir des sacoches. */
-  canvas: 0x3b4530,
-  canvasLine: 0x5d6b47,
-  leather: 0x6b4a2e,
-  leatherLine: 0x9a7048,
-  accent: 0xff8c1a,
-  danger: 0xe5484d,
-  good: 0x5fbf6a,
-  armor: 0x8fa3b0,
-  text: '#ece8d8',
-  quiet: '#9a9c88',
-  accentStr: '#ff8c1a',
-  dangerStr: '#ff6b6b',
-  goodStr: '#7ddc86',
+  canvas: P.toile,
+  canvasLine: P.toileClaire,
+  leather: P.cuir,
+  leatherLine: P.cuirClair,
+  accent: P.orange,
+  danger: P.danger,
+  good: P.soin,
+  armor: P.armure,
+  text: hex(P.texte),
+  quiet: hex(P.discret),
+  accentStr: hex(P.orange),
+  dangerStr: hex(P.dangerClair),
+  goodStr: hex(P.soinClair),
 };

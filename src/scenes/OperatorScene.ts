@@ -66,7 +66,7 @@ export default class OperatorScene extends Phaser.Scene {
 
     // En-tête : icône de famille, nom, famille
     const badge = this.add.graphics();
-    badge.fillStyle(0x0d0f0a, 1);
+    badge.fillStyle(0x0f0d13, 1);
     badge.fillCircle(66, 62, 40);
     badge.lineStyle(4, fam.color, 1);
     badge.strokeCircle(66, 62, 40);
@@ -119,7 +119,7 @@ export default class OperatorScene extends Phaser.Scene {
     const gy = 168;
     root.add(txt(this, gx + (cols * PCELL) / 2, gy - 16, 'SAC DE DÉPART', 16, C.quiet, { fontStyle: 'bold' }).setOrigin(0.5, 1));
     const grid = this.add.graphics();
-    grid.fillStyle(0x0d0f0a, 1);
+    grid.fillStyle(0x0f0d13, 1);
     grid.fillRoundedRect(gx - 8, gy - 8, cols * PCELL + 16, rows * PCELL + 16, 14);
     for (let x = 0; x < cols; x++) {
       for (let yy = 0; yy < rows; yy++) {
@@ -147,7 +147,7 @@ export default class OperatorScene extends Phaser.Scene {
     const cg = this.add.graphics();
     cg.fillStyle(C.accent, 1);
     cg.fillCircle(0, 0, 22);
-    check.add([cg, this.add.image(0, 0, 'ic-check').setDisplaySize(26, 26).setTint(0x1a1206)]);
+    check.add([cg, this.add.image(0, 0, 'ic-check').setDisplaySize(26, 26).setTint(0x17141c)]);
     root.add(check);
     sel.setData('check', check);
 

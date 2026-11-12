@@ -63,16 +63,16 @@ export function button(
     // Ombre portée et lèvre
     g.fillStyle(0x000000, 0.4);
     g.fillRoundedRect(0, LIP + 3, w, h - LIP, r);
-    g.fillStyle(prim ? 0xb85a00 : enabled ? 0x14170f : 0x101209, 1);
+    g.fillStyle(prim ? 0xe8894a : enabled ? 0x17141c : 0x0f0d13, 1);
     g.fillRoundedRect(0, LIP, w, h - LIP, r);
     // Face
-    const face = prim ? (pressed ? 0xf07f10 : C.accent) : enabled ? 0x2c3224 : 0x1a1d15;
+    const face = prim ? (pressed ? 0xe8894a : C.accent) : enabled ? 0x342e3c : 0x1c1822;
     g.fillStyle(face, 1);
     g.fillRoundedRect(0, dy, w, h - LIP, r);
     // Reflet
     g.fillStyle(0xffffff, prim ? 0.22 : enabled ? 0.06 : 0.02);
     g.fillRoundedRect(4, dy + 3, w - 8, (h - LIP) * 0.42, { tl: r - 3, tr: r - 3, bl: 4, br: 4 });
-    g.lineStyle(2, prim ? 0xffb15a : enabled ? 0x4a5240 : 0x2a2e22, 1);
+    g.lineStyle(2, prim ? 0xf4b06a : enabled ? 0x5a5162 : 0x342e3c, 1);
     g.strokeRoundedRect(0, dy, w, h - LIP, r);
     if (!enabled) {
       // Hachures d'un bouton désactivé
@@ -81,7 +81,7 @@ export function button(
       for (let hx = r; hx + fh < w - r; hx += 16) g.lineBetween(hx, dy + fh - 3, hx + fh - 6, dy + 3);
     }
     t.setY((h - LIP) / 2 + dy);
-    t.setColor(prim ? '#1a1206' : C.text);
+    t.setColor(prim ? '#17141c' : C.text);
     t.setAlpha(enabled ? 1 : 0.35);
   };
   draw();
@@ -166,7 +166,7 @@ export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot'>, ce
   // Bordure de niveau (base / assemblé), corps sombre teinté par la catégorie, reflet sur le haut de chaque case.
   g.fillStyle(rc, 1);
   fillMask(g, mask, cell, 3 * k, 10 * k);
-  g.fillStyle(0x15170f, 1);
+  g.fillStyle(0x17141c, 1);
   fillMask(g, mask, cell, 6 * k, 7 * k);
   const sprite = scene.textures.exists(itemSpriteKey(inst.defId));
   // Avec un sprite, la teinte de catégorie s'efface pour laisser le dessin lisible.
@@ -200,7 +200,7 @@ export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot'>, ce
   const cells: [number, number][] = [];
   mask.forEach((row, y) => row.forEach((on, x) => on && cells.push([x, y])));
   const key = iconKey(inst.defId);
-  const icon = scene.add.image(0, 0, key).setTint(0xece8d8).setAlpha(sprite ? 0 : 0.92);
+  const icon = scene.add.image(0, 0, key).setTint(0xece2cf).setAlpha(sprite ? 0 : 0.92);
   if (isWeaponIcon(inst.defId)) {
     let by = 0;
     let best = 0;
@@ -224,7 +224,7 @@ export function itemView(scene: Scene, inst: Pick<ItemInst, 'defId' | 'rot'>, ce
   // Nom court en bas à gauche de la dernière ligne
   const ly = mask.length - 1;
   const lx = mask[ly].findIndex(Boolean);
-  const label = txt(scene, lx * cell + 9 * k, ly * cell + cell - 7 * k, d.short.toUpperCase(), Math.round(14 * k), '#f4f1e6', {
+  const label = txt(scene, lx * cell + 9 * k, ly * cell + cell - 7 * k, d.short.toUpperCase(), Math.round(14 * k), '#ece2cf', {
     fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
   }).setOrigin(0, 1);
   if (label.width > (mask[ly].filter(Boolean).length * cell) - 14 * k) label.setScale(((mask[ly].filter(Boolean).length * cell) - 14 * k) / label.width);
@@ -319,10 +319,10 @@ export function fadeIn(scene: Scene) {
 
 /** Teinte de chaque sacoche (cuir, toile, sangle). */
 const BAG_TINT: Record<string, [number, number]> = {
-  pochette: [0x7a5634, 0xb3875a],
-  sacoche: [0x6b4a2e, 0x9a7048],
-  ceinture: [0x4d4a33, 0x8a8560],
-  sac_tactique: [0x5a5a36, 0x9c9a62],
+  pochette: [0x6f5238, 0xb09a72],
+  sacoche: [0x6f5238, 0x8b7a5a],
+  ceinture: [0x4a4d3a, 0x8b7a5a],
+  sac_tactique: [0x5b5e46, 0xb09a72],
 };
 
 /**
@@ -367,9 +367,9 @@ export function bagView(scene: Scene, inst: { defId: string; rot: ItemInst['rot'
   // Boucle de sangle sur la première case
   const fy = mask.findIndex((r) => r.some(Boolean));
   const fx = mask[fy].findIndex(Boolean);
-  g.fillStyle(0x23201a, 1);
+  g.fillStyle(0x221e28, 1);
   g.fillRoundedRect(fx * cell + cell / 2 - 9 * k, fy * cell - 2 * k, 18 * k, 12 * k, 3 * k);
-  g.lineStyle(2 * k, 0xc9b48a, 1);
+  g.lineStyle(2 * k, 0xb09a72, 1);
   g.strokeRoundedRect(fx * cell + cell / 2 - 7 * k, fy * cell, 14 * k, 8 * k, 2 * k);
   c.add(g);
   const flash = scene.add.graphics().setAlpha(0);

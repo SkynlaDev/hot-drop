@@ -114,7 +114,7 @@ export default class ZoneScene extends Phaser.Scene {
     const run = this.run;
     const si = SIZE_INFO[zone.size];
     const hero = this.add.image(W / 2, 0, `bg-${zoneBg(zone.name)}`).setOrigin(0.5, 0);
-    hero.setScale(330 / hero.height).setTint(0xb0b0a0);
+    hero.setScale(330 / hero.height).setTint(0xa39a8c);
     const fade = this.add.graphics();
     fade.fillStyle(C.bg, 0.35);
     fade.fillRect(0, 0, W, 100);
@@ -135,7 +135,7 @@ export default class ZoneScene extends Phaser.Scene {
       name.x = -name.width;
       this.tweens.add({ targets: name, x: 24, duration: 420, delay: 80, ease: 'Back.Out' });
     }
-    const chipT = txt(this, 0, 0, `ZONE ${si.name.toUpperCase()} · ${si.heat.toUpperCase()}`, 18, '#0d0f0a', { fontStyle: 'bold' }).setOrigin(0, 0.5);
+    const chipT = txt(this, 0, 0, `ZONE ${si.name.toUpperCase()} · ${si.heat.toUpperCase()}`, 18, '#0f0d13', { fontStyle: 'bold' }).setOrigin(0, 0.5);
     const cw = chipT.width + 26;
     const chip = this.add.graphics();
     chip.fillStyle(si.color, 1);
@@ -156,9 +156,9 @@ export default class ZoneScene extends Phaser.Scene {
       const on = i < run.actionsLeft;
       const g = this.add.graphics();
       const px = W - 44 - (ACTIONS_PER_ZONE - 1 - i) * 46;
-      g.fillStyle(on ? C.accent : 0x0d0f0a, 1);
+      g.fillStyle(on ? C.accent : 0x0f0d13, 1);
       g.fillRoundedRect(-17, -17, 34, 34, 8);
-      g.lineStyle(3, on ? 0xffb15a : C.cellLine, 1);
+      g.lineStyle(3, on ? 0xf4b06a : C.cellLine, 1);
       g.strokeRoundedRect(-17, -17, 34, 34, 8);
       g.setPosition(px, 296);
       this.pips.add(g);
@@ -216,7 +216,7 @@ export default class ZoneScene extends Phaser.Scene {
     // Corps
     g.fillStyle(0x000000, 0.45);
     g.fillRoundedRect(l, t + 6, w, h, 18);
-    g.fillStyle(0x1b1f16, 1);
+    g.fillStyle(0x221e28, 1);
     g.fillRoundedRect(l, t, w, h, 18);
     g.fillStyle(info.color, 0.16);
     g.fillRoundedRect(l, t, w, h * 0.62, { tl: 18, tr: 18, bl: 0, br: 0 });
@@ -235,14 +235,14 @@ export default class ZoneScene extends Phaser.Scene {
 
     // Titre
     const title = txt(this, 0, t + 38, epic ? 'ÉPIQUE' : info.name.toUpperCase(), small ? 26 : 32, info.hex, { fontStyle: 'bold italic', padding: { left: 6, right: 6 } }).setOrigin(0.5);
-    if (epic) title.setStroke('#3a1a5a', 4).setShadow(0, 0, '#f2c94c', 10, true, true);
+    if (epic) title.setStroke('#3a2a4e', 4).setShadow(0, 0, '#e9c46a', 10, true, true);
     root.add(title);
 
     // Illustration
     const iy = t + h * 0.38;
     const disc = this.add.graphics();
     const dr = Math.min(w * 0.36, h * 0.2);
-    disc.fillStyle(0x0d0f0a, 0.7);
+    disc.fillStyle(0x0f0d13, 0.7);
     disc.fillCircle(0, iy, dr);
     disc.lineStyle(2, info.color, 0.5);
     disc.strokeCircle(0, iy, dr);
@@ -253,7 +253,7 @@ export default class ZoneScene extends Phaser.Scene {
       for (let k = 0; k < n; k++) {
         const off = n === 1 ? 0 : (k - (n - 1) / 2) * dr * 0.62;
         const f = pxFigure(this, off, iy + dr * 0.92, 'soldat', sc * (k === Math.floor(n / 2) ? 1 : 0.88), true);
-        f.setTint(k === Math.floor(n / 2) ? 0xffffff : 0xb0a8a0);
+        f.setTint(k === Math.floor(n / 2) ? 0xffffff : 0xa39a8c);
         root.add(f);
       }
     } else if (epic) {
@@ -263,7 +263,7 @@ export default class ZoneScene extends Phaser.Scene {
       if (!played) this.tweens.add({ targets: ic, angle: { from: -6, to: 6 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
       for (let k = 0; k < 3; k++) {
         const a = -Math.PI / 2 + (k - 1) * 1.1;
-        const star = txt(this, Math.cos(a) * dr * 1.05, iy + Math.sin(a) * dr * 1.05, '★', small ? 20 : 26, k === 1 ? '#f2c94c' : '#c08cff').setOrigin(0.5);
+        const star = txt(this, Math.cos(a) * dr * 1.05, iy + Math.sin(a) * dr * 1.05, '★', small ? 20 : 26, k === 1 ? '#e9c46a' : '#8f6bb8').setOrigin(0.5);
         root.add(star);
         if (!played) this.tweens.add({ targets: star, scale: { from: 0.6, to: 1.25 }, alpha: { from: 0.5, to: 1 }, duration: 520, delay: k * 240, yoyo: true, repeat: -1 });
       }
@@ -285,7 +285,7 @@ export default class ZoneScene extends Phaser.Scene {
       const total = RISK_PIPS * pw + (RISK_PIPS - 1) * gap;
       const rg = this.add.graphics();
       for (let k = 0; k < RISK_PIPS; k++) {
-        rg.fillStyle(k < risk ? (risk >= 4 ? C.danger : risk >= 2 ? 0xff8c1a : 0xf2c94c) : 0x2b3024, 1);
+        rg.fillStyle(k < risk ? (risk >= 4 ? C.danger : risk >= 2 ? 0xe8894a : 0xe9c46a) : 0x2b2632, 1);
         rg.fillRoundedRect(-total / 2 + k * (pw + gap), dy + 12, pw, 10, 3);
       }
       root.add(rg);
@@ -294,11 +294,11 @@ export default class ZoneScene extends Phaser.Scene {
       const cr = CRATES[card.type];
       root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
-      root.add(txt(this, 0, dy, `${cr.picks} objet${cr.picks > 1 ? 's' : ''}\nsur ${cr.offers}`, fs - 2, card.type === 'caisse' ? C.quiet : '#6fb0ff', { align: 'center', fontStyle: card.type === 'caisse' ? 'normal' : 'bold' }).setOrigin(0.5, 0));
+      root.add(txt(this, 0, dy, `${cr.picks} objet${cr.picks > 1 ? 's' : ''}\nsur ${cr.offers}`, fs - 2, card.type === 'caisse' ? C.quiet : '#5fb3e0', { align: 'center', fontStyle: card.type === 'caisse' ? 'normal' : 'bold' }).setOrigin(0.5, 0));
     } else if (epic) {
       root.add(txt(this, 0, dy, 'SANS COMBAT', fs + 2, C.text, { fontStyle: 'bold' }).setOrigin(0.5));
       dy += fs + 14;
-      root.add(txt(this, 0, dy - 4, '1 objet\nassemblé', fs, '#f2c94c', { fontStyle: 'bold', align: 'center', lineSpacing: -2 }).setOrigin(0.5, 0));
+      root.add(txt(this, 0, dy - 4, '1 objet\nassemblé', fs, '#e9c46a', { fontStyle: 'bold', align: 'center', lineSpacing: -2 }).setOrigin(0.5, 0));
       dy += 2 * fs + 6;
       root.add(txt(this, 0, dy, `${CRATES.caisse_epique.picks} sur ${CRATES.caisse_epique.offers}`, fs - 5, C.quiet).setOrigin(0.5, 0));
     } else {
@@ -328,13 +328,13 @@ export default class ZoneScene extends Phaser.Scene {
     const w = v.root.width;
     const h = v.root.height;
     const veil = this.add.graphics();
-    veil.fillStyle(0x0d0f0a, 0.62);
+    veil.fillStyle(0x0f0d13, 0.62);
     veil.fillRoundedRect(-w / 2, -h / 2, w, h, 18);
     const st = this.add.container(0, -h * 0.05).setAngle(-14);
-    const label = txt(this, 0, 0, 'JOUÉE', w < 200 ? 30 : 40, '#ece8d8', { fontStyle: 'bold' }).setOrigin(0.5);
+    const label = txt(this, 0, 0, 'JOUÉE', w < 200 ? 30 : 40, '#ece2cf', { fontStyle: 'bold' }).setOrigin(0.5);
     const bw = label.width + 30;
     const bg = this.add.graphics();
-    bg.lineStyle(4, 0xece8d8, 0.9);
+    bg.lineStyle(4, 0xece2cf, 0.9);
     bg.strokeRoundedRect(-bw / 2, -label.height / 2 - 6, bw, label.height + 12, 8);
     st.add([bg, label]);
     v.root.add([veil, st]);
