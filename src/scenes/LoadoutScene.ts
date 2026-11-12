@@ -1447,26 +1447,30 @@ export default class LoadoutScene extends Phaser.Scene {
       // Les objets proposés jaillissent (on les choisira ensuite) ; l'objet assemblé en premier.
       const offers = this.run.pendingLoot?.items ?? [];
       const items = [...offers].sort((a, b) => tierOf(b.defId) - tierOf(a.defId)).slice(0, 3);
+      // Tout doit tenir dans la largeur : l'espacement et la taille suivent le nombre d'éléments.
+      const nAll = items.length + loot.bags.length;
+      const gap = Math.min(260, (W - 40) / Math.max(1, nAll));
+      const maxPx = Math.min(150, gap - 24);
       for (const it of items) {
         const d = dims(it);
-        const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
+        const s = Math.min(1, maxPx / (Math.max(d.w, d.h) * CELL));
         entries.push({ v: itemView(this, it, CELL).setScale(s), label: `${ITEMS[it.defId].name}\n${TIER_NAMES[tierOf(it.defId)]}`, col: TIER_HEX[tierOf(it.defId)], w: d.w * CELL * s, h: d.h * CELL * s });
       }
       for (const b of loot.bags) {
         const d = dims(b);
-        const s = Math.min(1, 150 / (Math.max(d.w, d.h) * CELL));
+        const s = Math.min(1, maxPx / (Math.max(d.w, d.h) * CELL));
         entries.push({ v: bagView(this, b, CELL).setScale(s), label: `${BAGS[b.defId as BagId].name}\n+${cellCount(b.defId)} cases`, col: '#f8d9ab', w: d.w * CELL * s, h: d.h * CELL * s });
       }
       const n = entries.length;
       const sources: { x: number; y: number }[] = [];
       entries.forEach((e, i) => {
-        const fx = W / 2 + (i - (n - 1) / 2) * 260;
+        const fx = W / 2 + (i - (n - 1) / 2) * gap;
         const fy = 380;
         sources.push({ x: fx, y: fy });
         e.v.setPosition(cx - e.w / 2, cy - 60 - e.h / 2).setAlpha(0);
         m.add(e.v);
         this.tweens.add({ targets: e.v, x: fx - e.w / 2, y: fy - e.h / 2, alpha: 1, delay: 120 + i * 160, duration: 520, ease: 'Back.Out' });
-        const t = txt(this, fx, fy + 92, e.label, 22, e.col, { fontStyle: 'bold', align: 'center', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5, 0).setAlpha(0);
+        const t = txt(this, fx, fy + 92, e.label, n >= 4 ? 18 : 22, e.col, { fontStyle: 'bold', align: 'center', stroke: '#000000', strokeThickness: 4, wordWrap: { width: gap - 10 } }).setOrigin(0.5, 0).setAlpha(0);
         m.add(t);
         this.tweens.add({ targets: t, alpha: 1, delay: 400 + i * 160, duration: 250 });
       });
