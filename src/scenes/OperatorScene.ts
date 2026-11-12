@@ -6,7 +6,7 @@ import { opFig, pxFigure } from '../art';
 import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
 import { clearRun, newRun, saveRun } from '../logic/run';
-import { Button, button, fadeIn, itemView, pop, txt, vibrate, FADE_RGB } from '../ui/widgets';
+import { Button, button, chamferPoints, fadeIn, itemView, pop, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
 const CARD = { x: 20, w: 680, h: 452 };
 const CARD_Y = [168, 640];
@@ -49,15 +49,22 @@ export default class OperatorScene extends Phaser.Scene {
     const g = this.add.graphics();
     // Fond, liseré de famille à gauche, bande de couleur en haut
     g.fillStyle(0x000000, 0.4);
-    g.fillRoundedRect(0, 6, CARD.w, CARD.h, 22);
+    g.fillPoints(chamferPoints(2, 6, CARD.w, CARD.h, 20), true);
     g.fillStyle(C.panel, 1);
-    g.fillRoundedRect(0, 0, CARD.w, CARD.h, 22);
+    g.fillPoints(chamferPoints(0, 0, CARD.w, CARD.h, 20), true);
     g.fillStyle(fam.color, 0.12);
-    g.fillRoundedRect(0, 0, CARD.w, 120, { tl: 22, tr: 22, bl: 0, br: 0 });
+    g.fillPoints(chamferPoints(0, 0, CARD.w, 120, 20), true);
     g.fillStyle(fam.color, 1);
-    g.fillRoundedRect(0, 0, 10, CARD.h, { tl: 22, tr: 0, bl: 22, br: 0 });
+    g.fillRect(6, 20, 8, CARD.h - 40);
     g.lineStyle(2, C.panelLine, 1);
-    g.strokeRoundedRect(0, 0, CARD.w, CARD.h, 22);
+    g.strokePoints(chamferPoints(0, 0, CARD.w, CARD.h, 20), true, true);
+    // Coins renforcés de la couleur de la famille
+    g.fillStyle(fam.color, 1);
+    for (const [cx, cy] of [[0, 0], [CARD.w, 0], [0, CARD.h], [CARD.w, CARD.h]]) {
+      const sx = cx ? -1 : 1;
+      const sy = cy ? -1 : 1;
+      g.fillTriangle(cx, cy + sy * 20, cx + sx * 20, cy, cx + sx * 28, cy + sy * 8);
+    }
     root.add(g);
 
     // Opérateur en silhouette derrière le nom
@@ -140,7 +147,7 @@ export default class OperatorScene extends Phaser.Scene {
     // Contour de sélection
     const sel = this.add.graphics();
     sel.lineStyle(5, C.accent, 1);
-    sel.strokeRoundedRect(-3, -3, CARD.w + 6, CARD.h + 6, 24);
+    sel.strokePoints(chamferPoints(-3, -3, CARD.w + 6, CARD.h + 6, 22), true, true);
     sel.setVisible(false);
     root.add(sel);
     const check = this.add.container(CARD.w - 34, 34).setVisible(false);

@@ -25,7 +25,7 @@ import {
 } from '../logic/run';
 import { PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
-import { Button, bagView, banner, button, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
+import { Button, bagView, banner, button, chamferPoints, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
 export type LoadoutMode = 'manage' | 'shop' | 'caisse' | 'duel';
 /** edit : rangement libre · prep : avant le duel · combat : lecture · result : après le duel · over : run finie. */
@@ -1201,11 +1201,13 @@ export default class LoadoutScene extends Phaser.Scene {
     const stroke = o.item ? TIER_COLORS[tierOf(o.item.defId)] : C.leatherLine;
     const g = this.add.graphics();
     g.fillStyle(0x000000, 0.35);
-    g.fillRoundedRect(0, 4, w, h, 14);
+    g.fillPoints(chamferPoints(2, 4, w, h, 14), true);
     g.fillStyle(C.panel, 1);
-    g.fillRoundedRect(0, 0, w, h, 14);
+    g.fillPoints(chamferPoints(0, 0, w, h, 14), true);
+    g.fillStyle(stroke, 0.1);
+    g.fillPoints(chamferPoints(0, 0, w, 112, 14), true);
     g.lineStyle(o.locked ? 5 : 3, o.locked ? 0x5fb3e0 : stroke, o.sold ? 0.3 : 1);
-    g.strokeRoundedRect(0, 0, w, h, 14);
+    g.strokePoints(chamferPoints(0, 0, w, h, 14), true, true);
     cc.add(g);
     const area = 104;
     const inst = o.item ?? { defId: o.bag!, rot: 0 as Rot };
