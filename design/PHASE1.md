@@ -100,6 +100,19 @@ Rempart (29 à 39 %) et Feu continu (31 à 43 %) souffrent. Cause principale : l
 objets (grenades d'une case, pistolets jumelés en 2×2) permettent 13 à 14 objets par sac, les gros (armure lourde,
 SMG lourds) 10 à 11. Piste : valeur par case, ou des effets qui récompensent les gros objets.
 
+## Playtest 1 (concepteur, 12 novembre 2026)
+
+Viper, Top 1 gagné sans Goulag avec 336 PV sur 1 050, duels serrés en route. Sac final de 18 objets : KR-4 Tactique +
+KR-4 (tambour partagé, chargeur 5.56, silencieux, refroidisseur), armure lourde, casque lourd, 2 kits de trauma, sac
+médical, 2 bandages, adrénaline, fumigène, taser, masse, machette. Boss : Akimbo (Taureau Jumeaux ×2).
+
+Sac reconstitué contre 400 boss du Top 1 : **86 %** de victoires en Viper, **72 %** en Sentinelle (le Feu continu
+vaut environ 14 points). Causes : 18 objets contre 12-13 pour le boss (grille du boss plafonnée à 8×6), mélange de deux
+plans (Feu continu + Rempart) que les bots ne font pas, et un simulateur qui remplit mal son sac (12-13 objets).
+
+Décision : on laisse en l'état ; d'autres testeurs et d'autres points de départ d'abord. Pistes si le Top 1 reste
+trop facile : simulateur qui remplit son sac comme un humain, puis boss à sac plein (9×7, 15-16 objets, deux plans).
+
 ## Critère de sortie
 
 Playtest de 5 personnes : Top 1 gagné 30 à 45 % des runs, au moins 3 archétypes différents parmi les sacs gagnants,
