@@ -212,6 +212,7 @@ Quand tous les ingrédients d’une recette sont **posés dans le sac et se touc
 | Caisse | 3 | 1 | 3 + 1 × *n* | 30 % |
 | Caisse renforcée | 4 | 2 | 6 + 2 × *n* | 60 % |
 | Caisse épique | 5 | 2 | 10 + 3 × *n* | 50 % |
+| undefined | 3 | 1 | 0 + 0 × *n* | 0 % |
 
 Une caisse propose toujours au moins une arme.
 
@@ -427,7 +428,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 **Assemblé · Fusil d'assaut · 5.56** · Forme `■■■■ / ·■■·` (6 cases) · Assemblé
 
-- Dégâts 11 toutes les 0,6 s
+- Dégâts 12,5 toutes les 0,6 s
 - Chargeur 22 balles · recharge 2,2 s
 - Alimentation : n'importe quel chargeur adjacent, sinon recharge ×2
 - Objet assemblé (recette)
@@ -483,7 +484,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 **Assemblé · SMG · 9mm** · Forme `■■■■ / ·■■·` (6 cases) · Assemblé
 
-- Dégâts 8,5 toutes les 0,4 s
+- Dégâts 9,5 toutes les 0,4 s
 - Chargeur 40 balles · recharge 3,4 s
 - Alimentation intégrée : jamais besoin de chargeur
 - Viper : Feu continu jusqu'à +50 % au lieu de +30 %
@@ -512,10 +513,10 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 **Assemblé · Fusil à pompe · 12G** · Forme `■■■■ / ■···` (5 cases) · Assemblé
 
-- Dégâts 16 toutes les 1,4 s
+- Dégâts 15 toutes les 1,4 s
 - Chargeur 5 balles · recharge 2,8 s
 - Alimentation intégrée : jamais besoin de chargeur
-- Incendiaire : +5 dégâts qui ignorent l'armure
+- Incendiaire : +3 dégâts qui ignorent l'armure
 - Plombs : chaque tir touche 2 fois
 - ★ Explosif adjacent : +15 % de dégâts
 - Objet assemblé (recette)
@@ -528,7 +529,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 **Assemblé · Pistolet · 9mm** · Forme `■■ / ■■` (4 cases) · Assemblé
 
-- Dégâts 11 toutes les 0,8 s
+- Dégâts 9 toutes les 0,8 s
 - Chargeur 16 balles · recharge 2,2 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
@@ -542,7 +543,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 **Assemblé · Pistolet · .44** · Forme `■■■ / ■■·` (5 cases) · Assemblé
 
-- Dégâts 21 toutes les 1,3 s
+- Dégâts 18 toutes les 1,3 s
 - Chargeur 8 balles · recharge 2,6 s
 - Alimentation : un chargeur .44 adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
@@ -893,7 +894,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 **Assemblé · Explosif** · Forme `■` (1 case) · Assemblé
 
-- 26 dégâts à l'adversaire
+- 22 dégâts à l'adversaire
 - 3 charges par combat · délai 6 s
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)

@@ -58,7 +58,49 @@ Un cadenas sur chaque offre ; une seule offre verrouillée à la fois. Elle gard
 boutique suivante (carte Boutique ou ravitaillement), jusqu'à ce qu'on l'achète ou la déverrouille (`toggleLock`,
 `keepLockedOffer`). On peut ainsi viser une pièce chère sur deux boutiques.
 
-## Étapes suivantes
+## Étape 1d : courbe de difficulté (fait)
 
-1. **1d** Courbe de difficulté : la menace monte jusqu'au Top 1 (cible : politique agressive autour de 30 à 35 % de
-   Top 1 gagné, duels du cercle 5 autour de 70 %).
+| Réglage (`src/logic/bots.ts`) | Avant | Après |
+|---|---|---|
+| Objets des bots par cercle (`BOT_ITEMS`) | 4, 6, 7, 8, 9 | 4, 6, 8, 10, 12 |
+| Objets du Top 1 (`FINAL_ITEMS`) / niveau (`FINAL_LEVEL`) | 9 / 5 | 12 / 6 |
+| Chance d'objets assemblés par niveau (`CRAFTED_ODDS`) | 0 → 0,8 | 0 → 0,85, plus tôt |
+| Build Lame (`LAME_FROM`) | — | à partir du 4e cercle (trop fort au 3e) |
+| Rangement des bots | — | lames juste après les armes (un Lame ne perd plus ses lames) |
+
+Passe d'équilibrage d'objets (ce qui écrasait tout) :
+
+| Objet | Avant | Après |
+|---|---|---|
+| Mamba Akimbo | 11 dégâts / 0,75 s | 9 / 0,8 s |
+| Taureau Jumeaux | 21 dégâts | 18 |
+| Pompe Dragon | 16 dégâts + 5 qui ignorent l'armure par plomb | 15 + 3 |
+| Grenade à sous-munitions | 26 dégâts | 22 |
+| Ours Déluge | 8,5 dégâts | 9,5 |
+| KR-4 Tactique | 11 dégâts | 12,5 |
+| Archétype Feu continu | 40 % de protections | 15 % (plus de puissance de feu) |
+| Archétype Rempart | 50 % de protections | 35 % |
+
+Essai écarté : faire suivre l'armure et les soins aux PV. Ça n'aidait pas Rempart et déréglait les autres archétypes.
+
+**Mesures finales** (60 runs par politique) :
+
+| | Avant la phase 1 | Après | Cible |
+|---|---|---|---|
+| Agressif : Top 1 gagné | 70 % | **32 %** (Viper 30 %, Sentinelle 33 %) | 30 à 35 % |
+| Agressif : duels finaux gagnés | 100 % | 73 % | |
+| Agressif : duels gagnés par cercle | 83 / 83 / 94 / 88 / 92 % | 79 / 81 / 59 / 73 / 74 % | ~70 % au cercle 5 |
+| Prudent : Top 1 gagné | 40 % | ~15 % | |
+
+Un humain qui range bien fait mieux que la politique agressive : le Top 1 devrait se situer plus haut pour toi.
+C'est au playtest de le confirmer.
+
+**Écarts restants pour la phase 2** : en fin de partie, Akimbo (65 à 74 %) et Démolition (66 à 71 %) dominent ;
+Rempart (29 à 39 %) et Feu continu (31 à 43 %) souffrent. Cause principale : la **densité des objets**. Les petits
+objets (grenades d'une case, pistolets jumelés en 2×2) permettent 13 à 14 objets par sac, les gros (armure lourde,
+SMG lourds) 10 à 11. Piste : valeur par case, ou des effets qui récompensent les gros objets.
+
+## Critère de sortie
+
+Playtest de 5 personnes : Top 1 gagné 30 à 45 % des runs, au moins 3 archétypes différents parmi les sacs gagnants,
+« j'ai envie de relancer ».

@@ -31,8 +31,8 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     blurb: 'SMG et fusils d’assaut à gros chargeurs : la cadence monte tant qu’il tire.',
     weapons: ['smg', 'smg_ours', 'smg_guepe', 'fusil_assaut', 'ar_vesta', 'ar_hades', 'ar_lynx'],
     crafted: ['ours_deluge', 'kr4_tactique', 'furet_akimbo'],
-    extras: ['chg_tambour', 'refroidisseur', 'chg_9mm', 'chg_556', 'poignee', 'chg_etendu', 'seringue', 'plaque', 'casque'],
-    armorShare: 0.4,
+    extras: ['chg_tambour', 'refroidisseur', 'chg_9mm', 'chg_556', 'poignee', 'chg_etendu', 'seringue'],
+    armorShare: 0.15,
   },
   akimbo: {
     id: 'akimbo', name: 'Akimbo',
@@ -70,7 +70,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     weapons: ['fusil_assaut', 'ar_vesta', 'ar_lynx', 'revolver', 'pompe'],
     crafted: ['armure_lourde', 'casque_lourd', 'kit_trauma', 'sac_medical'],
     extras: ['plaque', 'casque', 'ifak', 'seringue', 'bandage', 'chg_556', 'chg_44', 'chg_12g'],
-    armorShare: 0.5,
+    armorShare: 0.35,
     noAccessory: true,
   },
   lame: {

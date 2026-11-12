@@ -44,20 +44,20 @@ const BACKPACKS: [number, number, number, number][] = [
  * Chance, selon le niveau du bot, que son arme principale, sa protection ou un objet de soutien soit
  * un objet assemblé (recette) : c'est ce qui remplace les raretés dans la montée en puissance des bots.
  */
-export const CRAFTED_ODDS = [0, 0.1, 0.25, 0.4, 0.5, 0.65, 0.8];
+export const CRAFTED_ODDS = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.85];
 /** Chance qu'un objet tiré vienne de l'archétype du bot (sinon de son pool « cœur »). */
 export const ARCH_FOCUS = 0.8;
 export const ARCH_FOCUS_LANDING = 0.4;
 /** Manche (0 = 1er cercle) à partir de laquelle un bot peut jouer le build Lame. */
-export const LAME_FROM = 2;
+export const LAME_FROM = 3;
 /** Bonus de chance d'objet assemblé pour un bot fort. */
 const FORT_CRAFTED_BONUS = 0.25;
 
 /** Niveau (index de CRAFTED_ODDS) et nombre d'objets du bot du Top 1 (avant le bonus de bot fort). */
-export const FINAL_LEVEL = 5;
-export const FINAL_ITEMS = 9;
+export const FINAL_LEVEL = 6;
+export const FINAL_ITEMS = 12;
 /** Objets dans le sac d'un bot normal, par manche (4 au 1er cercle, comme un sac de départ). */
-export const BOT_ITEMS = [4, 6, 7, 8, 9];
+export const BOT_ITEMS = [4, 6, 8, 10, 12];
 
 /**
  * Part du bonus de danger de la zone appliquée selon la manche : rien au 1er cercle (tout le monde vient
@@ -96,7 +96,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const danger = (opts.danger ?? 0) * (opts.final ? 1 : DANGER_RAMP[Math.min(round, DANGER_RAMP.length - 1)]);
   const rng = mulberry32(hashParts('bot', seed, round, opts.danger ?? 0, opts.final ? 1 : 0, opts.goulag ? 1 : 0));
   const operator = pick(rng, OPERATOR_IDS);
-  // Le build Lame demande des pièces : pas avant le 3e cercle, ni au Top 1.
+  // Le build Lame demande des pièces : pas avant le 4e cercle, ni au Top 1.
   const archetype = pick(rng, archetypesFor(operator).filter((a) => a !== 'lame' || (round >= LAME_FROM && !opts.final)));
   const name = rng() < 0.4 ? `${pick(rng, CALLSIGNS)}-${1 + Math.floor(rng() * 9)}` : pick(rng, CALLSIGNS);
 
@@ -232,12 +232,14 @@ export function placeBot(list: string[], usable: Set<string>, rng: Rng, sloppy =
   const placed: ItemInst[] = [];
   // Les protections passent avant les accessoires : un sac plein abandonne un viseur plutôt que son armure.
   const isArmor = (id: string) => !!ITEMS[id].armor && !isWeapon(id);
+  // Armes de mêlée juste après les armes à feu : un build Lame ne doit jamais perdre ses lames faute de place.
   const order = [
     ...list.filter((id) => isWeapon(id)),
+    ...list.filter((id) => isMelee(id)),
     ...list.filter((id) => isMag(id)),
     ...list.filter(isArmor).sort((x, y) => cells(y) - cells(x)),
     ...list.filter((id) => isAccessory(id)),
-    ...list.filter((id) => !isWeapon(id) && !ITEMS[id].synergy && !isArmor(id)).sort((x, y) => cells(y) - cells(x)),
+    ...list.filter((id) => !isWeapon(id) && !isMelee(id) && !ITEMS[id].synergy && !isArmor(id)).sort((x, y) => cells(y) - cells(x)),
   ];
   let uid = 1;
   const bounds = [...usable].map((k) => k.split(',').map(Number));
