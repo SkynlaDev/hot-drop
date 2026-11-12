@@ -163,7 +163,7 @@ const DEFS: ItemDef[] = [
     weapon: { dmg: 7.5, interval: 0.55, mag: 15, reload: 2.2 } },
   { id: 'ar_hades', name: 'Fusil de combat Hadès', short: 'Hadès', wclass: "Fusil d'assaut", shape: ['XXXX', '.XX.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 10,
     weapon: { dmg: 18, interval: 1.05, mag: 10, reload: 3.0 } },
-  { id: 'ar_lynx', name: 'Carabine Lynx', short: 'Lynx', wclass: "Fusil d'assaut", shape: ['XXX', '..X'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 7,
+  { id: 'ar_lynx', name: 'Carabine Lynx', short: 'Lynx', wclass: "Fusil d'assaut", shape: ['XXX', 'X.X'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 7,
     weapon: { dmg: 6, interval: 0.45, mag: 12, reload: 1.8 } },
   { id: 'smg_guepe', name: 'Pistolet-mitrailleur Guêpe', short: 'Guêpe', wclass: 'SMG', shape: ['XX', '.X'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 5,
     weapon: { dmg: 3, interval: 0.28, mag: 12, reload: 1.8 } },

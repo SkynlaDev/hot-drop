@@ -332,13 +332,13 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 <img src="../public/art/items/ar_lynx.png" height="48">
 
-**Base · Fusil d'assaut · 5.56** · Forme `■■■ / ··■` (4 cases) · Prix 7 · dès le cercle 1
+**Base · Fusil d'assaut · 5.56** · Forme `■■■ / ■·■` (5 cases) · Prix 7 · dès le cercle 1
 
 - Dégâts 6 toutes les 0,5 s
 - Chargeur 12 balles · recharge 1,8 s
 - Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
-- 4 cases · revente 3 cr
+- 5 cases · revente 3 cr
 
 #### Pistolet-mitrailleur Guêpe
 
