@@ -2,12 +2,13 @@
 // Le joueur choisit une zone dans le cercle et s'y largue.
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { P } from '../ui/palette';
 import { C, H, W, TITLE_FONT } from '../config';
 import { rngFor } from '../logic/rng';
 import { RunState, dropInZone, finalDuelParams, saveRun, selectableZones } from '../logic/run';
 import { CARDS_BY_SIZE, CARD_WEIGHTS, CardType, Circle, EPIC_CRATE_CHANCE, MAP_SIZE, MapZone, ROUNDS, ZONE_RADIUS, circle, dist, isGassed } from '../logic/zone';
 import { CARD_INFO, EPIC_GOLD, SIZE_INFO, THEME_INFO, iconButton, roundTrack, statusPills } from '../ui/hud';
-import { Button, banner, button, fadeIn, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
+import { Button, banner, button, chamferPoints, fadeIn, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
 const MAP = { x: 20, y: 150, w: 680, h: 680 };
 const K = MAP.w / MAP_SIZE;
@@ -137,6 +138,25 @@ export default class MapScene extends Phaser.Scene {
     g.strokePoints(pts, false);
     g.lineStyle(10, 0x22465a, 1);
     g.strokePoints(pts, false);
+    // Courbes de niveau (relief), très discrètes
+    for (let k = 0; k < 6; k++) {
+      const cx = MAP.x + rng() * MAP.w;
+      const cy = MAP.y + rng() * MAP.h;
+      const ph = rng() * 6;
+      for (let rr = 24; rr < 170; rr += 22) {
+        g.lineStyle(1.5, P.traitClair, 0.22 - rr / 1200);
+        g.beginPath();
+        for (let a = 0; a <= 48; a++) {
+          const t = (a / 48) * Math.PI * 2;
+          const wob = 1 + 0.14 * Math.sin(t * 3 + ph) + 0.06 * Math.sin(t * 5 + rr);
+          const px = cx + Math.cos(t) * rr * 1.3 * wob;
+          const py = cy + Math.sin(t) * rr * 0.9 * wob;
+          if (a === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
+        }
+        g.strokePath();
+      }
+    }
     // Quadrillage tactique
     g.lineStyle(1, 0x000000, 0.2);
     for (let i = 1; i < 10; i++) {
@@ -239,6 +259,12 @@ export default class MapScene extends Phaser.Scene {
       }
       g.lineStyle(3, si.color, 1);
       g.strokeCircle(0, 0, r);
+      // Repères d'objectif aux quatre points cardinaux
+      g.lineStyle(3, si.color, 1);
+      for (let q = 0; q < 4; q++) {
+        const a = (q * Math.PI) / 2;
+        g.lineBetween(Math.cos(a) * (r + 3), Math.sin(a) * (r + 3), Math.cos(a) * (r + 10), Math.sin(a) * (r + 10));
+      }
       root.add(g);
       // Nom et nombre de cartes
       // Le nom est sur un calque au-dessus de toutes les zones, pour ne pas être masqué par une voisine.
@@ -254,9 +280,9 @@ export default class MapScene extends Phaser.Scene {
       }
       const chip = this.add.graphics();
       chip.fillStyle(0x0f0d13, 1);
-      chip.fillRoundedRect(-22, -14, 44, 28, 14);
+      chip.fillPoints(chamferPoints(-22, -14, 44, 28, 7), true);
       chip.lineStyle(2, si.color, 1);
-      chip.strokeRoundedRect(-22, -14, 44, 28, 14);
+      chip.strokePoints(chamferPoints(-22, -14, 44, 28, 7), false, true);
       root.add(chip);
       root.add(this.add.image(-8, 0, 'ic-tag').setDisplaySize(16, 16).setTint(si.color));
       root.add(txt(this, 8, 0, `${CARDS_BY_SIZE[z.size]}`, 18, si.hex, { fontStyle: 'bold' }).setOrigin(0.5));
@@ -295,8 +321,34 @@ export default class MapScene extends Phaser.Scene {
     g.fillRect(0, MAP.y + MAP.h, W, H - MAP.y - MAP.h);
     g.fillRect(0, 0, MAP.x, H);
     g.fillRect(MAP.x + MAP.w, 0, W - MAP.x - MAP.w, H);
+    // Cadre de carte d'état-major : double filet, coins renforcés, coordonnées A–J et 1–10.
     g.lineStyle(3, C.panelLine, 1);
-    g.strokeRoundedRect(MAP.x - 2, MAP.y - 2, MAP.w + 4, MAP.h + 4, 8);
+    g.strokeRect(MAP.x - 2, MAP.y - 2, MAP.w + 4, MAP.h + 4);
+    g.lineStyle(1, P.trait, 1);
+    g.strokeRect(MAP.x - 7, MAP.y - 7, MAP.w + 14, MAP.h + 14);
+    g.fillStyle(C.panelLine, 1);
+    for (const [cx, cy, sx, sy] of [[MAP.x, MAP.y, 1, 1], [MAP.x + MAP.w, MAP.y, -1, 1], [MAP.x, MAP.y + MAP.h, 1, -1], [MAP.x + MAP.w, MAP.y + MAP.h, -1, -1]]) {
+      g.fillRect(sx > 0 ? cx - 8 : cx - 22, sy > 0 ? cy - 8 : cy + 4, 30, 4);
+      g.fillRect(sx > 0 ? cx - 8 : cx + 4, sy > 0 ? cy - 8 : cy - 22, 4, 30);
+    }
+    for (let i = 0; i < 10; i++) {
+      const step = MAP.w / 10;
+      txt(this, MAP.x + step * (i + 0.5), MAP.y + 10, 'ABCDEFGHIJ'[i], 13, C.quiet, { fontFamily: TITLE_FONT }).setOrigin(0.5, 0).setDepth(30).setAlpha(0.7);
+      txt(this, MAP.x + 8, MAP.y + step * (i + 0.5), `${i + 1}`, 13, C.quiet, { fontFamily: TITLE_FONT }).setOrigin(0, 0.5).setDepth(30).setAlpha(0.7);
+    }
+    // Rose des vents
+    const rx = MAP.x + MAP.w - 40;
+    const ry = MAP.y + 76;
+    const rose = this.add.graphics().setDepth(30);
+    rose.fillStyle(P.nuit, 0.7);
+    rose.fillCircle(rx, ry, 24);
+    rose.lineStyle(2, P.traitClair, 1);
+    rose.strokeCircle(rx, ry, 24);
+    rose.fillStyle(P.orange, 1);
+    rose.fillTriangle(rx - 6, ry, rx + 6, ry, rx, ry - 20);
+    rose.fillStyle(P.discret, 1);
+    rose.fillTriangle(rx - 6, ry, rx + 6, ry, rx, ry + 20);
+    txt(this, rx, ry - 36, 'N', 14, C.accentStr, { fontFamily: TITLE_FONT }).setOrigin(0.5).setDepth(30);
     panel(this, PANEL.x, PANEL.y, PANEL.w, PANEL.h).setDepth(30);
 
     iconButton(this, 50, 50, 'ic-menu', () => this.scene.start('menu')).setDepth(31);
@@ -372,13 +424,26 @@ export default class MapScene extends Phaser.Scene {
     }
     this.selected = z;
     vibrate(8);
+    // Réticule de visée : quatre équerres qui tournent autour de la zone, et qui se resserrent à l'arrivée.
     this.selG.clear();
-    const r = ZONE_RADIUS[z.size] * K;
-    this.selG.lineStyle(4, 0xffffff, 1);
-    this.selG.strokeCircle(this.sx(z.x), this.sy(z.y), r + 7);
-    this.selG.setAlpha(1);
+    const r = ZONE_RADIUS[z.size] * K + 14;
+    this.selG.setPosition(this.sx(z.x), this.sy(z.y));
+    this.selG.lineStyle(4, P.blanc, 1);
+    for (let q = 0; q < 4; q++) {
+      const a = (q * Math.PI) / 2 + Math.PI / 4;
+      this.selG.beginPath();
+      this.selG.arc(0, 0, r, a - 0.35, a + 0.35);
+      this.selG.strokePath();
+    }
+    this.selG.lineStyle(2, P.orange, 1);
+    for (let q = 0; q < 4; q++) {
+      const a = (q * Math.PI) / 2;
+      this.selG.lineBetween(Math.cos(a) * (r - 6), Math.sin(a) * (r - 6), Math.cos(a) * (r + 8), Math.sin(a) * (r + 8));
+    }
+    this.selG.setAlpha(1).setScale(1.6).setAngle(0);
     this.tweens.killTweensOf(this.selG);
-    this.tweens.add({ targets: this.selG, alpha: 0.35, yoyo: true, repeat: -1, duration: 500 });
+    this.tweens.add({ targets: this.selG, scale: 1, duration: 220, ease: 'Back.Out' });
+    this.tweens.add({ targets: this.selG, angle: 360, duration: 6000, repeat: -1 });
     const v = this.views.find((w) => w.zone === z);
     if (v) this.tweens.add({ targets: v.root, scale: 1.1, yoyo: true, duration: 120 });
     this.showInfo();
@@ -391,7 +456,7 @@ export default class MapScene extends Phaser.Scene {
     const y0 = PANEL.y + 24;
     const z = this.selected;
     if (!z) {
-      I.add(txt(this, x0, y0, 'Choisis ta zone de largage', 32, C.text, { fontStyle: 'bold' }));
+      I.add(txt(this, x0, y0, 'Choisis ta zone de largage', 28, C.text, { fontFamily: TITLE_FONT }));
       I.add(txt(this, x0, y0 + 50, 'Tu y joueras 3 cartes parmi celles tirées. Plus la zone\nest grande, plus il y a de cartes… et de danger.', 21, C.quiet, { lineSpacing: 6 }));
       let x = x0;
       for (const s of ['petite', 'moyenne', 'grande'] as const) {
