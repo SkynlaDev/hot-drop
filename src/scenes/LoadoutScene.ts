@@ -1210,8 +1210,8 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private rotateItemInPlace(inst: ItemInst, from: 'grid' | 'tray') {
+    // Même une forme symétrique (1×1, 2×2…) tourne : ses étoiles et son sprite tournent avec elle.
     const nr = nextRot(inst.rot);
-    if (rotationIsNoop(inst.defId, inst.rot)) return;
     if (from === 'tray') {
       inst.rot = nr;
       this.refresh();
