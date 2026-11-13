@@ -122,3 +122,8 @@ Rempart 39 % ; Viper 45-49 % contre Sentinelle à chaque cercle. Akimbo reste tr
 
 `runsim 80` : agressif 24 % de Top 1 (Viper 20 %, Sentinelle 28 %), prudent 13 %. Un peu sous la cible : le
 simulateur ne vise ni les composants ni les recettes de rang 2, un joueur si.
+
+**Étape 5 (sprites : fait)** : 18 sprites PixelLab (`create_image_pro`, image de style des armes, masque de forme ;
+objets assemblés dessinés depuis leur objet de base), recalés par `fit-place.py`, meilleur candidat choisi sur planche.
+Coût : 180 générations. Aperçu : `design/da/combat-v2-objets.png`. Le Rhinocéros n'a eu qu'un candidat (la taille
+192 px n'en donne qu'un) : à refaire si sa crosse paraît trop maigre.

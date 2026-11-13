@@ -57,11 +57,30 @@
     "armure_lourde": "heavy armored vest with plates and pouches",
     "casque": "olive military ballistic helmet",
     "casque_lourd": "heavy ballistic helmet with visor",
-    "plaque": "grey ceramic ballistic armor plate"
+    "plaque": "grey ceramic ballistic armor plate",
+    "briquet": "metal flip lighter (zippo style) with a small orange flame, black",
+    "batterie": "rugged black military battery with terminals and a yellow lightning bolt sticker",
+    "ration": "khaki brown military ration pouch with a label",
+    "chg_incendiaire": "base magazine (chg_9mm) with red-orange tipped bullets and a flame symbol",
+    "chg_electrique": "base magazine (chg_9mm) with glowing blue tipped bullets and a lightning symbol",
+    "grenade_incendiaire": "base frag grenade with a red-orange band and a flame symbol",
+    "grenade_iem": "base flash grenade with glowing blue coils and electric arcs",
+    "taser_lourd": "base taser with a big battery pack strapped on and blue arcs",
+    "combinaison": "folded fire-resistant jacket, dark grey with reflective orange stripes",
+    "plaque_isolante": "black rubber-coated plate with yellow and black warning stripes and a lightning symbol",
+    "souffle_dragon": "base Pompe Dragon upgraded: glowing orange flared muzzle, red heat-shielded barrel guard, incendiary shells",
+    "bobine_tesla": "tesla coil gun: copper coils on a black barrel, battery pack, blue arcs",
+    "juggernaut": "base heavy armor upgraded into a massive riveted bomb-suit vest with shoulder guards and high collar",
+    "poste_secours": "base trauma kit upgraded into an open field medical case: IV bag, red cross, supplies",
+    "lame_rouge": "base machete upgraded: dark red serrated blade, wrapped black handle",
+    "rhinoceros": "base Aigle Longue-vue upgraded into a huge anti-materiel rifle: long barrel, muzzle brake, big scope",
+    "kr4_mitrailleur": "base KR-4 Tactique upgraded into a light machine gun: round drum magazine, bipod, carry handle",
+    "bombe_phosphore": "base thermite upgraded into a white phosphorus canister with a yellow band and a pin"
   },
   "_armes": "Armes (27) : refaites avec create_image_pro pour un style commun, en noir neutre (les skins viendront par-dessus). Image de style : tools/art/style-armes.png (Hadès, SMG Furet, revolver, pompe). Référence : le masque de la forme (gris = cases). Armes assemblées : référence = le sprite de l'arme de base, pour qu'on reconnaisse l'amélioration ; Akimbo et Jumeaux = deux exemplaires de l'arme de base. Post-traitement : tools/art/fit-place.py (décalage seul, sans mise à l'échelle, puis découpe au masque).",
   "_accessoires": "Accessoires et munitions (16, taser compris) : même méthode et même image de style que les armes, noir neutre ; seuls accents : laiton des douilles, cartouches 12G rouges, pointes des traçantes.",
   "_menu": "Illustration du menu : public/art/menu/keyart.png (create_image_pro 360×400, style et référence = public/art/px/viper.png), affichée ×2. Logo dessiné en code (src/ui/logo.ts).",
   "_protections": "Protections, soins, explosifs (14) : même méthode et même image de style ; objets assemblés dessinés depuis leur objet de base (casque → casque lourd, plaque → armure lourde, IFAK → kit de trauma / sac médical, frag → sous-munitions, fumigène → thermite). Accents : croix rouges, bandes des grenades.",
-  "_palette": "Palette « Crépuscule » (src/ui/palette.ts, design/da/palette-crepuscule.png) : la passer en `palette` aux prochaines générations PixelLab (décors, interface, effets). Les sprites existants ne sont pas recolorés (leurs dégradés s'abîmeraient)."
+  "_palette": "Palette « Crépuscule » (src/ui/palette.ts, design/da/palette-crepuscule.png) : la passer en `palette` aux prochaines générations PixelLab (décors, interface, effets). Les sprites existants ne sont pas recolorés (leurs dégradés s'abîmeraient).",
+  "_combat_v2": "Combat v2 (18 objets, 13 novembre 2026) : même méthode que les armes (create_image_pro, image de style tools/art/style-armes.png, masque de forme ; objets assemblés : sprite de l'objet de base en référence), recalage tools/art/fit-place.py, meilleur candidat choisi sur planche."
 }

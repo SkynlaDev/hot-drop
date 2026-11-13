@@ -145,20 +145,20 @@ Les objets se renforcent quand ils se touchent dans le sac (bords partagés). To
 | <img src="../public/art/items/casque_lourd.png" height="24"> Casque lourd | Protection (cases précises) | +10 d'armure (max 1) |
 | <img src="../public/art/items/sous_munitions.png" height="24"> Grenade à sous-munitions | Explosif (tout autour) | +1 charge (max 1) |
 | <img src="../public/art/items/sac_medical.png" height="24"> Sac médical | Soin (tout autour) | +1 charge à cet objet (max 2) |
-|  Briquet | Explosif (tout autour) | +20 % de dégâts à cet objet (max 1) |
-|  Batterie | Arme (tout autour) | +5 % de cadence à cet objet (max 1) |
-|  Chargeur incendiaire | Arme (tout autour) | l'alimente (tout calibre), −25 % de recharge, chaque touche pose de la Brûlure |
-|  Chargeur électrique | Arme (tout autour) | l'alimente (tout calibre), −25 % de recharge, chaque touche pose du Choc |
-|  Grenade incendiaire | Explosif (tout autour) | +1 charge (max 1) |
-|  Grenade IEM | Explosif (tout autour) | +1 charge (max 1) |
-|  Taser lourd | Arme de mêlée (tout autour) | +1 charge (max 1) |
-|  Combinaison ignifugée | Protection (cases précises) | +5 d'armure (max 1) |
-|  Plaque isolante | Protection (cases précises) | +4 d'armure (max 1) |
-|  Souffle du Dragon | Explosif (tout autour) | +15 % de dégâts (max 2) |
-|  Blindage Juggernaut | Soin (tout autour) | soins +30 % à cet objet (max 2) |
-|  Poste de secours | Protection (tout autour) | soins +30 % (max 1) |
-|  Lame rouge | Arme de mêlée (cases précises) | +25 % de dégâts (max 1) |
-|  Bombe au phosphore | Explosif (tout autour) | +1 charge (max 1) |
+| <img src="../public/art/items/briquet.png" height="24"> Briquet | Explosif (tout autour) | +20 % de dégâts à cet objet (max 1) |
+| <img src="../public/art/items/batterie.png" height="24"> Batterie | Arme (tout autour) | +5 % de cadence à cet objet (max 1) |
+| <img src="../public/art/items/chg_incendiaire.png" height="24"> Chargeur incendiaire | Arme (tout autour) | l'alimente (tout calibre), −25 % de recharge, chaque touche pose de la Brûlure |
+| <img src="../public/art/items/chg_electrique.png" height="24"> Chargeur électrique | Arme (tout autour) | l'alimente (tout calibre), −25 % de recharge, chaque touche pose du Choc |
+| <img src="../public/art/items/grenade_incendiaire.png" height="24"> Grenade incendiaire | Explosif (tout autour) | +1 charge (max 1) |
+| <img src="../public/art/items/grenade_iem.png" height="24"> Grenade IEM | Explosif (tout autour) | +1 charge (max 1) |
+| <img src="../public/art/items/taser_lourd.png" height="24"> Taser lourd | Arme de mêlée (tout autour) | +1 charge (max 1) |
+| <img src="../public/art/items/combinaison.png" height="24"> Combinaison ignifugée | Protection (cases précises) | +5 d'armure (max 1) |
+| <img src="../public/art/items/plaque_isolante.png" height="24"> Plaque isolante | Protection (cases précises) | +4 d'armure (max 1) |
+| <img src="../public/art/items/souffle_dragon.png" height="24"> Souffle du Dragon | Explosif (tout autour) | +15 % de dégâts (max 2) |
+| <img src="../public/art/items/juggernaut.png" height="24"> Blindage Juggernaut | Soin (tout autour) | soins +30 % à cet objet (max 2) |
+| <img src="../public/art/items/poste_secours.png" height="24"> Poste de secours | Protection (tout autour) | soins +30 % (max 1) |
+| <img src="../public/art/items/lame_rouge.png" height="24"> Lame rouge | Arme de mêlée (cases précises) | +25 % de dégâts (max 1) |
+| <img src="../public/art/items/bombe_phosphore.png" height="24"> Bombe au phosphore | Explosif (tout autour) | +1 charge (max 1) |
 
 ## Familles
 
@@ -212,27 +212,27 @@ Quand tous les ingrédients d’une recette sont **posés dans le sac et se touc
 | <img src="../public/art/items/frag.png" height="24"> Grenade frag + <img src="../public/art/items/fumigene.png" height="24"> Fumigène | <img src="../public/art/items/thermite.png" height="24"> **Grenade thermite** |
 | <img src="../public/art/items/plaque.png" height="24"> Plaque céramique + <img src="../public/art/items/casque.png" height="24"> Casque balistique | <img src="../public/art/items/armure_lourde.png" height="24"> **Armure lourde** |
 | <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK + <img src="../public/art/items/seringue.png" height="24"> Seringue d'adrénaline | <img src="../public/art/items/kit_trauma.png" height="24"> **Kit de trauma** |
-| <img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm +  Briquet |  **Chargeur incendiaire** |
-| <img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm +  Batterie |  **Chargeur électrique** |
-| <img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56 +  Briquet |  **Chargeur incendiaire** |
-| <img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56 +  Batterie |  **Chargeur électrique** |
-| <img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62 +  Briquet |  **Chargeur incendiaire** |
-| <img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62 +  Batterie |  **Chargeur électrique** |
-| <img src="../public/art/items/chg_44.png" height="24"> Balles .44 +  Briquet |  **Chargeur incendiaire** |
-| <img src="../public/art/items/chg_44.png" height="24"> Balles .44 +  Batterie |  **Chargeur électrique** |
-| <img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G +  Briquet |  **Chargeur incendiaire** |
-| <img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G +  Batterie |  **Chargeur électrique** |
-| <img src="../public/art/items/frag.png" height="24"> Grenade frag +  Briquet |  **Grenade incendiaire** |
-| <img src="../public/art/items/flash.png" height="24"> Grenade flash +  Batterie |  **Grenade IEM** |
-| <img src="../public/art/items/taser.png" height="24"> Taser +  Batterie |  **Taser lourd** |
-| <img src="../public/art/items/pompe_dragon.png" height="24"> Pompe Dragon +  Grenade incendiaire |  **Souffle du Dragon** |
-|  Taser lourd +  Chargeur électrique |  **Bobine Tesla** |
-| <img src="../public/art/items/casque_lourd.png" height="24"> Casque lourd + <img src="../public/art/items/armure_lourde.png" height="24"> Armure lourde |  **Blindage Juggernaut** |
-| <img src="../public/art/items/kit_trauma.png" height="24"> Kit de trauma + <img src="../public/art/items/sac_medical.png" height="24"> Sac médical |  **Poste de secours** |
-| <img src="../public/art/items/machette.png" height="24"> Machette + <img src="../public/art/items/couteau_combat.png" height="24"> Couteau de combat |  **Lame rouge** |
-| <img src="../public/art/items/aigle_longuevue.png" height="24"> Aigle Longue-vue + <img src="../public/art/items/perforantes.png" height="24"> Munitions perforantes |  **Fusil anti-matériel Rhinocéros** |
-| <img src="../public/art/items/kr4_tactique.png" height="24"> KR-4 Tactique + <img src="../public/art/items/chg_tambour.png" height="24"> Chargeur tambour |  **KR-4 Mitrailleur** |
-| <img src="../public/art/items/thermite.png" height="24"> Grenade thermite + <img src="../public/art/items/sous_munitions.png" height="24"> Grenade à sous-munitions |  **Bombe au phosphore** |
+| <img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm + <img src="../public/art/items/briquet.png" height="24"> Briquet | <img src="../public/art/items/chg_incendiaire.png" height="24"> **Chargeur incendiaire** |
+| <img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/chg_electrique.png" height="24"> **Chargeur électrique** |
+| <img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56 + <img src="../public/art/items/briquet.png" height="24"> Briquet | <img src="../public/art/items/chg_incendiaire.png" height="24"> **Chargeur incendiaire** |
+| <img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56 + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/chg_electrique.png" height="24"> **Chargeur électrique** |
+| <img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62 + <img src="../public/art/items/briquet.png" height="24"> Briquet | <img src="../public/art/items/chg_incendiaire.png" height="24"> **Chargeur incendiaire** |
+| <img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62 + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/chg_electrique.png" height="24"> **Chargeur électrique** |
+| <img src="../public/art/items/chg_44.png" height="24"> Balles .44 + <img src="../public/art/items/briquet.png" height="24"> Briquet | <img src="../public/art/items/chg_incendiaire.png" height="24"> **Chargeur incendiaire** |
+| <img src="../public/art/items/chg_44.png" height="24"> Balles .44 + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/chg_electrique.png" height="24"> **Chargeur électrique** |
+| <img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G + <img src="../public/art/items/briquet.png" height="24"> Briquet | <img src="../public/art/items/chg_incendiaire.png" height="24"> **Chargeur incendiaire** |
+| <img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/chg_electrique.png" height="24"> **Chargeur électrique** |
+| <img src="../public/art/items/frag.png" height="24"> Grenade frag + <img src="../public/art/items/briquet.png" height="24"> Briquet | <img src="../public/art/items/grenade_incendiaire.png" height="24"> **Grenade incendiaire** |
+| <img src="../public/art/items/flash.png" height="24"> Grenade flash + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/grenade_iem.png" height="24"> **Grenade IEM** |
+| <img src="../public/art/items/taser.png" height="24"> Taser + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/taser_lourd.png" height="24"> **Taser lourd** |
+| <img src="../public/art/items/pompe_dragon.png" height="24"> Pompe Dragon + <img src="../public/art/items/grenade_incendiaire.png" height="24"> Grenade incendiaire | <img src="../public/art/items/souffle_dragon.png" height="24"> **Souffle du Dragon** |
+| <img src="../public/art/items/taser_lourd.png" height="24"> Taser lourd + <img src="../public/art/items/chg_electrique.png" height="24"> Chargeur électrique | <img src="../public/art/items/bobine_tesla.png" height="24"> **Bobine Tesla** |
+| <img src="../public/art/items/casque_lourd.png" height="24"> Casque lourd + <img src="../public/art/items/armure_lourde.png" height="24"> Armure lourde | <img src="../public/art/items/juggernaut.png" height="24"> **Blindage Juggernaut** |
+| <img src="../public/art/items/kit_trauma.png" height="24"> Kit de trauma + <img src="../public/art/items/sac_medical.png" height="24"> Sac médical | <img src="../public/art/items/poste_secours.png" height="24"> **Poste de secours** |
+| <img src="../public/art/items/machette.png" height="24"> Machette + <img src="../public/art/items/couteau_combat.png" height="24"> Couteau de combat | <img src="../public/art/items/lame_rouge.png" height="24"> **Lame rouge** |
+| <img src="../public/art/items/aigle_longuevue.png" height="24"> Aigle Longue-vue + <img src="../public/art/items/perforantes.png" height="24"> Munitions perforantes | <img src="../public/art/items/rhinoceros.png" height="24"> **Fusil anti-matériel Rhinocéros** |
+| <img src="../public/art/items/kr4_tactique.png" height="24"> KR-4 Tactique + <img src="../public/art/items/chg_tambour.png" height="24"> Chargeur tambour | <img src="../public/art/items/kr4_mitrailleur.png" height="24"> **KR-4 Mitrailleur** |
+| <img src="../public/art/items/thermite.png" height="24"> Grenade thermite + <img src="../public/art/items/sous_munitions.png" height="24"> Grenade à sous-munitions | <img src="../public/art/items/bombe_phosphore.png" height="24"> **Bombe au phosphore** |
 | <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba | <img src="../public/art/items/mamba_akimbo.png" height="24"> **Mamba Akimbo** |
 | <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau + <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau | <img src="../public/art/items/taureau_jumeaux.png" height="24"> **Taureau Jumeaux** |
 | <img src="../public/art/items/casque.png" height="24"> Casque balistique + <img src="../public/art/items/casque.png" height="24"> Casque balistique | <img src="../public/art/items/casque_lourd.png" height="24"> **Casque lourd** |
@@ -615,6 +615,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Souffle du Dragon
 
+<img src="../public/art/items/souffle_dragon.png" height="48">
+
 **Assemblé · Fusil à pompe · 12G** · Forme `■■■■■ / ■■···` (7 cases) · Assemblé
 
 - Dégâts 17 toutes les 1,4 s
@@ -630,6 +632,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Bobine Tesla
 
+<img src="../public/art/items/bobine_tesla.png" height="48">
+
 **Assemblé · Arme électrique** · Forme `■■■ / ■■■` (6 cases) · Assemblé
 
 - Dégâts 6 toutes les 0,6 s
@@ -644,6 +648,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Fusil anti-matériel Rhinocéros
 
+<img src="../public/art/items/rhinoceros.png" height="48">
+
 **Assemblé · Fusil de précision · 7.62** · Forme `■■■■■■ / ··■···` (7 cases) · Assemblé
 
 - Dégâts 130 toutes les 3,6 s
@@ -657,6 +663,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 7 cases · revente 18 cr
 
 #### KR-4 Mitrailleur
+
+<img src="../public/art/items/kr4_mitrailleur.png" height="48">
 
 **Assemblé · Fusil d'assaut · 5.56** · Forme `■■■■■ / ·■■■·` (8 cases) · Assemblé
 
@@ -727,6 +735,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 3 cases · revente 3 cr
 
 #### Lame rouge
+
+<img src="../public/art/items/lame_rouge.png" height="48">
 
 **Assemblé · Machette** · Forme `■■■■` (4 cases) · Assemblé
 
@@ -826,6 +836,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Chargeur incendiaire
 
+<img src="../public/art/items/chg_incendiaire.png" height="48">
+
 **Assemblé · Munition** · Forme `■` (1 case) · Assemblé
 
 - ★ Arme adjacent : l'alimente (tout calibre), −25 % de recharge, chaque touche pose de la Brûlure
@@ -834,6 +846,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 1 case · revente 3 cr
 
 #### Chargeur électrique
+
+<img src="../public/art/items/chg_electrique.png" height="48">
 
 **Assemblé · Munition** · Forme `■` (1 case) · Assemblé
 
@@ -947,6 +961,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Taser lourd
 
+<img src="../public/art/items/taser_lourd.png" height="48">
+
 **Assemblé · Accessoire** · Forme `■■` (2 cases) · Assemblé
 
 - 6 dégâts, immobilise l'adversaire 1,5 s (quand il recharge, sinon à 6 s)
@@ -1015,6 +1031,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Combinaison ignifugée
 
+<img src="../public/art/items/combinaison.png" height="48">
+
 **Base · Protection** · Forme `■■ / ■■` (4 cases) · Prix 6 · dès le cercle 2
 
 - Armure +14
@@ -1025,6 +1043,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Plaque isolante
 
+<img src="../public/art/items/plaque_isolante.png" height="48">
+
 **Base · Protection** · Forme `■■` (2 cases) · Prix 5 · dès le cercle 2
 
 - Armure +10
@@ -1034,6 +1054,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 cases · revente 2 cr
 
 #### Blindage Juggernaut
+
+<img src="../public/art/items/juggernaut.png" height="48">
 
 **Assemblé · Protection** · Forme `■■■ / ■■■ / ■■■` (9 cases) · Assemblé
 
@@ -1119,6 +1141,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Grenade incendiaire
 
+<img src="../public/art/items/grenade_incendiaire.png" height="48">
+
 **Assemblé · Explosif** · Forme `■` (1 case) · Assemblé
 
 - 14 dégâts à l'adversaire
@@ -1132,6 +1156,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Grenade IEM
 
+<img src="../public/art/items/grenade_iem.png" height="48">
+
 **Assemblé · Explosif** · Forme `■` (1 case) · Assemblé
 
 - Étourdit les armes adverses 1,2 s
@@ -1144,6 +1170,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 1 case · revente 4 cr
 
 #### Bombe au phosphore
+
+<img src="../public/art/items/bombe_phosphore.png" height="48">
 
 **Assemblé · Explosif** · Forme `■■` (2 cases) · Assemblé
 
@@ -1226,6 +1254,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Poste de secours
 
+<img src="../public/art/items/poste_secours.png" height="48">
+
 **Assemblé · Médical** · Forme `■■■ / ■■■` (6 cases) · Assemblé
 
 - Soigne 60 PV quand les PV passent sous 50 %
@@ -1239,6 +1269,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 ### Composants
 
 #### Briquet
+
+<img src="../public/art/items/briquet.png" height="48">
 
 **Base · Composant** · Forme `■` (1 case) · Prix 2 · dès le cercle 1
 
@@ -1254,6 +1286,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Batterie
 
+<img src="../public/art/items/batterie.png" height="48">
+
 **Base · Composant** · Forme `■` (1 case) · Prix 2 · dès le cercle 1
 
 - ★ Arme adjacent : +5 % de cadence à cet objet
@@ -1268,6 +1302,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 1 case · revente 1 cr
 
 #### Ration de combat
+
+<img src="../public/art/items/ration.png" height="48">
 
 **Base · Composant** · Forme `■` (1 case) · Prix 3 · dès le cercle 1
 
