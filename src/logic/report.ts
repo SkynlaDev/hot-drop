@@ -22,6 +22,12 @@ export interface ItemReport {
   dodged: number;
   /** Secondes d'étourdissement infligées (flash, taser). */
   stun: number;
+  /** Part de `dmg` venue de la Brûlure posée par cet objet. */
+  burnDmg: number;
+  /** Décharges de Choc déclenchées par cet objet. */
+  discharges: number;
+  /** Fois où cette arme a dû attendre, faute d'Endurance. */
+  tired: number;
 }
 
 export interface SideReport {
@@ -40,7 +46,7 @@ export type DuelReport = Record<Side, SideReport>;
 const other = (s: Side): Side => (s === 'a' ? 'b' : 'a');
 
 function blank(uid: number): ItemReport {
-  return { uid, dmg: 0, bleed: 0, shots: 0, hits: 0, crits: 0, heal: 0, absorbed: 0, uses: 0, dodged: 0, stun: 0 };
+  return { uid, dmg: 0, bleed: 0, shots: 0, hits: 0, crits: 0, heal: 0, absorbed: 0, uses: 0, dodged: 0, stun: 0, burnDmg: 0, discharges: 0, tired: 0 };
 }
 
 /** Valeur unique pour classer les objets : ce qu'ils ont fait gagner en PV (infligés, soignés, protégés). */
@@ -67,6 +73,12 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
   /** Réserve de saignement sur chaque camp, par objet adverse qui l'a posée. */
   const bleedBy: Record<Side, Map<number, number>> = { a: new Map(), b: new Map() };
   const smoke: Record<Side, { uid: number; until: number } | null> = { a: null, b: null };
+  /** Cumuls de Brûlure posés sur chaque camp, par objet adverse (pour répartir les dégâts des ticks). */
+  const burnBy: Record<Side, Map<number, number>> = { a: new Map(), b: new Map() };
+  const addBurn = (target: Side, uid: number, n?: number) => {
+    if (!n) return;
+    burnBy[target].set(uid, (burnBy[target].get(uid) ?? 0) + n);
+  };
   /** Tir en cours de chaque arme (plombs, balle doublée) : déjà compté comme touche ? */
   const shotHit = new Map<string, boolean>();
 
@@ -103,6 +115,7 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
           const m = bleedBy[other(e.from)];
           m.set(e.uid, (m.get(e.uid) ?? 0) + e.bleed);
         }
+        addBurn(other(e.from), e.uid, e.burn);
         break;
       }
       case 'bleed': {
@@ -147,11 +160,35 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
         r.dmg += e.amount;
         if (e.kind === 'taser') r.stun += e.until - e.t;
         take(other(e.side), e.amount, e.absorbed ?? 0);
+        addBurn(other(e.side), e.uid, e.burn);
         break;
       }
       case 'flash':
         it(e.side, e.uid).uses++;
         it(e.side, e.uid).stun += e.until - e.t;
+        addBurn(other(e.side), e.uid, e.burn);
+        break;
+      case 'burn': {
+        // Tick de Brûlure sur `side` : réparti entre les objets adverses selon les cumuls qu'ils ont posés.
+        sides[e.side].tookHp += e.amount;
+        sides[other(e.side)].dealt += e.amount;
+        const m = burnBy[e.side];
+        const total = [...m.values()].reduce((t, v) => t + v, 0);
+        if (total > 0) {
+          for (const [uid, v] of m) {
+            const part = (e.amount * v) / total;
+            const r = it(other(e.side), uid);
+            r.dmg += part;
+            r.burnDmg += part;
+          }
+        }
+        break;
+      }
+      case 'discharge':
+        it(other(e.side), e.uid).discharges++;
+        break;
+      case 'tired':
+        it(e.side, e.uid).tired++;
         break;
       case 'smoke':
         it(e.side, e.uid).uses++;
@@ -174,7 +211,7 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
       for (const [uid, v] of by) it(side, Number(uid)).absorbed += (sides[side].tookArmor * v) / total;
     }
     const round = (r: ItemReport): ItemReport => ({
-      ...r, dmg: Math.round(r.dmg), bleed: Math.round(r.bleed), heal: Math.round(r.heal), absorbed: Math.round(r.absorbed),
+      ...r, dmg: Math.round(r.dmg), bleed: Math.round(r.bleed), burnDmg: Math.round(r.burnDmg), heal: Math.round(r.heal), absorbed: Math.round(r.absorbed),
       stun: Math.round(r.stun * 10) / 10,
     });
     sides[side].items = [...items[side].values()]

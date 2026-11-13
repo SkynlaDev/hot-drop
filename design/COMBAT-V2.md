@@ -81,3 +81,14 @@ Ingrédients : objets assemblés. Gros, rares, visibles de loin grâce aux fils 
 3. **Recettes de rang 2**.
 4. **Bots et calibrage** (archétypes, `runsim`, matrice), journal dans ce document.
 5. **Sprites PixelLab** des nouveaux objets (style des armes, palette « Crépuscule »).
+
+---
+
+## Journal
+
+**Étape 1 (moteur, fait)** : Endurance (réserve 10, +1/s, coût par tir = débit de la classe × intervalle de base ;
+la cadence gagnée par le Feu continu ne coûte rien en plus, sinon Viper tombait à 41 % au Top 1), Brûlure et Choc
+dans `combat.ts` (nouveaux événements `burn`, `discharge`, `tired`), rapport de duel (dégâts de Brûlure attribués,
+décharges, essoufflements), arène (jauge d'Endurance dorée, pastilles flamme et éclair, « DÉCHARGE », « ESSOUFFLÉ »).
+Aucun objet ne pose encore de statut (étape 2). Mesure (`runsim 40`) : agressif 38 % de Top 1 (inchangé), prudent
+3 % (contre ~15 %) : à calibrer à l'étape 4.

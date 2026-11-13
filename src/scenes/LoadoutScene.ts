@@ -1,7 +1,7 @@
 // Sac à dos : rangement (objets et sacoches), boutique, caisse, et duels 1v1 sac contre sac.
 import Phaser from 'phaser';
 import { PX_FIGS, PxFigId, foeFig, opFig, pxFigure, pxKey } from '../art';
-import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, GRID_X, GRID_Y, H, MONO, RESERVE, SELL, STATUS, TITLE_FONT, TRAY, W } from '../config';
+import { ARENA, BAG_RESERVE, BUTTON, C, CELL, COMBAT, ENEMY, FONT, GRID_X, GRID_Y, H, MONO, RESERVE, SELL, STATUS, TITLE_FONT, TRAY, W } from '../config';
 import { BAGS, BagId } from '../data/bags';
 import { FAMILY_INFO, ITEMS } from '../data/items';
 import { OPERATORS } from '../data/operators';
@@ -11,7 +11,7 @@ import { BotBuild, botLoadout, generateBot } from '../logic/bots';
 import { DuelEvent, DuelResult, Side, simulateDuel } from '../logic/combat';
 import { DuelReport, ItemReport, duelReport, itemWeight } from '../logic/report';
 import { SfxId, sfx, warmSfx } from '../audio/sfx';
-import { P } from '../ui/palette';
+import { P, hex } from '../ui/palette';
 import {
   BASE_X0, BASE_X1, BASE_Y0, BASE_Y1, BagInst, COLS, ItemInst, ROWS, Rot, bagAt, canMoveBag, canPlace, canPlaceBag, cellCount, cellsAt,
   cellsOf, dims, itemAt, maskOf, nextRot, overlapping, rotationIsNoop,
@@ -25,7 +25,7 @@ import {
   finalDuelParams, goulagParams, placeBag, rerollShop, toggleLock, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
   closeResupply, finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
-import { PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
+import { ENDURANCE_MAX, PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
 import { ACTIONS_PER_ZONE, ROUNDS } from '../logic/zone';
 import { Button, bagView, banner, button, chamferPoints, fadeIn, fillMask, flashItem, itemView, modalBase, panel, pop, toast, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
@@ -114,6 +114,15 @@ interface Actor {
   barW: number;
   barX: number;
   barY: number;
+  /** Combat v2 : Endurance (Infinity = pas de jauge), cumuls de Brûlure et de Choc, dernier « essoufflé » affiché. */
+  end: number;
+  endMax: number;
+  endRegen: number;
+  burn: number;
+  shock: number;
+  shockMax: number;
+  lastTired: number;
+  chips: Phaser.GameObjects.Text[];
 }
 
 interface DuelPlay {
@@ -2040,6 +2049,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const a: Actor = {
       side, x, feet, hp, maxHp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
       muzzle: pt(meta.muzzle), chest: pt(meta.chest),
+      end: ENDURANCE_MAX, endMax: ENDURANCE_MAX, endRegen: 1, burn: 0, shock: 0, shockMax: 5, lastTired: -9, chips: [],
     };
     this.drawBars(a);
     return a;
@@ -2079,6 +2089,39 @@ export default class LoadoutScene extends Phaser.Scene {
         g.fillPoints(bar(x0 + 4, y - 19, (a.barW - 2) * af, 7), true);
       }
     }
+    // Endurance : fine jauge dorée sous la vie.
+    if (Number.isFinite(a.endMax)) {
+      g.fillStyle(P.nuit, 0.85);
+      g.fillRect(x0, y + 12, a.barW, 5);
+      g.fillStyle(a.end < 1.5 ? P.braise : P.or, 1);
+      g.fillRect(x0, y + 12, (a.barW * Math.max(0, Math.min(a.end, a.endMax))) / a.endMax, 5);
+    }
+    // Statuts : pastille flamme (cumuls de Brûlure) et éclair (Choc / seuil).
+    let cx = x0;
+    const chip = (color: number, n: string, icon: (gx: number, gy: number) => void) => {
+      const w = 22 + n.length * 7;
+      g.fillStyle(P.nuit, 0.9);
+      g.fillRoundedRect(cx, y + 21, w, 16, 5);
+      g.lineStyle(1, color, 1);
+      g.strokeRoundedRect(cx, y + 21, w, 16, 5);
+      icon(cx + 8, y + 29);
+      a.chips.push(this.add.text(cx + 15, y + 29, n, { fontFamily: FONT, fontSize: '12px', fontStyle: 'bold', color: hex(color), resolution: 2 }).setOrigin(0, 0.5));
+      cx += w + 4;
+    };
+    for (const t of a.chips) t.destroy();
+    a.chips = [];
+    if (a.burn > 0) chip(P.orange, `${a.burn}`, (gx, gy) => {
+      g.fillStyle(P.orange, 1);
+      g.fillTriangle(gx - 4, gy + 5, gx + 4, gy + 5, gx, gy - 6);
+      g.fillStyle(P.or, 1);
+      g.fillTriangle(gx - 2, gy + 5, gx + 2, gy + 5, gx, gy - 1);
+    });
+    if (a.shock > 0) chip(P.precision, `${a.shock}/${a.shockMax}`, (gx, gy) => {
+      g.fillStyle(P.precision, 1);
+      g.fillTriangle(gx + 2, gy - 6, gx - 4, gy + 1, gx, gy + 1);
+      g.fillTriangle(gx - 2, gy + 6, gx + 4, gy - 1, gx, gy - 1);
+    });
+    for (const t of a.chips) this.arenaLayer.add(t);
     a.hpText.setText(`${Math.ceil(a.hp)}`);
   }
 
@@ -2106,6 +2149,14 @@ export default class LoadoutScene extends Phaser.Scene {
     this.me.maxArmor = loadout.armor;
     this.foe.hp = this.botL.maxHp;
     this.foe.armor = this.botL.armor;
+    for (const [a, l] of [[this.me, loadout], [this.foe, this.botL]] as const) {
+      a.endMax = l.endMax ?? Infinity;
+      a.end = a.endMax;
+      a.endRegen = l.endRegen ?? 1;
+      a.burn = 0;
+      a.shock = 0;
+      a.shockMax = l.shockThreshold ?? 5;
+    }
     this.drawBars(this.me);
     this.drawBars(this.foe);
     const vs = this.arenaLayer.getByName('vs');
@@ -2351,13 +2402,31 @@ export default class LoadoutScene extends Phaser.Scene {
     else sfx('hit', { vol: to === 'a' ? 0.7 : 0.5, pan });
   }
 
+  /** Éteint les badges de Feu continu de toutes les armes d'un camp (décharge du Choc). */
+  private setHeatAll(side: Side, heat: number) {
+    for (const w of this.fightL?.[side].weapons ?? []) this.setHeat(side, w.uid, heat);
+  }
+
   private applyEvent(e: DuelEvent, animate: boolean) {
+    // Statuts posés par une grenade, un flash ou un taser : sur l'adversaire du lanceur.
+    if ((e.kind === 'frag' || e.kind === 'taser' || e.kind === 'flash') && (e.burnStacks !== undefined || e.shockStacks !== undefined)) {
+      const to = this.actor(e.side === 'a' ? 'b' : 'a');
+      if (e.burnStacks !== undefined) to.burn = e.burnStacks;
+      if (e.shockStacks !== undefined) to.shock = e.shockStacks;
+      this.drawBars(to);
+    }
     switch (e.kind) {
       case 'shot': {
         const from = this.actor(e.from);
         const to = this.actor(e.from === 'a' ? 'b' : 'a');
         to.hp = e.hp;
         to.armor = e.armor;
+        if (e.burnStacks !== undefined) to.burn = e.burnStacks;
+        if (e.shockStacks !== undefined) to.shock = e.shockStacks;
+        if (e.end !== undefined) {
+          from.end = e.end;
+          this.drawBars(from);
+        }
         this.drawBars(to);
         if (!e.melee && !e.double) {
           const st = this.ammo.get(`${e.from}:${e.uid}`);
@@ -2517,6 +2586,38 @@ export default class LoadoutScene extends Phaser.Scene {
         }
         break;
       }
+      case 'burn': {
+        const a = this.actor(e.side);
+        a.hp = e.hp;
+        a.burn = e.stacks;
+        this.drawBars(a);
+        if (animate && e.amount >= 1) this.floatText(a, `-${Math.round(e.amount)}`, hex(P.orange), 17, -6);
+        break;
+      }
+      case 'discharge': {
+        const a = this.actor(e.side);
+        a.shock = 0;
+        this.drawBars(a);
+        if (animate) {
+          this.trigger(e.side === 'a' ? 'b' : 'a', e.uid, P.precision);
+          this.floatText(a, 'DÉCHARGE', hex(P.precisionClaire), 22, -20);
+          this.setHeatAll(e.side, 0);
+          this.cameras.main.flash(90, 95, 179, 224);
+          sfx('taser', { vol: 0.6, pitch: 1.3 });
+          this.hitReact(a);
+        }
+        break;
+      }
+      case 'tired': {
+        const a = this.actor(e.side);
+        a.end = e.end;
+        this.drawBars(a);
+        if (animate && (this.play?.t ?? 0) - a.lastTired > 1.5) {
+          a.lastTired = this.play?.t ?? 0;
+          this.floatText(a, 'ESSOUFFLÉ', C.quiet, 15, 40);
+        }
+        break;
+      }
       case 'death': {
         const a = this.actor(e.side);
         a.hp = 0;
@@ -2544,7 +2645,15 @@ export default class LoadoutScene extends Phaser.Scene {
       this.freeze -= delta / 1000;
       return;
     }
-    P.t += (delta / 1000) * this.speed;
+    const dt = (delta / 1000) * this.speed;
+    P.t += dt;
+    // Endurance qui remonte entre deux tirs (les événements la recalent) ; jauge redessinée par paliers.
+    for (const a of [this.me, this.foe]) {
+      if (!a || !Number.isFinite(a.endMax) || a.end >= a.endMax || a.hp <= 0) continue;
+      const before = Math.floor(a.end * 4);
+      a.end = Math.min(a.endMax, a.end + a.endRegen * dt);
+      if (Math.floor(a.end * 4) !== before) this.drawBars(a);
+    }
     const ev = P.result.events;
     while (P.idx < ev.length && ev[P.idx].t <= P.t) this.applyEvent(ev[P.idx++], true);
     if (P.idx >= ev.length && P.t >= P.result.duration + 0.8) this.finishFight();
@@ -2631,6 +2740,9 @@ export default class LoadoutScene extends Phaser.Scene {
     if (r.stun > 0) parts.push(`${fmt1(r.stun)} s d'étourdissement`);
     if (r.dodged > 0) parts.push(`${r.dodged} tirs adverses ratés dessous`);
     if (r.absorbed > 0) parts.push(`${r.absorbed} dégâts pris par l'armure`);
+    if (r.burnDmg > 0) parts.push(`dont ${r.burnDmg} de brûlure`);
+    if (r.discharges > 0) parts.push(`${r.discharges} décharge${r.discharges > 1 ? 's' : ''}`);
+    if (r.tired > 0) parts.push(`essoufflée ${r.tired} fois`);
     // Ce qui l'a renforcé : les objets liés à lui.
     const names = new Set<string>();
     for (const l of R.links[side]) {

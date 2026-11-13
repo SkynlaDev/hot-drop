@@ -3,7 +3,7 @@ import { ITEMS } from '../src/data/items';
 import { OPERATORS, OperatorId, lootPool } from '../src/data/operators';
 import { ARCHETYPES, ARCHETYPE_IDS } from '../src/data/archetypes';
 import { BotBuild, botLoadout, generateBot } from '../src/logic/bots';
-import { DuelEvent, MAX_FLAT_REDUCE, MAX_TIME, simulateDuel } from '../src/logic/combat';
+import { BURN_MAX, DISCHARGE_STUN, DuelEvent, MAX_FLAT_REDUCE, MAX_TIME, simulateDuel } from '../src/logic/combat';
 import { ItemInst, Rot, canPlace, cellKey, cellsOf } from '../src/logic/grid';
 import { DRUM_RELOAD, FEU_CAP, FEU_RATE, MARK_BONUS, MELEE_ONLY_SPEED, MeleeRt, PlayerLoadout, UNFED_RELOAD, WeaponRt, computeLoadout, describe as describeItem, estimateDps, maxHpFor } from '../src/logic/stats';
 
@@ -477,5 +477,66 @@ describe('archétypes des bots', () => {
         expect(won / n, `${k} au cercle ${round + 1}`).toBeLessThan(0.8);
       }
     }
+  });
+});
+
+describe('combat v2 : Endurance, Brûlure, Choc', () => {
+  const dummy = (over: Partial<PlayerLoadout> = {}): PlayerLoadout => ({
+    maxHp: 1e6, armor: 0, weapons: [], melee: [], actives: [], critMult: 2, armorRegen: 0, flatReduce: 0, markBonus: 0, families: [], ...over,
+  });
+  const gun = (uid: number, over: Partial<WeaponRt> = {}): WeaponRt => ({
+    uid, name: `arme ${uid}`, dmg: 10, interval: 0.5, mag: 30, reload: 2, crit: 0, pellets: 1, firstCrit: false,
+    armorPierce: 0, doubleEvery: 0, fed: true, critStun: 0, trueDmg: 0, heatRate: 0, heatCap: 0, markBoost: 0, ...over,
+  });
+  const ofKind = <K extends DuelEvent['kind']>(evs: DuelEvent[], k: K) => evs.filter((e): e is Extract<DuelEvent, { kind: K }> => e.kind === k);
+
+  it('Brûlure : dégâts réguliers qui ignorent l’armure, plafonnés, et qui s’éteignent', () => {
+    const a = dummy({ maxHp: 100, weapons: [gun(1, { dmg: 1, burn: 1 })] });
+    const target = dummy({ armor: 1e5 });
+    const r = simulateDuel(a, target, 1);
+    const ticks = ofKind(r.events, 'burn').filter((e) => e.side === 'b');
+    expect(ticks.length).toBeGreaterThan(10);
+    expect(Math.max(...ticks.map((e) => e.stacks))).toBeLessThanOrEqual(BURN_MAX);
+    // L'armure énorme ne bouge pas les PV par les balles, mais la Brûlure les entame.
+    expect(ticks[ticks.length - 1].hp).toBeLessThan(1e6);
+    // Combinaison : la moitié de la Brûlure en moins.
+    const resist = simulateDuel(a, dummy({ armor: 1e5, burnResist: 0.5 }), 1);
+    const sum = (evs: DuelEvent[]) => ofKind(evs, 'burn').reduce((t, e) => t + e.amount, 0);
+    expect(sum(resist.events)).toBeCloseTo(sum(r.events) / 2, -1);
+  });
+
+  it('Choc : décharge au seuil, qui retarde les armes et éteint le Feu continu', () => {
+    const a = dummy({ maxHp: 1e6, weapons: [gun(1, { dmg: 1, shock: 1, interval: 0.4 })] });
+    const viper = dummy({ maxHp: 1e6, weapons: [gun(9, { dmg: 1, heatRate: FEU_RATE, heatCap: FEU_CAP, mag: 1000 })] });
+    const r = simulateDuel(a, viper, 2);
+    const dis = ofKind(r.events, 'discharge').filter((e) => e.side === 'b');
+    expect(dis.length).toBeGreaterThan(3);
+    // Juste après une décharge, le Feu continu adverse est retombé à zéro.
+    const t0 = dis[2].t;
+    const next = ofKind(r.events, 'shot').find((e) => e.from === 'b' && e.t > t0);
+    expect(next?.heat ?? 0).toBeLessThan(0.05);
+    expect(next!.t - t0).toBeGreaterThanOrEqual(DISCHARGE_STUN - 0.06);
+    // Seuil relevé (plaque isolante) : moins de décharges ; immunité : pas de retard ni de remise à zéro.
+    const insulated = simulateDuel(a, { ...viper, shockThreshold: 8 }, 2);
+    expect(ofKind(insulated.events, 'discharge').length).toBeLessThan(dis.length);
+  });
+
+  it('Endurance : deux armes tiennent, quatre s’essoufflent', () => {
+    const many = (n: number) => dummy({
+      maxHp: 1e6, endMax: 10, endRegen: 1,
+      weapons: Array.from({ length: n }, (_, i) => gun(i + 1, { dmg: 1, interval: 0.5, endCost: 0.3, mag: 1000 })),
+    });
+    const shotsOf = (n: number) => ofKind(simulateDuel(many(n), dummy(), 4).events, 'shot').filter((e) => e.from === 'a').length;
+    const two = shotsOf(2);
+    const four = shotsOf(4);
+    expect(four).toBeLessThan(two * 1.5); // sans Endurance, ce serait le double
+    expect(ofKind(simulateDuel(many(4), dummy(), 4).events, 'tired').length).toBeGreaterThan(0);
+    expect(ofKind(simulateDuel(many(1), dummy(), 4).events, 'tired').length).toBe(0);
+  });
+
+  it('reste déterministe', () => {
+    const a = botLoadout(generateBot(5, 3));
+    const b = botLoadout(generateBot(6, 3));
+    expect(simulateDuel(a, b, 9)).toEqual(simulateDuel(a, b, 9));
   });
 });

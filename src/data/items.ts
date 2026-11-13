@@ -31,6 +31,9 @@ export interface WeaponStats {
   heatBonus?: number;
   /** Marque (passif de Sentinelle) : bonus en plus quand cette arme consomme la marque. */
   markBoost?: number;
+  /** Cumuls de Brûlure / de Choc posés à chaque touche (avant la règle des armes lentes). */
+  burn?: number;
+  shock?: number;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel, plus vite quand toutes les armes à feu sont à sec. */
@@ -55,11 +58,19 @@ export interface ActiveStats {
   pierce?: boolean;
   /** Bandage : saignement retiré. */
   cure?: number;
+  /** Cumuls de Brûlure posés sur l'adversaire (grenade incendiaire). */
+  burn?: number;
+  /** Cumuls de Choc posés sur l'adversaire (grenade IEM, taser lourd). */
+  shock?: number;
+  /** Remet à zéro le Feu continu adverse (grenade IEM). */
+  heatReset?: boolean;
 }
 
 export interface SynergyStats {
   kind: 'mag' | 'scope' | 'silencer' | 'pierce' | 'grip' | 'extmag' | 'holo' | 'bipod' | 'drum' | 'cooler' | 'tracer';
   value: number;
+  /** Chargeur spécial : alimente une arme de n'importe quel calibre et pose ce statut à chaque touche. */
+  status?: 'burn' | 'shock';
 }
 
 /**
@@ -107,6 +118,16 @@ export interface ItemDef {
   armor?: number;
   /** Chaque balle reçue perd ce nombre de dégâts (minimum 1). */
   flatReduce?: number;
+  /** Part de la Brûlure reçue évitée (0..1, combinaison ignifugée). */
+  burnResist?: number;
+  /** Cumuls de Choc en plus avant la décharge (plaque isolante). */
+  shockThreshold?: number;
+  /** Immunisé à la décharge du Choc (Blindage Juggernaut). */
+  shockImmune?: boolean;
+  /** Endurance régénérée en plus par seconde (ration). */
+  endRegen?: number;
+  /** Coût en Endurance des tirs majoré de cette part (armure lourde : 0,1). */
+  endCostMult?: number;
   /** Objet obtenu par une recette (assemblage automatique) : jamais dans le butin ni la boutique. */
   crafted?: boolean;
   active?: ActiveStats;

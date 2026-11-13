@@ -42,6 +42,11 @@ export interface WeaponRt {
   heatCap: number;
   /** Bonus en plus quand cette arme consomme la Marque (munitions traçantes). */
   markBoost: number;
+  /** Endurance dépensée à chaque tir (0 = gratuit). */
+  endCost?: number;
+  /** Cumuls de Brûlure / de Choc posés à chaque touche (règle des armes lentes comprise). */
+  burn?: number;
+  shock?: number;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel. */
@@ -66,6 +71,10 @@ export interface ActiveRt {
   ignoreArmor: boolean;
   /** Bandage : saignement retiré. */
   cure: number;
+  /** Cumuls de Brûlure / de Choc posés, Feu continu adverse remis à zéro. */
+  burn?: number;
+  shock?: number;
+  heatReset?: boolean;
 }
 
 export interface FamilyState {
@@ -88,6 +97,13 @@ export interface PlayerLoadout {
   /** Marque (passif de Sentinelle) : bonus de dégâts de la touche qui consomme la marque (0 = pas de Marque). */
   markBonus: number;
   families: FamilyState[];
+  /** Endurance : réserve, régénération par seconde (absentes = pas de limite, pour les tests). */
+  endMax?: number;
+  endRegen?: number;
+  /** Part de la Brûlure reçue évitée ; cumuls de Choc avant la décharge ; immunité à la décharge. */
+  burnResist?: number;
+  shockThreshold?: number;
+  shockImmune?: boolean;
   /** Armure apportée par chaque objet (uid → points, avant le bonus de famille), pour le rapport de duel. */
   armorBy?: Record<number, number>;
 }
@@ -107,6 +123,21 @@ export const FEU_RATE = 0.05;
 export const FEU_CAP = 0.3;
 /** Marque (Sentinelle) : la touche suivante d'une autre arme fait +50 %. */
 export const MARK_BONUS = 0.5;
+
+/** Endurance : réserve et régénération par seconde (combat v2). */
+export const ENDURANCE_MAX = 10;
+export const ENDURANCE_REGEN = 1;
+/** Endurance dépensée par seconde de tir, par classe d'arme (coût d'un tir = débit × intervalle de base). */
+export const ENDURANCE_DRAIN: Record<string, number> = {
+  Pistolet: 0.55, SMG: 0.6, "Fusil d'assaut": 0.6, 'Fusil à pompe': 0.7, 'Fusil de précision': 0.7,
+};
+/** Cumuls de Choc qui déclenchent la décharge. */
+export const SHOCK_THRESHOLD = 5;
+
+/** Règle des armes lentes : cumuls de statut par touche selon l'intervalle de base (moins de 1 s : 1, 1 à 2 s : 2, au-delà : 3). */
+export function slowStacks(interval: number): number {
+  return interval < 1 ? 1 : interval < 2 ? 2 : 3;
+}
 
 /** Multiplicateur de recharge d'une arme qu'aucun chargeur de son calibre ne touche. */
 export const UNFED_RELOAD = 2;
@@ -161,6 +192,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     }
   }
   const B = (uid: number) => bonus.get(uid) ?? { armor: 0, dmg: 0, cadence: 0, charges: 0, heal: 0, bleed: 0 };
+  // Endurance et résistances aux statuts : sommes sur les objets posés.
+  const sum = (f: (d: (typeof ITEMS)[string]) => number | undefined) => placed.reduce((t, it) => t + (f(ITEMS[it.defId]) ?? 0), 0);
+  const endCostMult = sum((d) => d.endCostMult);
 
   for (const it of placed) {
     const d = ITEMS[it.defId];
@@ -183,15 +217,19 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       let dmgMult = 1;
       let grip = 0;
       let extMag = 0;
+      let magBurn = 0;
+      let magShock = 0;
       for (const o of placed) {
         if (o === it) continue;
         const od = ITEMS[o.defId];
         if (!od.synergy) continue;
         const edge = sharedEdge(o, it);
         if (!edge) continue;
-        if (od.synergy.kind === 'mag' && (od.caliber === d.caliber || d.weapon.feedsAny) && magCount < 3) {
+        if (od.synergy.kind === 'mag' && (od.synergy.status || od.caliber === d.caliber || d.weapon.feedsAny) && magCount < 3) {
           magCount++;
           magBonus += od.synergy.value;
+          if (od.synergy.status === 'burn') magBurn = 1;
+          if (od.synergy.status === 'shock') magShock = 1;
           links.push({ a: o.uid, b: it.uid, label: `−${pct(od.synergy.value)} de recharge`, edge });
         } else if (od.synergy.kind === 'scope' && d.tags.includes('arme_longue')) {
           crit += od.synergy.value;
@@ -249,6 +287,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         heatRate: FEU_RATE * (1 + cooler),
         heatCap,
         markBoost,
+        endCost: (ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * d.weapon.interval * (1 + endCostMult),
+        burn: ((d.weapon.burn ?? 0) + magBurn) * slowStacks(d.weapon.interval),
+        shock: ((d.weapon.shock ?? 0) + magShock) * slowStacks(d.weapon.interval),
       });
     }
 
@@ -280,6 +321,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         threshold: d.active.threshold ?? 0.5,
         ignoreArmor: kind === 'frag' && (tier('demolition') >= 2 || !!d.active.pierce),
         cure: d.active.cure ?? 0,
+        burn: d.active.burn,
+        shock: d.active.shock,
+        heatReset: d.active.heatReset,
       });
     }
   }
@@ -299,6 +343,11 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       markBonus: operator === 'sentinelle' ? MARK_BONUS : 0,
       families,
       armorBy,
+      endMax: ENDURANCE_MAX,
+      endRegen: ENDURANCE_REGEN + sum((d) => d.endRegen),
+      burnResist: Math.min(0.8, sum((d) => d.burnResist)),
+      shockThreshold: SHOCK_THRESHOLD + sum((d) => d.shockThreshold),
+      shockImmune: placed.some((it) => ITEMS[it.defId].shockImmune),
     },
     links,
     stars,

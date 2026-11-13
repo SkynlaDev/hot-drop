@@ -20,7 +20,7 @@ const pct = (v: number) => `${Math.round(v * 100)} %`;
 export function accessoryFits(acc: ItemDef, w: ItemDef): boolean {
   const k = acc.synergy?.kind;
   const long = w.tags.includes('arme_longue');
-  if (k === 'mag') return acc.caliber === w.caliber || !!w.weapon?.feedsAny;
+  if (k === 'mag') return !!acc.synergy?.status || acc.caliber === w.caliber || !!w.weapon?.feedsAny;
   if (k === 'scope' || k === 'bipod') return long;
   if (k === 'holo') return !long;
   return !!k;
