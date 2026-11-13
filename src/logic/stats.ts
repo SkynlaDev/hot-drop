@@ -129,12 +129,16 @@ export const FEU_CAP = 0.3;
 /** Marque (Sentinelle) : la touche suivante d'une autre arme fait +50 %. */
 export const MARK_BONUS = 0.5;
 
+/** Famille Rempart : armure ×REMPART_ARMOR au palier 2, régénération d'armure par seconde au palier 4. */
+export const REMPART_ARMOR = 1.3;
+export const REMPART_REGEN = 3;
+
 /** Endurance : réserve et régénération par seconde (combat v2). */
 export const ENDURANCE_MAX = 10;
 export const ENDURANCE_REGEN = 1;
 /** Endurance dépensée par seconde de tir, par classe d'arme (coût d'un tir = débit × intervalle de base). */
 export const ENDURANCE_DRAIN: Record<string, number> = {
-  Pistolet: 0.55, SMG: 0.6, "Fusil d'assaut": 0.6, 'Fusil à pompe': 0.7, 'Fusil de précision': 0.7, 'Arme électrique': 0.6,
+  Pistolet: 0.55, SMG: 0.5, "Fusil d'assaut": 0.5, 'Fusil à pompe': 0.7, 'Fusil de précision': 0.7, 'Arme électrique': 0.6,
 };
 /** Cumuls de Choc qui déclenchent la décharge. */
 export const SHOCK_THRESHOLD = 5;
@@ -335,7 +339,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     }
   }
 
-  if (tier('rempart') >= 1) armor *= 1.2;
+  if (tier('rempart') >= 1) armor *= REMPART_ARMOR;
 
   return {
     loadout: {
@@ -345,7 +349,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       melee,
       actives,
       critMult: tier('precision') >= 2 ? 2.25 : 2,
-      armorRegen: tier('rempart') >= 2 ? 2 : 0,
+      armorRegen: tier('rempart') >= 2 ? REMPART_REGEN : 0,
       flatReduce,
       markBonus: operator === 'sentinelle' ? MARK_BONUS : 0,
       families,

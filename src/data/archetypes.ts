@@ -23,6 +23,9 @@ export interface ArchetypeDef {
   twoGuns?: boolean;
   /** Pas d'accessoire d'arme (seulement le chargeur) : la place va aux protections et aux soins. */
   noAccessory?: boolean;
+  /** Objets en plus et sac un cran plus grand : compense des objets gros et peu nombreux (Rempart). */
+  extraItems?: number;
+  bigBag?: boolean;
 }
 
 export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
@@ -30,7 +33,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     id: 'feu_continu', name: 'Feu continu', ops: ['viper'],
     blurb: 'SMG et fusils d’assaut à gros chargeurs : la cadence monte tant qu’il tire.',
     weapons: ['smg', 'smg_ours', 'smg_guepe', 'fusil_assaut', 'ar_vesta', 'ar_hades', 'ar_lynx'],
-    crafted: ['ours_deluge', 'kr4_tactique', 'furet_akimbo'],
+    crafted: ['ours_deluge', 'kr4_tactique', 'furet_akimbo', 'kr4_mitrailleur'],
     extras: ['chg_tambour', 'refroidisseur', 'chg_9mm', 'chg_556', 'poignee', 'chg_etendu', 'seringue'],
     armorShare: 0.15,
   },
@@ -54,30 +57,32 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     id: 'tir_lourd', name: 'Tir lourd',
     blurb: 'Fusils de précision : premier tir critique, critiques énormes.',
     weapons: ['precision', 'dmr_faucon'],
-    crafted: ['aigle_longuevue', 'faucon_traqueur'],
+    crafted: ['aigle_longuevue', 'faucon_traqueur', 'rhinoceros'],
     extras: ['lunette', 'bipied', 'silencieux', 'perforantes', 'chg_762', 'fumigene'],
   },
   demolition: {
     id: 'demolition', name: 'Démolition',
     blurb: 'Fusils à pompe et grenades en chaîne : des explosions qui percent l’armure.',
     weapons: ['pompe', 'pompe_belier'],
-    crafted: ['pompe_dragon', 'thermite', 'sous_munitions'],
+    crafted: ['pompe_dragon', 'thermite', 'sous_munitions', 'grenade_incendiaire', 'chg_incendiaire', 'souffle_dragon', 'bombe_phosphore'],
     extras: ['frag', 'flash', 'fumigene', 'chg_12g', 'casque', 'ifak'],
   },
   rempart: {
     id: 'rempart', name: 'Rempart',
     blurb: 'Armure épaisse et soins renforcés : il encaisse et tient la distance.',
     weapons: ['fusil_assaut', 'ar_vesta', 'ar_lynx', 'revolver', 'pompe'],
-    crafted: ['armure_lourde', 'casque_lourd', 'kit_trauma', 'sac_medical'],
-    extras: ['plaque', 'casque', 'ifak', 'seringue', 'bandage', 'chg_556', 'chg_44', 'chg_12g'],
+    crafted: ['armure_lourde', 'casque_lourd', 'kit_trauma', 'sac_medical', 'juggernaut', 'poste_secours'],
+    extras: ['plaque', 'casque', 'ifak', 'seringue', 'bandage', 'chg_556', 'chg_44', 'chg_12g', 'combinaison', 'plaque_isolante', 'ration'],
     armorShare: 0.35,
     noAccessory: true,
+    extraItems: 2,
+    bigBag: true,
   },
   lame: {
     id: 'lame', name: 'Lame',
     blurb: 'Aucune arme à feu : lames et saignement qui ignore l’armure.',
     weapons: [],
-    crafted: ['machette', 'casque_lourd'],
+    crafted: ['machette', 'casque_lourd', 'lame_rouge'],
     extras: ['couteau', 'couteau_combat', 'masse', 'bandage', 'taser', 'casque', 'seringue'],
   },
 };

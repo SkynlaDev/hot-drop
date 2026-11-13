@@ -38,6 +38,7 @@ const BACKPACKS: [number, number, number, number][] = [
   [1, 1, 7, 5], // 7×5
   [1, 1, 7, 6], // 7×6
   [0, 1, 7, 6], // 8×6
+  [0, 0, 8, 6], // 9×7 (Top 1 Rempart : objets gros et nombreux)
 ];
 
 /**
@@ -47,12 +48,12 @@ const BACKPACKS: [number, number, number, number][] = [
 export const CRAFTED_ODDS = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.85];
 /** Chance qu'un objet tiré vienne de l'archétype du bot (sinon de son pool « cœur »). */
 export const ARCH_FOCUS = 0.8;
-/** Objets que les bots n'utilisent pas (encore). */
-export const BOT_EXCLUDED = new Set([
-  'briquet', 'batterie', 'ration', 'chg_incendiaire', 'chg_electrique', 'grenade_incendiaire', 'grenade_iem', 'taser_lourd',
-  'combinaison', 'plaque_isolante',
-  'souffle_dragon', 'bobine_tesla', 'juggernaut', 'poste_secours', 'lame_rouge', 'rhinoceros', 'kr4_mitrailleur', 'bombe_phosphore',
-]);
+/** Composants : les bots ne les portent pas seuls, ils ont directement les versions assemblées. */
+export const BOT_EXCLUDED = new Set(['briquet', 'batterie']);
+/** Objets de rang 2 (ingrédients assemblés) : seulement chez les bots du 5e cercle et du Top 1, et plus rarement. */
+export const RANK2 = new Set(['souffle_dragon', 'bobine_tesla', 'juggernaut', 'poste_secours', 'lame_rouge', 'rhinoceros', 'kr4_mitrailleur', 'bombe_phosphore']);
+export const RANK2_FROM_LEVEL = 4;
+export const RANK2_SHARE = 0.25;
 export const ARCH_FOCUS_LANDING = 0.4;
 /** Manche (0 = 1er cercle) à partir de laquelle un bot peut jouer le build Lame. */
 export const LAME_FROM = 3;
@@ -117,13 +118,14 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   // Niveau : tour + danger, ajusté par la qualité. Le Top 1 a le niveau FINAL_LEVEL.
   const qBonus = quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0;
   const lvl = Math.max(0, Math.min(CRAFTED_ODDS.length - 1, Math.round(opts.final ? FINAL_LEVEL : round + danger + qBonus)));
-  const bp = BACKPACKS[Math.min(BACKPACKS.length - 1, opts.final ? 5 : round + (danger >= 1 ? 1 : 0))];
+  const A0 = ARCHETYPES[archetype];
+  const bp = BACKPACKS[Math.min(BACKPACKS.length - 1, (opts.final ? 5 : round + (danger >= 1 ? 1 : 0)) + (A0.bigBag && !landing ? 1 : 0))];
   const usable: string[] = [];
   for (let y = bp[1]; y <= bp[3]; y++) for (let x = bp[0]; x <= bp[2]; x++) usable.push(cellKey(x, y));
 
   // Nombre d'objets : 4 au 1er tour (comme un sac de départ), puis plus ; ±1 selon la qualité.
   const baseItems = opts.final ? FINAL_ITEMS : BOT_ITEMS[Math.min(round, BOT_ITEMS.length - 1)] + Math.round(danger);
-  const nItems = Math.max(3, baseItems + (quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0));
+  const nItems = Math.max(3, baseItems + (quality === 'fort' ? 1 : quality === 'faible' ? -1 : 0) + (landing ? 0 : A0.extraItems ?? 0));
   const cap = minRoundCap(lvl);
   // Aux premiers niveaux, pas d'objets chers (plaque céramique…) hors armes.
   const itemCap = [5, 7][lvl] ?? Infinity;
@@ -137,7 +139,9 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const coreFams = [OPERATORS[operator].family, ...NEUTRAL_FAMILIES];
   // Objets assemblés : « cœur » si leur famille l'est (corePool ne contient pas d'objets assemblés).
   const inCoreOf = (id: string) => core.has(id) || (!!ITEMS[id].crafted && coreFams.includes(ITEMS[id].family));
-  const crafted = RECIPES.filter((r) => canUse(operator, r.output) && !BOT_EXCLUDED.has(r.output)).map((r) => r.output);
+  // Objets de rang 2 : niveau suffisant, et seulement une partie du temps (RANK2_SHARE).
+  const rank2Ok = lvl >= RANK2_FROM_LEVEL && rng() < RANK2_SHARE;
+  const crafted = [...new Set(RECIPES.filter((r) => canUse(operator, r.output) && !BOT_EXCLUDED.has(r.output) && (rank2Ok || !RANK2.has(r.output))).map((r) => r.output))];
   const craftChance = landing ? 0 : Math.min(0.95, CRAFTED_ODDS[lvl] + (quality === 'fort' ? FORT_CRAFTED_BONUS : 0));
   const A = ARCHETYPES[archetype];
   const wanted = new Set([...A.weapons, ...A.crafted, ...A.extras]);

@@ -169,7 +169,7 @@ Chaque objet appartient à une famille. Avoir 2 puis 4 objets d’une famille po
 | Rafale | +15 % de cadence des armes Rafale | 1 balle sur 3 touche deux fois |
 | Précision | +10 % de critique pour toutes les armes | Critiques ×2,25 au lieu de ×2 |
 | Démolition | +1 charge pour chaque explosif | Explosions et fusils à pompe ignorent l'armure |
-| Rempart | +20 % d'armure | L'armure se régénère de 2 par seconde |
+| Rempart | +30 % d'armure | L'armure se régénère de 3 par seconde |
 | Tactique | Le fumigène dure 50 % plus longtemps | Prévu avec la radio et le drone |
 
 ## Opérateurs
@@ -366,7 +366,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 18 toutes les 1,1 s
 - Chargeur 10 balles · recharge 3 s
 - Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2
-- Endurance : 0,6 par tir
+- Endurance : 0,5 par tir
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 6 cases · revente 5 cr
 
@@ -379,7 +379,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 6 toutes les 0,5 s
 - Chargeur 12 balles · recharge 1,8 s
 - Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2
-- Endurance : 0,3 par tir
+- Endurance : 0,2 par tir
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 5 cases · revente 3 cr
 
@@ -392,7 +392,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 3 toutes les 0,3 s
 - Chargeur 12 balles · recharge 1,8 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
-- Endurance : 0,2 par tir
+- Endurance : 0,1 par tir
 - Recette : Furet + Guêpe → Furet Akimbo (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 3 cases · revente 2 cr
@@ -406,7 +406,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 6 toutes les 0,5 s
 - Chargeur 18 balles · recharge 2,6 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
-- Endurance : 0,3 par tir
+- Endurance : 0,2 par tir
 - Recette : Ours + Tambour → Ours Déluge (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 5 cases · revente 4 cr
@@ -665,7 +665,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Alimentation intégrée : jamais besoin de chargeur
 - Viper : Feu continu jusqu'à +50 % au lieu de +30 %
 - Viper : le Feu continu ne retombe pas à la recharge
-- Endurance : 0,3 par tir
+- Endurance : 0,2 par tir
 - Objet assemblé (recette)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 8 cases · revente 16 cr
@@ -969,7 +969,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Armure +40
 - ★ Protection adjacent (cases marquées) : +8 d'armure
 - Recette : Plaque + Casque → Armure lourde (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 6 cases · revente 3 cr
 
 #### Casque balistique
@@ -982,7 +982,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Protection adjacent (cases marquées) : +6 d'armure
 - Recette : Plaque + Casque → Armure lourde (ingrédients adjacents : assemblage automatique)
 - Recette : Casque + Casque → Casque lourd (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 2 cr
 
 #### Armure lourde
@@ -996,7 +996,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Soin adjacent : soins +25 % à cet objet
 - Objet assemblé (recette)
 - Recette : Casque L. + Armure L. → Blindage Juggernaut (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 6 cases · revente 10 cr
 
 #### Casque lourd
@@ -1010,7 +1010,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Protection adjacent (cases marquées) : +10 d'armure
 - Objet assemblé (recette)
 - Recette : Casque L. + Armure L. → Blindage Juggernaut (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 4 cr
 
 #### Combinaison ignifugée
@@ -1020,7 +1020,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Armure +14
 - Brûlure reçue −50 %
 - ★ Protection adjacent (cases marquées) : +5 d'armure
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 3 cr
 
 #### Plaque isolante
@@ -1030,7 +1030,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Armure +10
 - Décharge du Choc à 8 cumuls au lieu de 5
 - ★ Protection adjacent (cases marquées) : +4 d'armure
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 2 cases · revente 2 cr
 
 #### Blindage Juggernaut
@@ -1043,7 +1043,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Tirs : Endurance +15 %
 - ★ Soin adjacent : soins +30 % à cet objet
 - Objet assemblé (recette)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 9 cases · revente 17 cr
 
 ### Explosifs
@@ -1168,7 +1168,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Protection adjacent (cases marquées) : soins +20 %
 - Recette : IFAK + Adré. → Kit de trauma (ingrédients adjacents : assemblage automatique)
 - Recette : IFAK + IFAK → Sac médical (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 2 cr
 
 #### Seringue d'adrénaline
@@ -1181,7 +1181,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 1 charge par combat · délai 6 s
 - ★ Arme adjacent : +10 % de cadence à cet objet
 - Recette : IFAK + Adré. → Kit de trauma (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 2 cases · revente 2 cr
 
 #### Kit de trauma
@@ -1195,7 +1195,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Protection adjacent : soins +30 %
 - Objet assemblé (recette)
 - Recette : Trauma + Sac méd. → Poste de secours (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 7 cr
 
 #### Bandage
@@ -1207,7 +1207,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Retire 10 de saignement et soigne 12 PV (saignement ≥ 8 ou PV sous 50 %)
 - 1 charge par combat · délai 2 s
 - ★ Protection adjacent : soins +50 %
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 1 case · revente 1 cr
 
 #### Sac médical
@@ -1221,7 +1221,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Soin adjacent : +1 charge à cet objet
 - Objet assemblé (recette)
 - Recette : Trauma + Sac méd. → Poste de secours (ingrédients adjacents : assemblage automatique)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 4 cr
 
 #### Poste de secours
@@ -1233,7 +1233,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 3 charges par combat · délai 4 s
 - ★ Protection adjacent : soins +30 %
 - Objet assemblé (recette)
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 6 cases · revente 13 cr
 
 ### Composants
@@ -1272,5 +1272,5 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 **Base · Composant** · Forme `■` (1 case) · Prix 3 · dès le cercle 1
 
 - Endurance +0,3 par seconde
-- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 1 case · revente 1 cr

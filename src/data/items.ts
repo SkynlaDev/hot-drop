@@ -343,7 +343,7 @@ export const FAMILY_INFO: Record<Family, { name: string; color: number; hex: str
   rafale: { name: 'Rafale', color: 0xf4b06a, hex: '#f4b06a', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 3 touche deux fois' },
   precision: { name: 'Précision', color: 0x5fb3e0, hex: '#9ad3f2', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,25 au lieu de ×2' },
   demolition: { name: 'Démolition', color: 0xc94a4a, hex: '#ef7b72', tier2: '+1 charge pour chaque explosif', tier4: "Explosions et fusils à pompe ignorent l'armure" },
-  rempart: { name: 'Rempart', color: 0xa9bccb, hex: '#a9bccb', tier2: "+20 % d'armure", tier4: "L'armure se régénère de 2 par seconde" },
+  rempart: { name: 'Rempart', color: 0xa9bccb, hex: '#a9bccb', tier2: "+30 % d'armure", tier4: "L'armure se régénère de 3 par seconde" },
   tactique: { name: 'Tactique', color: 0xb5d65a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Prévu avec la radio et le drone' },
 };
 

@@ -106,3 +106,19 @@ secours (gros soins, retire les statuts au 1er soin), Lame rouge, Rhinocéros (1
 KR-4 Mitrailleur (chargeur 60, Feu continu gardé à la recharge), Bombe au phosphore. Vérifié en jeu : pastilles de
 statut, décharges, rapport (« 5 décharges », « dont 120 de brûlure », « essoufflée 1 fois »). Réservés au joueur
 jusqu'à l'étape 4.
+
+**Étape 4 (bots et calibrage : fait)** :
+- Les bots utilisent les objets v2 selon leur archétype : Feu continu → KR-4 Mitrailleur ; Tir lourd → Rhinocéros ;
+  Démolition → grenade et chargeur incendiaires, Souffle du Dragon, Bombe au phosphore ; Rempart → combinaison,
+  plaque isolante, ration, Juggernaut, Poste de secours ; Lame → Lame rouge. Composants jamais portés seuls.
+- Objets de rang 2 chez les bots : niveau 4 et plus (5e cercle, Top 1), une fois sur quatre (`RANK2_SHARE`).
+- Le Choc (contre du Feu continu) n'est plus donné à trois archétypes : Viper tombait trop souvent sur son contre.
+- Rempart (le plus faible, et contré par la Brûlure) : paliers de famille renforcés (+30 % d'armure, régénération 3/s)
+  et, chez les bots, sac un cran plus grand et 2 objets de plus (ses objets sont gros) ; sac 9×7 ajouté pour le Top 1.
+- Endurance du SMG et du fusil d'assaut : 0,5/s (identité « volume de feu » de Rafale).
+
+Matrice bots contre bots au Top 1 : Feu continu 45 %, Akimbo 70 %, Marque 59 %, Tir lourd 39 %, Démolition 51 %,
+Rempart 39 % ; Viper 45-49 % contre Sentinelle à chaque cercle. Akimbo reste trop fort (densité des objets).
+
+`runsim 80` : agressif 24 % de Top 1 (Viper 20 %, Sentinelle 28 %), prudent 13 %. Un peu sous la cible : le
+simulateur ne vise ni les composants ni les recettes de rang 2, un joueur si.
