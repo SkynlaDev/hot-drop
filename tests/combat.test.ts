@@ -534,6 +534,25 @@ describe('combat v2 : Endurance, Brûlure, Choc', () => {
     expect(ofKind(simulateDuel(many(1), dummy(), 4).events, 'tired').length).toBe(0);
   });
 
+  it('Bobine Tesla : chaque décharge frappe en plus, sans passer par l’armure', () => {
+    const a = dummy({ maxHp: 1e6, dischargeDmg: 30, weapons: [gun(1, { dmg: 1, shock: 1, interval: 0.4 })] });
+    const r = simulateDuel(a, dummy({ armor: 1e5 }), 3);
+    const dis = ofKind(r.events, 'discharge');
+    expect(dis.length).toBeGreaterThan(3);
+    for (const e of dis) expect(e.amount).toBe(30);
+    expect(r.hpEndB).toBeLessThanOrEqual(1e6 - 30 * dis.length);
+  });
+
+  it('KR-4 Mitrailleur : le Feu continu ne retombe pas à la recharge', () => {
+    const w = (heatKeep: boolean) => gun(1, { dmg: 1, mag: 5, reload: 0.5, heatRate: FEU_RATE, heatCap: FEU_CAP, heatKeep });
+    const first = (keep: boolean) => {
+      const r = simulateDuel(dummy({ maxHp: 1e6, weapons: [w(keep)] }), dummy(), 5);
+      const rel = ofKind(r.events, 'reload')[1].t;
+      return ofKind(r.events, 'shot').find((e) => e.t > rel)?.heat ?? 0;
+    };
+    expect(first(true)).toBeGreaterThan(first(false));
+  });
+
   it('reste déterministe', () => {
     const a = botLoadout(generateBot(5, 3));
     const b = botLoadout(generateBot(6, 3));

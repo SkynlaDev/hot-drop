@@ -673,10 +673,25 @@ describe('recettes automatiques', () => {
     expect(autoCraft(run)).toEqual([]);
   });
 
-  it('chaque recette donne un objet assemblé, à partir d’objets non assemblés', () => {
+  it('chaque recette donne un objet assemblé ; un ingrédient assemblé (rang 2) s’obtient par une autre recette', () => {
+    const outputs = new Set(RECIPES.map((r) => r.output));
     for (const r of RECIPES) {
       expect(ITEMS[r.output].crafted).toBe(true);
-      for (const id of r.inputs) expect(ITEMS[id].crafted).toBeFalsy();
+      for (const id of r.inputs) if (ITEMS[id].crafted) expect(outputs.has(id), `${r.id} : ${id}`).toBe(true);
+    }
+  });
+
+  it('rang 2 : objets de fou à partir d’objets assemblés', () => {
+    const pairs: [string, string, string][] = [
+      ['pompe_dragon', 'grenade_incendiaire', 'souffle_dragon'], ['taser_lourd', 'chg_electrique', 'bobine_tesla'],
+      ['casque_lourd', 'armure_lourde', 'juggernaut'], ['kit_trauma', 'sac_medical', 'poste_secours'],
+      ['machette', 'couteau_combat', 'lame_rouge'], ['aigle_longuevue', 'perforantes', 'rhinoceros'],
+      ['kr4_tactique', 'chg_tambour', 'kr4_mitrailleur'], ['thermite', 'sous_munitions', 'bombe_phosphore'],
+    ];
+    for (const [a, b, out] of pairs) {
+      // Côte à côte, quelle que soit leur taille : le 2e posé juste à droite du 1er.
+      const w = maskOf(a, 0)[0].length;
+      expect(findCraftable([inst(1, a, 0, 0), inst(2, b, w, 0)])[0]?.recipe.output, out).toBe(out);
     }
   });
 });

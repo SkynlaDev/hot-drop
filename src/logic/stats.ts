@@ -47,6 +47,8 @@ export interface WeaponRt {
   /** Cumuls de Brûlure / de Choc posés à chaque touche (règle des armes lentes comprise). */
   burn?: number;
   shock?: number;
+  /** Le Feu continu ne retombe pas à la recharge. */
+  heatKeep?: boolean;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel. */
@@ -75,6 +77,7 @@ export interface ActiveRt {
   burn?: number;
   shock?: number;
   heatReset?: boolean;
+  cleanse?: boolean;
 }
 
 export interface FamilyState {
@@ -104,6 +107,8 @@ export interface PlayerLoadout {
   burnResist?: number;
   shockThreshold?: number;
   shockImmune?: boolean;
+  /** Dégâts infligés à chaque décharge de Choc qu'on déclenche (Bobine Tesla). */
+  dischargeDmg?: number;
   /** Armure apportée par chaque objet (uid → points, avant le bonus de famille), pour le rapport de duel. */
   armorBy?: Record<number, number>;
 }
@@ -129,7 +134,7 @@ export const ENDURANCE_MAX = 10;
 export const ENDURANCE_REGEN = 1;
 /** Endurance dépensée par seconde de tir, par classe d'arme (coût d'un tir = débit × intervalle de base). */
 export const ENDURANCE_DRAIN: Record<string, number> = {
-  Pistolet: 0.55, SMG: 0.6, "Fusil d'assaut": 0.6, 'Fusil à pompe': 0.7, 'Fusil de précision': 0.7,
+  Pistolet: 0.55, SMG: 0.6, "Fusil d'assaut": 0.6, 'Fusil à pompe': 0.7, 'Fusil de précision': 0.7, 'Arme électrique': 0.6,
 };
 /** Cumuls de Choc qui déclenchent la décharge. */
 export const SHOCK_THRESHOLD = 5;
@@ -290,6 +295,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         endCost: (ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * d.weapon.interval * (1 + endCostMult),
         burn: ((d.weapon.burn ?? 0) + magBurn) * slowStacks(d.weapon.interval),
         shock: ((d.weapon.shock ?? 0) + magShock) * slowStacks(d.weapon.interval),
+        heatKeep: d.weapon.heatKeep,
       });
     }
 
@@ -324,6 +330,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         burn: d.active.burn,
         shock: d.active.shock,
         heatReset: d.active.heatReset,
+        cleanse: d.active.cleanse,
       });
     }
   }
@@ -348,6 +355,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       burnResist: Math.min(0.8, sum((d) => d.burnResist)),
       shockThreshold: SHOCK_THRESHOLD + sum((d) => d.shockThreshold),
       shockImmune: placed.some((it) => ITEMS[it.defId].shockImmune),
+      dischargeDmg: sum((d) => d.dischargeDmg),
     },
     links,
     stars,
@@ -406,6 +414,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (wp.markBoost) lines.push(`Sentinelle : quand elle consomme la Marque, +${pct(wp.markBoost)} de dégâts en plus`);
     if (wp.burn) lines.push(`Chaque touche pose ${wp.burn * slowStacks(wp.interval)} Brûlure`);
     if (wp.shock) lines.push(`Chaque touche pose ${wp.shock * slowStacks(wp.interval)} Choc`);
+    if (wp.heatKeep) lines.push('Viper : le Feu continu ne retombe pas à la recharge');
     lines.push(`Endurance : ${r1((ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * wp.interval)} par tir`);
   }
   if (d.melee) {
@@ -424,6 +433,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
   if (d.shockImmune) lines.push('Immunisé à la décharge du Choc');
   if (d.endRegen) lines.push(`Endurance +${r1(d.endRegen)} par seconde`);
   if (d.endCostMult) lines.push(`Tirs : Endurance +${pct(d.endCostMult)}`);
+  if (d.dischargeDmg) lines.push(`Chaque décharge de Choc que tu déclenches : +${d.dischargeDmg} dégâts qui ignorent l'armure`);
   if (d.active) {
     const a = d.active;
     const cd = r1(a.cooldown);
@@ -438,6 +448,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (a.burn) lines.push(`Pose ${a.burn} Brûlure`);
     if (a.shock) lines.push(`Pose ${a.shock} Choc${a.shock >= SHOCK_THRESHOLD ? ' : décharge immédiate' : ''}`);
     if (a.heatReset) lines.push('Éteint le Feu continu adverse');
+    if (a.cleanse) lines.push('Au 1er soin : retire Brûlure, Choc et Saignement');
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
   }
   // Étoiles : « ★ Ce qu'elle attend : ce qu'elle apporte ».

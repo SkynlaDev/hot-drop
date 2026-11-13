@@ -184,9 +184,15 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
         }
         break;
       }
-      case 'discharge':
-        it(other(e.side), e.uid).discharges++;
+      case 'discharge': {
+        const r = it(other(e.side), e.uid);
+        r.discharges++;
+        if (e.amount) {
+          r.dmg += e.amount;
+          take(e.side, e.amount, 0);
+        }
         break;
+      }
       case 'tired':
         it(e.side, e.uid).tired++;
         break;

@@ -2597,6 +2597,8 @@ export default class LoadoutScene extends Phaser.Scene {
       case 'discharge': {
         const a = this.actor(e.side);
         a.shock = 0;
+        if (e.hp !== undefined) a.hp = e.hp;
+        if (animate && e.amount) this.floatText(a, `-${e.amount}`, hex(P.precisionClaire), 28, 10);
         this.drawBars(a);
         if (animate) {
           this.trigger(e.side === 'a' ? 'b' : 'a', e.uid, P.precision);

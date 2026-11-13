@@ -154,6 +154,11 @@ Les objets se renforcent quand ils se touchent dans le sac (bords partagés). To
 |  Taser lourd | Arme de mêlée (tout autour) | +1 charge (max 1) |
 |  Combinaison ignifugée | Protection (cases précises) | +5 d'armure (max 1) |
 |  Plaque isolante | Protection (cases précises) | +4 d'armure (max 1) |
+|  Souffle du Dragon | Explosif (tout autour) | +15 % de dégâts (max 2) |
+|  Blindage Juggernaut | Soin (tout autour) | soins +30 % à cet objet (max 2) |
+|  Poste de secours | Protection (tout autour) | soins +30 % (max 1) |
+|  Lame rouge | Arme de mêlée (cases précises) | +25 % de dégâts (max 1) |
+|  Bombe au phosphore | Explosif (tout autour) | +1 charge (max 1) |
 
 ## Familles
 
@@ -220,6 +225,14 @@ Quand tous les ingrédients d’une recette sont **posés dans le sac et se touc
 | <img src="../public/art/items/frag.png" height="24"> Grenade frag +  Briquet |  **Grenade incendiaire** |
 | <img src="../public/art/items/flash.png" height="24"> Grenade flash +  Batterie |  **Grenade IEM** |
 | <img src="../public/art/items/taser.png" height="24"> Taser +  Batterie |  **Taser lourd** |
+| <img src="../public/art/items/pompe_dragon.png" height="24"> Pompe Dragon +  Grenade incendiaire |  **Souffle du Dragon** |
+|  Taser lourd +  Chargeur électrique |  **Bobine Tesla** |
+| <img src="../public/art/items/casque_lourd.png" height="24"> Casque lourd + <img src="../public/art/items/armure_lourde.png" height="24"> Armure lourde |  **Blindage Juggernaut** |
+| <img src="../public/art/items/kit_trauma.png" height="24"> Kit de trauma + <img src="../public/art/items/sac_medical.png" height="24"> Sac médical |  **Poste de secours** |
+| <img src="../public/art/items/machette.png" height="24"> Machette + <img src="../public/art/items/couteau_combat.png" height="24"> Couteau de combat |  **Lame rouge** |
+| <img src="../public/art/items/aigle_longuevue.png" height="24"> Aigle Longue-vue + <img src="../public/art/items/perforantes.png" height="24"> Munitions perforantes |  **Fusil anti-matériel Rhinocéros** |
+| <img src="../public/art/items/kr4_tactique.png" height="24"> KR-4 Tactique + <img src="../public/art/items/chg_tambour.png" height="24"> Chargeur tambour |  **KR-4 Mitrailleur** |
+| <img src="../public/art/items/thermite.png" height="24"> Grenade thermite + <img src="../public/art/items/sous_munitions.png" height="24"> Grenade à sous-munitions |  **Bombe au phosphore** |
 | <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba | <img src="../public/art/items/mamba_akimbo.png" height="24"> **Mamba Akimbo** |
 | <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau + <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau | <img src="../public/art/items/taureau_jumeaux.png" height="24"> **Taureau Jumeaux** |
 | <img src="../public/art/items/casque.png" height="24"> Casque balistique + <img src="../public/art/items/casque.png" height="24"> Casque balistique | <img src="../public/art/items/casque_lourd.png" height="24"> **Casque lourd** |
@@ -469,6 +482,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Alimentation : n'importe quel chargeur adjacent, sinon recharge ×2
 - Endurance : 0,3 par tir
 - Objet assemblé (recette)
+- Recette : KR-4 T. + Tambour → KR-4 Mitrailleur (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 6 cases · revente 9 cr
 
@@ -500,6 +514,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Ignore 50 % de l'armure
 - Endurance : 2 par tir
 - Objet assemblé (recette)
+- Recette : Longue-vue + Perfo. → Fusil anti-matériel Rhinocéros (ingrédients adjacents : assemblage automatique)
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
 - 6 cases · revente 13 cr
 
@@ -563,6 +578,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Endurance : 1 par tir
 - ★ Explosif adjacent : +15 % de dégâts
 - Objet assemblé (recette)
+- Recette : Dragon + Incend. → Souffle du Dragon (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 5 cases · revente 8 cr
 
@@ -597,6 +613,63 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
 - 5 cases · revente 7 cr
 
+#### Souffle du Dragon
+
+**Assemblé · Fusil à pompe · 12G** · Forme `■■■■■ / ■■···` (7 cases) · Assemblé
+
+- Dégâts 17 toutes les 1,4 s
+- Chargeur 6 balles · recharge 2,6 s
+- Alimentation intégrée : jamais besoin de chargeur
+- Plombs : chaque tir touche 2 fois
+- Chaque touche pose 2 Brûlure
+- Endurance : 1 par tir
+- ★ Explosif adjacent : +15 % de dégâts
+- Objet assemblé (recette)
+- Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
+- 7 cases · revente 15 cr
+
+#### Bobine Tesla
+
+**Assemblé · Arme électrique** · Forme `■■■ / ■■■` (6 cases) · Assemblé
+
+- Dégâts 6 toutes les 0,6 s
+- Chargeur 30 balles · recharge 2 s
+- Alimentation intégrée : jamais besoin de chargeur
+- Chaque touche pose 1 Choc
+- Endurance : 0,4 par tir
+- Chaque décharge de Choc que tu déclenches : +30 dégâts qui ignorent l'armure
+- Objet assemblé (recette)
+- Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
+- 6 cases · revente 14 cr
+
+#### Fusil anti-matériel Rhinocéros
+
+**Assemblé · Fusil de précision · 7.62** · Forme `■■■■■■ / ··■···` (7 cases) · Assemblé
+
+- Dégâts 130 toutes les 3,6 s
+- Chargeur 3 balles · recharge 4 s
+- Alimentation intégrée : jamais besoin de chargeur
+- Son 1er tir est toujours critique
+- Ignore 100 % de l'armure
+- Endurance : 2,5 par tir
+- Objet assemblé (recette)
+- Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
+- 7 cases · revente 18 cr
+
+#### KR-4 Mitrailleur
+
+**Assemblé · Fusil d'assaut · 5.56** · Forme `■■■■■ / ·■■■·` (8 cases) · Assemblé
+
+- Dégâts 12 toutes les 0,5 s
+- Chargeur 60 balles · recharge 4 s
+- Alimentation intégrée : jamais besoin de chargeur
+- Viper : Feu continu jusqu'à +50 % au lieu de +30 %
+- Viper : le Feu continu ne retombe pas à la recharge
+- Endurance : 0,3 par tir
+- Objet assemblé (recette)
+- Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
+- 8 cases · revente 16 cr
+
 ### Armes de mêlée
 
 #### Couteau
@@ -622,6 +695,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Saignement +4 par coup (ignore l'armure)
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
 - ★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup
+- Recette : Machette + Couteau C. → Lame rouge (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
 - 2 cases · revente 2 cr
 
@@ -648,8 +722,21 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
 - ★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts
 - Objet assemblé (recette)
+- Recette : Machette + Couteau C. → Lame rouge (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
 - 3 cases · revente 3 cr
+
+#### Lame rouge
+
+**Assemblé · Machette** · Forme `■■■■` (4 cases) · Assemblé
+
+- Mêlée : 11 dégâts toutes les 0,9 s, pendant tout le duel
+- Saignement +12 par coup (ignore l'armure)
+- Frappe 1.5 fois plus vite dans un sac sans arme à feu
+- ★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts
+- Objet assemblé (recette)
+- Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
+- 4 cases · revente 8 cr
 
 ### Munitions
 
@@ -696,6 +783,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 **Base · Munition** · Forme `■` (1 case) · Prix 6 · dès le cercle 2
 
 - ★ Arme adjacent : perce 30 % de l'armure
+- Recette : Longue-vue + Perfo. → Fusil anti-matériel Rhinocéros (ingrédients adjacents : assemblage automatique)
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
 - 1 case · revente 3 cr
 
@@ -751,6 +839,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - ★ Arme adjacent : l'alimente (tout calibre), −25 % de recharge, chaque touche pose du Choc
 - Objet assemblé (recette)
+- Recette : Taser L. + Chg élec → Bobine Tesla (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
 - 1 case · revente 3 cr
 
@@ -829,6 +918,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - ★ Arme adjacent : chargeur +100 %, recharge +40 % (nourrit le Feu continu)
 - Recette : Ours + Tambour → Ours Déluge (ingrédients adjacents : assemblage automatique)
+- Recette : KR-4 T. + Tambour → KR-4 Mitrailleur (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 4 cases · revente 2 cr
 
@@ -864,6 +954,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 charges par combat · délai 6 s
 - ★ Arme de mêlée adjacent : +1 charge
 - Objet assemblé (recette)
+- Recette : Taser L. + Chg élec → Bobine Tesla (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
 - 2 cases · revente 4 cr
 
@@ -904,6 +995,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chaque balle reçue perd 2 dégâts
 - ★ Soin adjacent : soins +25 % à cet objet
 - Objet assemblé (recette)
+- Recette : Casque L. + Armure L. → Blindage Juggernaut (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
 - 6 cases · revente 10 cr
 
@@ -917,6 +1009,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chaque balle reçue perd 1 dégâts
 - ★ Protection adjacent (cases marquées) : +10 d'armure
 - Objet assemblé (recette)
+- Recette : Casque L. + Armure L. → Blindage Juggernaut (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
 - 4 cases · revente 4 cr
 
@@ -939,6 +1032,19 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Protection adjacent (cases marquées) : +4 d'armure
 - Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
 - 2 cases · revente 2 cr
+
+#### Blindage Juggernaut
+
+**Assemblé · Protection** · Forme `■■■ / ■■■ / ■■■` (9 cases) · Assemblé
+
+- Armure +140
+- Chaque balle reçue perd 4 dégâts
+- Immunisé à la décharge du Choc
+- Tirs : Endurance +15 %
+- ★ Soin adjacent : soins +30 % à cet objet
+- Objet assemblé (recette)
+- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- 9 cases · revente 17 cr
 
 ### Explosifs
 
@@ -993,6 +1099,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 charges par combat · délai 7 s
 - ★ Arme adjacent : +10 % de dégâts à cet objet
 - Objet assemblé (recette)
+- Recette : Thermite + Sous-mun. → Bombe au phosphore (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 2 cases · revente 6 cr
 
@@ -1006,6 +1113,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 3 charges par combat · délai 6 s
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
+- Recette : Thermite + Sous-mun. → Bombe au phosphore (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 1 case · revente 4 cr
 
@@ -1018,6 +1126,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 charges par combat · délai 7 s
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
+- Recette : Dragon + Incend. → Souffle du Dragon (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 1 case · revente 3 cr
 
@@ -1033,6 +1142,18 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Objet assemblé (recette)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
 - 1 case · revente 4 cr
+
+#### Bombe au phosphore
+
+**Assemblé · Explosif** · Forme `■■` (2 cases) · Assemblé
+
+- 30 dégâts à l'adversaire, ignore l'armure
+- Pose 8 Brûlure
+- 3 charges par combat · délai 6 s
+- ★ Explosif adjacent : +1 charge
+- Objet assemblé (recette)
+- Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
+- 2 cases · revente 12 cr
 
 ### Médical
 
@@ -1073,6 +1194,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 charges par combat · délai 4 s
 - ★ Protection adjacent : soins +30 %
 - Objet assemblé (recette)
+- Recette : Trauma + Sac méd. → Poste de secours (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
 - 4 cases · revente 7 cr
 
@@ -1098,8 +1220,21 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 3 charges par combat · délai 5 s
 - ★ Soin adjacent : +1 charge à cet objet
 - Objet assemblé (recette)
+- Recette : Trauma + Sac méd. → Poste de secours (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
 - 4 cases · revente 4 cr
+
+#### Poste de secours
+
+**Assemblé · Médical** · Forme `■■■ / ■■■` (6 cases) · Assemblé
+
+- Soigne 60 PV quand les PV passent sous 50 %
+- Au 1er soin : retire Brûlure, Choc et Saignement
+- 3 charges par combat · délai 4 s
+- ★ Protection adjacent : soins +30 %
+- Objet assemblé (recette)
+- Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde
+- 6 cases · revente 13 cr
 
 ### Composants
 

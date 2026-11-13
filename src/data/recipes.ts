@@ -25,6 +25,15 @@ export const RECIPES: Recipe[] = [
   { id: 'grenade_incendiaire', inputs: ['frag', 'briquet'], output: 'grenade_incendiaire' },
   { id: 'grenade_iem', inputs: ['flash', 'batterie'], output: 'grenade_iem' },
   { id: 'taser_lourd', inputs: ['taser', 'batterie'], output: 'taser_lourd' },
+  // Rang 2 : deux objets assemblés (ou un assemblé + un objet de base) donnent un objet de fou.
+  { id: 'souffle_dragon', inputs: ['pompe_dragon', 'grenade_incendiaire'], output: 'souffle_dragon' },
+  { id: 'bobine_tesla', inputs: ['taser_lourd', 'chg_electrique'], output: 'bobine_tesla' },
+  { id: 'juggernaut', inputs: ['casque_lourd', 'armure_lourde'], output: 'juggernaut' },
+  { id: 'poste_secours', inputs: ['kit_trauma', 'sac_medical'], output: 'poste_secours' },
+  { id: 'lame_rouge', inputs: ['machette', 'couteau_combat'], output: 'lame_rouge' },
+  { id: 'rhinoceros', inputs: ['aigle_longuevue', 'perforantes'], output: 'rhinoceros' },
+  { id: 'kr4_mitrailleur', inputs: ['kr4_tactique', 'chg_tambour'], output: 'kr4_mitrailleur' },
+  { id: 'bombe_phosphore', inputs: ['thermite', 'sous_munitions'], output: 'bombe_phosphore' },
   // Recettes de doublon (remplacent l'ancienne fusion de raretés). Après les autres : à ingrédients égaux,
   // la première recette de la liste l'emporte (frag + fumigène donne la thermite avant frag + frag).
   { id: 'mamba_akimbo', inputs: ['pistolet', 'pistolet'], output: 'mamba_akimbo' },

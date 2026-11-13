@@ -99,3 +99,10 @@ chacun, un par calibre), Grenade incendiaire, Grenade IEM, Taser lourd ; Combina
 (à partir du 2e cercle). Fiches d'objets à jour (statuts, Endurance par tir). Ces objets sont **réservés au joueur**
 jusqu'au calibrage des bots (`BOT_EXCLUDED` dans `bots.ts`, étape 4) : avec eux, la Brûlure faisait tomber Rempart
 à 17 % au Top 1. Icônes provisoires en attendant les sprites (étape 5).
+
+**Étape 3 (rang 2 : fait)** : Souffle du Dragon, Bobine Tesla (chaque décharge déclenchée : +30 dégâts qui ignorent
+l'armure), Blindage Juggernaut (armure 140, −4 par balle, immunisé à la décharge, tirs +15 % d'Endurance), Poste de
+secours (gros soins, retire les statuts au 1er soin), Lame rouge, Rhinocéros (130 dégâts, perce toute l'armure),
+KR-4 Mitrailleur (chargeur 60, Feu continu gardé à la recharge), Bombe au phosphore. Vérifié en jeu : pastilles de
+statut, décharges, rapport (« 5 décharges », « dont 120 de brûlure », « essoufflée 1 fois »). Réservés au joueur
+jusqu'à l'étape 4.

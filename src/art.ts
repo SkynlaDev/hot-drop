@@ -10,6 +10,8 @@ const ICON_OF: Record<string, string> = {
   // Combat v2 : icônes en attendant les sprites PixelLab.
   briquet: 'flash', batterie: 'bolt', ration: 'medkit', chg_incendiaire: 'mag', chg_electrique: 'mag',
   grenade_incendiaire: 'frag', grenade_iem: 'flash', taser_lourd: 'bolt', combinaison: 'plate', plaque_isolante: 'plate',
+  souffle_dragon: 'shotgun', bobine_tesla: 'bolt', juggernaut: 'plate', poste_secours: 'medkit', lame_rouge: 'hand',
+  rhinoceros: 'sniper', kr4_mitrailleur: 'rifle', bombe_phosphore: 'frag',
   pistolet: 'pistol', mamba_akimbo: 'pistol', taureau_jumeaux: 'pistol', revolver: 'pistol', colibri: 'pistol', taureau_magnum: 'pistol',
   smg: 'smg', smg_guepe: 'smg', smg_ours: 'smg', furet_akimbo: 'smg', ours_deluge: 'smg',
   fusil_assaut: 'rifle', ar_vesta: 'rifle', ar_hades: 'rifle', ar_lynx: 'rifle', kr4_tactique: 'rifle',

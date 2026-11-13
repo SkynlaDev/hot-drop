@@ -51,6 +51,7 @@ export const ARCH_FOCUS = 0.8;
 export const BOT_EXCLUDED = new Set([
   'briquet', 'batterie', 'ration', 'chg_incendiaire', 'chg_electrique', 'grenade_incendiaire', 'grenade_iem', 'taser_lourd',
   'combinaison', 'plaque_isolante',
+  'souffle_dragon', 'bobine_tesla', 'juggernaut', 'poste_secours', 'lame_rouge', 'rhinoceros', 'kr4_mitrailleur', 'bombe_phosphore',
 ]);
 export const ARCH_FOCUS_LANDING = 0.4;
 /** Manche (0 = 1er cercle) à partir de laquelle un bot peut jouer le build Lame. */

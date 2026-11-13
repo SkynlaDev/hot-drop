@@ -34,6 +34,8 @@ export interface WeaponStats {
   /** Cumuls de Brûlure / de Choc posés à chaque touche (avant la règle des armes lentes). */
   burn?: number;
   shock?: number;
+  /** Le Feu continu (Viper) ne retombe pas à la recharge (KR-4 Mitrailleur). */
+  heatKeep?: boolean;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel, plus vite quand toutes les armes à feu sont à sec. */
@@ -64,6 +66,8 @@ export interface ActiveStats {
   shock?: number;
   /** Remet à zéro le Feu continu adverse (grenade IEM). */
   heatReset?: boolean;
+  /** Soin : retire tous les statuts (Brûlure, Choc, Saignement) au 1er soin (Poste de secours). */
+  cleanse?: boolean;
 }
 
 export interface SynergyStats {
@@ -128,6 +132,8 @@ export interface ItemDef {
   endRegen?: number;
   /** Coût en Endurance des tirs majoré de cette part (armure lourde : 0,1). */
   endCostMult?: number;
+  /** Dégâts infligés à chaque décharge de Choc que l'on déclenche (Bobine Tesla), qui ignorent l'armure. */
+  dischargeDmg?: number;
   /** Objet obtenu par une recette (assemblage automatique) : jamais dans le butin ni la boutique. */
   crafted?: boolean;
   active?: ActiveStats;
@@ -304,6 +310,28 @@ const DEFS: ItemDef[] = [
   { id: 'plaque_isolante', name: 'Plaque isolante', short: 'Isolante', shape: ['XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 1, price: 5,
     armor: 10, shockThreshold: 3,
     stars: [{ at: [[0, 1], [1, 1]], want: ['protection'], effect: { on: 'self', kind: 'armor', value: 4 }, max: 1 }] },
+  // --- Combat v2, rang 2 : objets de fou (ingrédients assemblés)
+  { id: 'souffle_dragon', name: 'Souffle du Dragon', short: 'Souffle', wclass: 'Fusil à pompe', shape: ['XXXXX', 'XX...'], category: 'arme', family: 'demolition', tags: ['arme'], caliber: '12G', minRound: 0, price: 30, crafted: true,
+    weapon: { dmg: 17, interval: 1.4, mag: 6, reload: 2.6, targets: 2, selfFed: true, burn: 1 },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'dmg', value: 0.15 }, max: 2 }] },
+  { id: 'bobine_tesla', name: 'Bobine Tesla', short: 'Tesla', wclass: 'Arme électrique', shape: ['XXX', 'XXX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 0, price: 28, crafted: true,
+    weapon: { dmg: 6, interval: 0.6, mag: 30, reload: 2, selfFed: true, shock: 1 }, dischargeDmg: 30 },
+  { id: 'juggernaut', name: 'Blindage Juggernaut', short: 'Juggernaut', shape: ['XXX', 'XXX', 'XXX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 0, price: 34, crafted: true,
+    armor: 140, flatReduce: 4, shockImmune: true, endCostMult: 0.15,
+    stars: [{ want: ['medical'], effect: { on: 'target', kind: 'heal', value: 0.3 }, max: 2 }] },
+  { id: 'poste_secours', name: 'Poste de secours', short: 'Poste', shape: ['XXX', 'XXX'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 0, price: 26, crafted: true,
+    active: { kind: 'heal', value: 60, cooldown: 4, charges: 3, threshold: 0.6, cleanse: true },
+    stars: [{ want: ['protection'], effect: { on: 'self', kind: 'heal', value: 0.3 }, max: 1 }] },
+  { id: 'lame_rouge', name: 'Lame rouge', short: 'Lame R.', wclass: 'Machette', shape: ['XXXX'], category: 'arme', family: 'tactique', tags: ['melee'], minRound: 0, price: 16, crafted: true,
+    melee: { dmg: 11, interval: 0.9, bleed: 12 },
+    stars: [{ at: [[4, 0]], want: ['melee'], effect: { on: 'self', kind: 'dmg', value: 0.25 }, max: 1 }] },
+  { id: 'rhinoceros', name: 'Fusil anti-matériel Rhinocéros', short: 'Rhinocéros', wclass: 'Fusil de précision', shape: ['XXXXXX', '..X...'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRound: 0, price: 36, crafted: true,
+    weapon: { dmg: 130, interval: 3.6, mag: 3, reload: 4, selfFed: true, firstCrit: true, armorPierce: 1 } },
+  { id: 'kr4_mitrailleur', name: 'KR-4 Mitrailleur', short: 'KR-4 M.', wclass: "Fusil d'assaut", shape: ['XXXXX', '.XXX.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 32, crafted: true,
+    weapon: { dmg: 12, interval: 0.45, mag: 60, reload: 4, selfFed: true, heatBonus: 0.2, heatKeep: true } },
+  { id: 'bombe_phosphore', name: 'Bombe au phosphore', short: 'Phosphore', shape: ['XX'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 24, crafted: true,
+    active: { kind: 'frag', value: 30, cooldown: 6, charges: 3, pierce: true, burn: 8 },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(DEFS.map((d) => [d.id, d]));

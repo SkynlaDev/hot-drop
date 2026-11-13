@@ -45,7 +45,7 @@ export type DuelEvent =
   | { t: number; kind: 'heal'; side: Side; uid: number; amount: number; hp: number }
   | { t: number; kind: 'death'; side: Side }
   | { t: number; kind: 'burn'; side: Side; amount: number; hp: number; stacks: number }
-  | { t: number; kind: 'discharge'; side: Side; uid: number }
+  | { t: number; kind: 'discharge'; side: Side; uid: number; amount?: number; hp?: number }
   | { t: number; kind: 'tired'; side: Side; uid: number; end: number };
 
 /** Statuts posés par un coup (absents si nuls). */
@@ -54,6 +54,8 @@ export interface StatusFields {
   shock?: number;
   burnStacks?: number;
   shockStacks?: number;
+  /** Dégâts de la décharge déclenchée par ce coup (Bobine Tesla), déjà retirés des PV de la cible. */
+  discharged?: number;
 }
 
 export interface DuelResult {
@@ -220,10 +222,15 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           for (const fw of foe.ws) fw.fireStart = -1; // le Feu continu retombe
           foe.end = Math.max(0, foe.end - DISCHARGE_END);
         }
+        // Bobine Tesla : la décharge frappe aussi, sans passer par l'armure.
+        if (me.l.dischargeDmg) {
+          foe.hp = Math.max(0, foe.hp - me.l.dischargeDmg);
+          me.dealt += me.l.dischargeDmg;
+          f.discharged = me.l.dischargeDmg;
+        }
       }
       f.shockStacks = foe.shock;
     }
-    void me;
     return { f, discharge };
   };
 
@@ -275,7 +282,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         s.ammo = s.w.mag;
         s.next = t + s.w.reload;
         s.reloadUntil = s.next;
-        s.fireStart = -1; // la recharge éteint le Feu continu
+        if (!s.w.heatKeep) s.fireStart = -1; // la recharge éteint le Feu continu (sauf KR-4 Mitrailleur)
         events.push({ t, kind: 'reload', side: me.side, uid: s.w.uid });
         continue;
       }
@@ -330,7 +337,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
             ...(me.end !== Infinity ? { end: round1(me.end) } : {}),
             hp: round1(foe.hp), armor: round1(foe.armor),
           });
-          if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: s.w.uid });
+          if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: s.w.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
           if (foe.hp <= 0) {
             events.push({ t, kind: 'death', side: foe.side });
             return foe.side;
@@ -369,7 +376,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         stun(foe, t, ac.duration);
         const st = applyStatus(me, foe, t, ac.burn, ac.shock);
         events.push({ t, kind: 'taser', side: me.side, uid: ac.uid, amount, until: t + ac.duration, ...absField(abs), ...st.f, hp: round1(foe.hp), armor: round1(foe.armor) });
-        if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid });
+        if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
         s.charges--;
         s.next = t + ac.cooldown;
         if (foe.hp <= 0) {
@@ -395,7 +402,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         me.dealt += amount;
         const st = applyStatus(me, foe, t, ac.burn, ac.shock);
         events.push({ t, kind: 'frag', side: me.side, uid: ac.uid, amount, ...absField(abs), ...st.f, hp: round1(foe.hp), armor: round1(foe.armor) });
-        if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid });
+        if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
         if (foe.hp <= 0) {
           events.push({ t, kind: 'death', side: foe.side });
           return foe.side;
@@ -408,7 +415,11 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         if (ac.heatReset) for (const fw of foe.ws) fw.fireStart = -1;
         const st = applyStatus(me, foe, t, ac.burn, ac.shock);
         events.push({ t, kind: 'flash', side: me.side, uid: ac.uid, until: t + ac.value, ...st.f });
-        if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid });
+        if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
+        if (foe.hp <= 0) {
+          events.push({ t, kind: 'death', side: foe.side });
+          return foe.side;
+        }
       } else if (ac.kind === 'adrenaline') {
         if (me.hp / me.l.maxHp >= ac.threshold) continue;
         me.adrenalineUntil = t + ac.duration;
@@ -418,6 +429,11 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         if (me.hp / me.l.maxHp >= ac.threshold) continue;
         const amount = Math.min(Math.round(ac.value), Math.round(me.l.maxHp - me.hp));
         me.hp += amount;
+        if (ac.cleanse && s.charges === ac.charges) {
+          me.burn = 0;
+          me.shock = 0;
+          me.bleed = 0;
+        }
         events.push({ t, kind: 'heal', side: me.side, uid: ac.uid, amount, hp: round1(me.hp) });
       }
       s.charges--;
