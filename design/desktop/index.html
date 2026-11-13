@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>HOT DROP · maquette desktop (1920 × 1080)</title>
+<style>
+@font-face { font-family: 'Black Ops One'; src: url('../../node_modules/@fontsource/black-ops-one/files/black-ops-one-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-weight: 400; src: url('../../node_modules/@fontsource/oswald/files/oswald-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-weight: 600; src: url('../../node_modules/@fontsource/oswald/files/oswald-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Oswald'; font-weight: 700; src: url('../../node_modules/@fontsource/oswald/files/oswald-latin-700-normal.woff2') format('woff2'); }
+:root {
+  /* Palette « Crépuscule » (src/ui/palette.ts) */
+  --nuit: #0f0d13; --fond: #17141c; --fond2: #1c1822; --panneau: #221e28; --case: #2b2632; --relief: #342e3c;
+  --trait: #3e3746; --trait2: #4b4354; --traitClair: #5a5162; --muet: #6b6370;
+  --toile: #4a4d3a; --toileClaire: #6e6f55; --kaki: #969678; --cuir: #6f5238; --cuirClair: #8b7a5a;
+  --braise: #b35743; --orange: #e8894a; --orangeClair: #f4b06a; --orangePale: #f8d9ab; --or: #e9c46a; --orSombre: #a8843a;
+  --violet: #8f6bb8; --danger: #c94a4a; --dangerClair: #ef7b72; --dangerSombre: #6a2226; --soin: #86a95a; --soinClair: #a8c97a;
+  --gaz: #b5d65a; --armure: #7f93a3; --precision: #5fb3e0; --precisionClaire: #9ad3f2; --precisionSombre: #22465a;
+  --texte: #ece2cf; --discret: #a39a8c; --acier: #565b61;
+  --ch: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #08070a; color: var(--texte); font: 400 18px/1.35 Oswald, 'Arial Narrow', sans-serif; padding: 40px; }
+h1.page { font: 400 44px 'Black Ops One'; color: var(--orange); margin-bottom: 6px; }
+p.page { color: var(--discret); margin-bottom: 30px; max-width: 1400px; }
+.screen { width: 1920px; height: 1080px; position: relative; background: var(--fond); overflow: hidden; margin-bottom: 60px;
+  background-image: radial-gradient(1200px 700px at 50% 30%, #1f1a26, var(--fond)); }
+.label { font: 400 26px 'Black Ops One'; color: var(--orangeClair); margin: 0 0 10px 4px; }
+.t { font-family: 'Black Ops One'; letter-spacing: .5px; }
+.q { color: var(--discret); }
+.abs { position: absolute; }
+/* Plaque chanfreinée : contour = fond du conteneur, intérieur = .in */
+.plate { position: absolute; padding: 2px; background: var(--trait2);
+  clip-path: polygon(var(--ch) 0, calc(100% - var(--ch)) 0, 100% var(--ch), 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, var(--ch) 100%, 0 calc(100% - var(--ch)), 0 var(--ch)); }
+.plate > .in { width: 100%; height: 100%; background: linear-gradient(#262129, var(--panneau) 60px); position: relative; padding: 18px 22px;
+  clip-path: polygon(calc(var(--ch) - 1px) 0, calc(100% - var(--ch) + 1px) 0, 100% calc(var(--ch) - 1px), 100% calc(100% - var(--ch) + 1px), calc(100% - var(--ch) + 1px) 100%, calc(var(--ch) - 1px) 100%, 0 calc(100% - var(--ch) + 1px), 0 calc(var(--ch) - 1px)); }
+.plate.braise { background: var(--braise); } .plate.or { background: var(--orSombre); } .plate.bleu { background: var(--precisionSombre); }
+.rv::before, .rv::after { content: ''; position: absolute; width: 22px; height: 4px; background: inherit; }
+.rivets i { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #a9bccb, var(--acier) 60%, #222 100%); }
+.btn { position: absolute; display: flex; align-items: center; justify-content: center; gap: 12px; font: 400 26px 'Black Ops One'; letter-spacing: 1px;
+  color: var(--texte); background: var(--relief); border-bottom: 6px solid var(--nuit);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.08); }
+.btn.prim { background: linear-gradient(var(--orangeClair) 0 38%, var(--orange) 38%); color: var(--nuit); border-bottom-color: var(--braise); }
+.btn.off { opacity: .45; }
+.btn small { font: 600 15px Oswald; opacity: .8; }
+.key { display: inline-block; font: 700 13px Oswald; color: var(--nuit); background: var(--orangePale); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 2px; }
+/* Barre du haut */
+.top { position: absolute; left: 0; top: 0; right: 0; height: 64px; background: var(--nuit); border-bottom: 2px solid var(--trait); display: flex; align-items: center; padding: 0 28px; gap: 26px; }
+.top .cr { font: 700 28px Oswald; color: var(--orange); }
+.pill { font: 600 16px Oswald; padding: 4px 14px; border-radius: 16px; border: 2px solid var(--soin); color: var(--soinClair); }
+/* Sac */
+.grid { position: absolute; }
+.cell { position: absolute; border-radius: 8px; border: 1px solid rgba(90,81,98,.35); }
+.cell.u { background: var(--toile); border: 2px solid var(--toileClaire); }
+.cell.s { background: var(--cuir); border: 2px solid var(--cuirClair); }
+.item { position: absolute; border-radius: 8px; background: rgba(15,13,19,.35); outline: 2px solid rgba(169,188,203,.25); outline-offset: -2px; }
+.item img { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.item .nm { position: absolute; left: 6px; bottom: 4px; font: 700 13px Oswald; color: var(--texte); text-shadow: 0 1px 2px #000, 0 0 3px #000; letter-spacing: .3px; }
+.item.crafted { outline-color: var(--or); }
+.item.sel { outline: 3px solid #fff; }
+.item.glow { box-shadow: 0 0 0 3px var(--or), 0 0 24px 6px rgba(233,196,106,.55); }
+.star { position: absolute; font: 700 13px Oswald; color: var(--or); background: rgba(0,0,0,.65); border-radius: 10px; padding: 0 7px; }
+.link { position: absolute; background: var(--or); border-radius: 4px; box-shadow: 0 0 0 2px rgba(0,0,0,.5); }
+.hstar { position: absolute; width: 30px; height: 30px; color: var(--or); font-size: 26px; line-height: 30px; text-align: center; opacity: .9; text-shadow: 0 0 4px #000; }
+/* Réserve */
+.slot { position: absolute; border-radius: 8px; background: rgba(0,0,0,.18); border: 2px solid var(--trait); }
+/* Annotations */
+.note { position: absolute; background: rgba(15,13,19,.94); border: 2px solid var(--or); color: var(--texte); font: 400 16px/1.35 Oswald; padding: 10px 14px; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.6); z-index: 20; }
+.note b { color: var(--or); font-weight: 700; }
+.pin { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: var(--or); color: var(--nuit); font: 700 18px/30px Oswald; text-align: center; z-index: 21; box-shadow: 0 0 0 3px var(--nuit); }
+.note .pin { position: static; display: inline-block; width: 24px; height: 24px; font-size: 15px; line-height: 24px; margin-right: 6px; box-shadow: none; }
+/* Barres de vie */
+.hp { position: absolute; height: 18px; background: var(--nuit); transform: skewX(-18deg); border: 2px solid var(--traitClair); }
+.hp > i { display: block; height: 100%; }
+.hp > span { position: absolute; left: 0; right: 0; top: -2px; text-align: center; transform: skewX(18deg); font: 700 13px Oswald; }
+.end { position: absolute; height: 6px; background: var(--nuit); }
+.end > i { display: block; height: 100%; background: var(--or); }
+.chip { position: absolute; font: 700 13px Oswald; padding: 0 8px; border-radius: 6px; background: var(--nuit); border: 1px solid; }
+.float { position: absolute; font: 400 34px 'Black Ops One'; text-shadow: 0 0 6px #000, 2px 2px 0 #000; }
+/* Rapport */
+.rrow { display: grid; grid-template-columns: 70px 1fr 70px; gap: 10px; align-items: center; margin: 10px 0; }
+.rrow img { image-rendering: pixelated; max-width: 64px; max-height: 44px; }
+.bar { height: 12px; background: rgba(0,0,0,.35); border-radius: 6px; overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+/* Cartes de zone */
+.zc { position: absolute; width: 196px; height: 262px; padding: 3px;
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px); }
+.zc > .in { height: 100%; background: linear-gradient(var(--c2) 0 60%, var(--panneau) 60%), var(--panneau); text-align: center; padding-top: 14px;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px); }
+.zc .band { display: inline-block; font: 400 22px 'Black Ops One'; background: var(--nuit); padding: 2px 18px; }
+.zc .disc { width: 96px; height: 96px; border-radius: 50%; background: rgba(15,13,19,.7); margin: 12px auto 6px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--c); }
+.zc .disc img { image-rendering: pixelated; width: 96px; }
+.zc .k { font: 700 20px Oswald; margin-top: 16px; }
+/* Carte BR */
+.zone { position: absolute; border-radius: 50%; border: 3px solid; background: rgba(23,20,28,.85); display: flex; align-items: center; justify-content: center; }
+.zone .n { position: absolute; top: 100%; margin-top: 6px; white-space: nowrap; font: 700 17px Oswald; text-shadow: 0 0 4px #000, 0 0 4px #000; text-align: center; }
+.zone .n small { display: block; font-size: 13px; }
+.chiplet { font: 700 17px Oswald; background: var(--nuit); padding: 1px 10px; border: 2px solid; clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px); }
+</style>
+</head>
+<body>
+<h1 class="page">HOT DROP · maquette desktop</h1>
+<p class="page">Écran paysage 1920 × 1080, souris et clavier. Même jeu, mêmes règles, même univers que la version mobile (portrait 720 × 1280), qui reste la référence. Ces maquettes montrent comment la largeur supplémentaire évite les fenêtres plein écran : réserve, boutique, adversaire et rapport restent visibles à côté du sac.</p>
+
+<div class="label">1 · Sac, préparation du duel</div>
+<div class="screen" id="s1"></div>
+
+<div class="label">2 · Sac et boutique côte à côte (ravitaillement)</div>
+<div class="screen" id="s2"></div>
+
+<div class="label">3 · Duel en cours</div>
+<div class="screen" id="s3"></div>
+
+<div class="label">4 · Carte du battle royale</div>
+<div class="screen" id="s4"></div>
+
+<script>
+const IT = '../../public/art/items/';
+const PX = '../../public/art/px/';
+const SH = {
+  kr4_tactique: [4,2], fusil_assaut: [4,2], chg_556: [1,1], chg_incendiaire: [1,1], casque: [2,2], casque_lourd: [2,2], plaque: [2,3],
+  armure_lourde: [2,3], ifak: [2,2], kit_trauma: [2,2], frag: [1,1], grenade_incendiaire: [1,1], fumigene: [1,2], refroidisseur: [3,1],
+  couteau: [2,1], lunette: [2,1], poignee: [1,2], chg_tambour: [2,2], seringue: [2,1], bandage: [1,1], briquet: [1,1], batterie: [1,1],
+  ration: [1,1], smg: [3,2], pistolet: [2,2], revolver: [3,2], precision: [5,2], pompe: [4,2], taser: [2,1], flash: [1,1],
+  mamba_akimbo: [2,2], viseur_holo: [1,1], machette: [3,1], chg_9mm: [1,1], chg_44: [1,1], plaque_isolante: [2,1], combinaison: [2,2],
+  sac_medical: [2,2], juggernaut: [3,3], dmr_faucon: [4,2], tracantes: [1,1], silencieux: [2,1],
+};
+const NAME = { kr4_tactique: 'KR-4 T.', chg_556: 'Chg 5.56', chg_incendiaire: 'Chg feu', casque: 'Casque', ifak: 'IFAK', frag: 'Frag',
+  grenade_incendiaire: 'Incend.', refroidisseur: 'Refroid.', couteau: 'Couteau', poignee: 'Poignée', seringue: 'Adré.', bandage: 'Bandage',
+  briquet: 'Briquet', plaque: 'Plaque', ration: 'Ration', batterie: 'Batterie', smg: 'Furet', taser: 'Taser', chg_9mm: 'Chg 9mm',
+  mamba_akimbo: 'Akimbo M.', viseur_holo: 'Holo', casque_lourd: 'Casque L.', kit_trauma: 'Trauma', machette: 'Machette', flash: 'Flash',
+  lunette: 'Lunette', plaque_isolante: 'Isolante', combinaison: 'Ignifugée', fumigene: 'Fumi', sac_medical: 'Sac méd.', juggernaut: 'Juggernaut',
+  pistolet: 'Mamba', revolver: 'Taureau', fusil_assaut: 'KR-4', chg_tambour: 'Tambour', precision: 'Aigle', silencieux: 'Silenc.' };
+const CRAFTED = new Set(['kr4_tactique', 'chg_incendiaire', 'grenade_incendiaire', 'mamba_akimbo', 'casque_lourd', 'kit_trauma', 'machette', 'juggernaut', 'sac_medical']);
+
+function el(parent, tag, cls, css, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (css) for (const [k, v] of Object.entries(css)) { if (k.startsWith('--')) e.style.setProperty(k, v); else e.style[k] = v; }
+  if (html !== undefined) e.innerHTML = html;
+  parent.appendChild(e);
+  return e;
+}
+function plate(parent, x, y, w, h, variant = '', ch = 16) {
+  const p = el(parent, 'div', 'plate ' + variant, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', '--ch': ch + 'px' });
+  const r = el(p, 'div', 'rivets', { position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' });
+  for (const [a, b] of [[10, 10], [w - 17, 10], [10, h - 17], [w - 17, h - 17]]) el(r, 'i', '', { left: a + 'px', top: b + 'px' });
+  return el(p, 'div', 'in');
+}
+function btn(parent, x, y, w, h, label, cls = '', size) {
+  const b = el(parent, 'div', 'btn ' + cls, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' }, label);
+  if (size) b.style.fontSize = size + 'px';
+  return b;
+}
+function note(parent, x, y, w, html) { return el(parent, 'div', 'note', { left: x + 'px', top: y + 'px', width: w + 'px' }, html); }
+function pin(parent, x, y, n) { return el(parent, 'div', 'pin', { left: x + 'px', top: y + 'px' }, n); }
+function item(parent, id, x, y, cell, opts = {}) {
+  const [w, h] = SH[id];
+  const d = el(parent, 'div', 'item' + (CRAFTED.has(id) ? ' crafted' : '') + (opts.cls ? ' ' + opts.cls : ''),
+    { left: x * cell + 3 + 'px', top: y * cell + 3 + 'px', width: w * cell - 6 + 'px', height: h * cell - 6 + 'px' });
+  el(d, 'img', '', { width: w * cell - 6 + 'px', height: h * cell - 6 + 'px' }).src = IT + id + '.png';
+  if (opts.name !== false && cell >= 60) el(d, 'div', 'nm', null, NAME[id] ?? id);
+  if (opts.star) el(d, 'div', 'star', { right: '4px', top: '4px' }, '★ ' + opts.star);
+  return d;
+}
+/** Sac 9×8 : cases utilisables (u = toile, s = sacoche cuir), objets. */
+function bag(parent, x, y, cell, usable, items, extra) {
+  const g = el(parent, 'div', 'grid', { left: x + 'px', top: y + 'px', width: 9 * cell + 'px', height: 8 * cell + 'px' });
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 9; c++) {
+    const t = usable[`${c},${r}`];
+    el(g, 'div', 'cell' + (t ? ' ' + t : ''), { left: c * cell + 4 + 'px', top: r * cell + 4 + 'px', width: cell - 8 + 'px', height: cell - 8 + 'px' });
+  }
+  for (const it of items) item(g, it[0], it[1], it[2], cell, it[3] || {});
+  if (extra) extra(g, cell);
+  return g;
+}
+function usableDemo() {
+  const u = {};
+  for (let c = 2; c <= 6; c++) for (let r = 2; r <= 5; r++) u[`${c},${r}`] = 'u';
+  for (let c = 7; c <= 8; c++) for (let r = 2; r <= 3; r++) u[`${c},${r}`] = 's';
+  u['7,4'] = 's'; u['7,5'] = 's';
+  for (let c = 2; c <= 6; c++) u[`${c},6`] = 's';
+  return u;
+}
+const MY_BAG = [
+  ['kr4_tactique', 2, 2, { star: 2 }], ['chg_556', 6, 2], ['poignee', 6, 3], ['refroidisseur', 2, 4], ['casque', 2, 5, { star: '0/1' }],
+  ['ifak', 4, 5, { star: 1 }], ['frag', 5, 4], ['grenade_incendiaire', 6, 5], ['briquet', 6, 6], ['couteau', 7, 2], ['seringue', 7, 3], ['bandage', 7, 5],
+];
+function links(g, cell) {
+  for (const [cx, cy, v] of [[6, 2.5, true], [5.5, 4, false], [6.5, 5, false], [5.5, 3.5, false], [6, 5.5, true]]) {
+    el(g, 'div', 'link', v ? { left: cx * cell - 4 + 'px', top: cy * cell - 18 + 'px', width: '8px', height: '36px' }
+      : { left: cx * cell - 18 + 'px', top: cy * cell - 4 + 'px', width: '36px', height: '8px' });
+  }
+}
+function topbar(s, right) {
+  const t = el(s, 'div', 'top');
+  el(t, 'div', 'cr', null, '◆ 34 cr');
+  el(t, 'div', 'pill', null, '♥ Goulag dispo');
+  el(t, 'div', 't', { fontSize: '24px', marginLeft: 'auto' }, right);
+  return t;
+}
+function figure(parent, src, x, y, s, flip) {
+  const i = el(parent, 'img', '', { position: 'absolute', left: x + 'px', top: y + 'px', width: 64 * s + 'px', imageRendering: 'pixelated', transform: flip ? 'scaleX(-1)' : '' });
+  i.src = PX + src;
+  return i;
+}
+function hpbar(parent, x, y, w, frac, color, label) {
+  const b = el(parent, 'div', 'hp', { left: x + 'px', top: y + 'px', width: w + 'px' });
+  el(b, 'i', '', { width: frac * 100 + '%', background: color });
+  el(b, 'span', '', null, label);
+  return b;
+}
+function arena(parent, x, y, w, h, opts = {}) {
+  const box = el(parent, 'div', '', { position: 'absolute', left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', overflow: 'hidden',
+    clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+    background: 'url(../../public/art/bg/industrie.svg) center / cover', border: '4px solid var(--trait2)' });
+  el(box, 'div', '', { position: 'absolute', inset: 0, background: 'linear-gradient(rgba(0,0,0,.45), transparent 18%, transparent 80%, rgba(0,0,0,.6))' });
+  el(box, 'div', 't', { position: 'absolute', left: '22px', top: '12px', fontSize: '20px' }, opts.head ?? 'ÉLITE · BOT FORT');
+  const s = opts.scale ?? 3;
+  figure(box, 'viper.png', w * 0.16, h - 64 * s - 40, s);
+  figure(box, 'soldat.png', w * 0.84 - 64 * s, h - 64 * s - 40, s, true);
+  const bw = Math.min(260, w * 0.3);
+  const by = Math.max(92, h * 0.28);
+  el(box, 'div', 't', { position: 'absolute', left: w * 0.16 + 32 * s - bw / 2 + 'px', top: by - 30 + 'px', width: bw + 'px', textAlign: 'center', fontSize: '18px' }, 'VIPER');
+  hpbar(box, w * 0.16 + 32 * s - bw / 2, by, bw, opts.myHp ?? 1, 'var(--soin)', opts.myHpT ?? '750');
+  el(box, 'div', 'end', { left: w * 0.16 + 32 * s - bw / 2 + 'px', top: by + 24 + 'px', width: bw + 'px' }).innerHTML = `<i style="width:${(opts.myEnd ?? 1) * 100}%"></i>`;
+  el(box, 'div', 't', { position: 'absolute', left: w * 0.84 - 32 * s - bw / 2 + 'px', top: by - 30 + 'px', width: bw + 'px', textAlign: 'center', fontSize: '18px', color: 'var(--dangerClair)' }, 'FRELON');
+  hpbar(box, w * 0.84 - 32 * s - bw / 2, by, bw, opts.foeHp ?? 1, 'var(--danger)', opts.foeHpT ?? '750');
+  el(box, 'div', 'end', { left: w * 0.84 - 32 * s - bw / 2 + 'px', top: by + 24 + 'px', width: bw + 'px' }).innerHTML = `<i style="width:${(opts.foeEnd ?? 1) * 100}%"></i>`;
+  if (opts.chips) {
+    el(box, 'div', 'chip', { left: w * 0.84 - 32 * s - bw / 2 + 'px', top: by + 36 + 'px', color: 'var(--orange)', borderColor: 'var(--orange)' }, '▲ 7 brûlure');
+    el(box, 'div', 'chip', { left: w * 0.84 - 32 * s - bw / 2 + 112 + 'px', top: by + 36 + 'px', color: 'var(--precision)', borderColor: 'var(--precision)' }, 'ϟ 3/5');
+  }
+  if (opts.vs !== false) el(box, 'div', 't', { position: 'absolute', left: w / 2 - 40 + 'px', top: h * 0.45 + 'px', fontSize: '54px', color: 'var(--orange)', textShadow: '3px 3px 0 #000' }, 'VS');
+  el(box, 'div', '', { position: 'absolute', left: 0, right: 0, bottom: 0, height: '44px', background: 'rgba(0,0,0,.55)', font: '700 18px Oswald', padding: '9px 22px' },
+    opts.stats ?? 'TOI &nbsp;♥ 750/750 &nbsp; ARM 142 &nbsp; ✦ DPS 61 &nbsp; END 10');
+  return box;
+}
+function enemyPanel(parent, x, y, w, h) {
+  const p = plate(parent, x, y, w, h, 'braise');
+  el(p, 'div', 't', { fontSize: '26px', color: 'var(--dangerClair)' }, 'FRELON');
+  el(p, 'div', '', { position: 'absolute', right: '22px', top: '18px', font: "400 16px 'Black Ops One'", background: 'var(--danger)', color: 'var(--nuit)', padding: '2px 14px' }, 'FORT');
+  el(p, 'div', 'q', null, 'Sentinelle · <span style="color:var(--orange);font-weight:700">AKIMBO</span>');
+  const g = el(p, 'div', '', { position: 'absolute', left: '36px', top: '96px', width: '6px' });
+  const cell = 56;
+  const u = {}; for (let c = 0; c < 6; c++) for (let r = 0; r < 4; r++) u[`${c},${r}`] = 'u';
+  const gg = el(p, 'div', '', { position: 'absolute', left: (w - 6 * cell) / 2 + 'px', top: '104px', width: 6 * cell + 'px', height: 4 * cell + 'px' });
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) el(gg, 'div', 'cell u', { left: c * cell + 3 + 'px', top: r * cell + 3 + 'px', width: cell - 6 + 'px', height: cell - 6 + 'px' });
+  for (const [id, x2, y2] of [['mamba_akimbo', 0, 0], ['chg_9mm', 2, 0], ['viseur_holo', 2, 1], ['casque_lourd', 4, 0], ['kit_trauma', 0, 2], ['machette', 3, 2], ['flash', 2, 3], ['chg_44', 3, 3]]) item(gg, id, x2, y2, cell, { name: false });
+  el(p, 'div', '', { position: 'absolute', left: '22px', bottom: '16px', font: '700 18px Oswald' }, '♥ 750 &nbsp; ARM 158 &nbsp; ✦ DPS 82');
+  void g;
+  return p;
+}
+function reserve(parent, x, y, w, items) {
+  const p = plate(parent, x, y, w, 290);
+  el(p, 'div', 't', { fontSize: '20px' }, `RÉSERVE ${items.length}/12`);
+  const cw = (w - 44) / 4, chh = 70;
+  items.forEach((id, i) => {
+    const sx = (i % 4) * cw, sy = Math.floor(i / 4) * chh + 40;
+    el(p, 'div', 'slot', { left: 22 + sx + 'px', top: sy + 'px', width: cw - 8 + 'px', height: chh - 8 + 'px' });
+    if (!id) return;
+    const [iw, ih] = SH[id];
+    const s = Math.min((cw - 22) / (iw * 32), (chh - 20) / (ih * 32));
+    const im = el(p, 'img', '', { position: 'absolute', imageRendering: 'pixelated', width: iw * 32 * s + 'px', height: ih * 32 * s + 'px',
+      left: 22 + sx + (cw - 8 - iw * 32 * s) / 2 + 'px', top: sy + (chh - 8 - ih * 32 * s) / 2 + 'px' });
+    im.src = IT + id + '.png';
+  });
+  for (let i = items.length; i < 12; i++) el(p, 'div', 'slot', { left: 22 + (i % 4) * cw + 'px', top: Math.floor(i / 4) * chh + 40 + 'px', width: cw - 8 + 'px', height: chh - 8 + 'px' });
+  return p;
+}
+function statsPanel(parent, x, y, w) {
+  const p = plate(parent, x, y, w, 330);
+  el(p, 'div', 't', { fontSize: '30px', color: 'var(--orange)' }, 'VIPER');
+  el(p, 'div', 'q', { fontSize: '15px', marginBottom: '12px' }, 'Feu continu : chaque arme gagne +5 % de cadence par seconde de tir sans recharger (max +30 %).');
+  const rows = [['PV', '750', 'var(--soinClair)'], ['Armure', '142'], ['DPS estimé', '61', 'var(--orange)'], ['Endurance', '10 · +1/s', 'var(--or)'], ['Armes alimentées', '1/1', 'var(--soinClair)'], ['Synergies', '6', 'var(--orange)']];
+  for (const [k, v, c] of rows) el(p, 'div', '', { display: 'flex', justifyContent: 'space-between', fontSize: '19px', margin: '3px 0' }, `<span class="q">${k}</span><b style="color:${c ?? 'var(--texte)'}">${v}</b>`);
+  el(p, 'div', '', { marginTop: '10px', fontSize: '15px', display: 'flex', gap: '22px' },
+    '<span style="color:var(--orangeClair)">Rafale ●●○○</span><span style="color:var(--armure)">Rempart ●●○○</span><span style="color:var(--dangerClair)">Démolition ●○○○</span>');
+  return p;
+}
+
+/* ---------- Écran 1 : sac, préparation ---------- */
+(() => {
+  const s = document.getElementById('s1');
+  topbar(s, 'CERCLE 4/5 · ACTION 2/3');
+  statsPanel(s, 24, 88, 420);
+  reserve(s, 24, 436, 420, ['plaque', 'ration', 'batterie', 'smg', 'taser', 'chg_9mm', 'lunette']);
+  const sac = plate(s, 24, 744, 420, 168);
+  el(sac, 'div', 't', { fontSize: '20px' }, 'SACOCHES 1/3');
+  el(sac, 'img', '', { position: 'absolute', left: '40px', top: '64px', width: '110px', imageRendering: 'pixelated' }).src = IT + 'ration.png';
+  sac.lastChild.remove();
+  el(sac, 'div', '', { position: 'absolute', left: '30px', top: '58px', width: '120px', height: '70px', background: 'var(--cuir)', border: '3px solid var(--cuirClair)', borderRadius: '10px' });
+  el(sac, 'div', 'q', { position: 'absolute', left: '170px', top: '70px', fontSize: '16px', width: '220px' }, 'Pochette · +2 cases<br>Glisser sur la grille pour l’ajouter');
+  btn(s, 24, 936, 420, 110, '<span>VENDRE</span><small>glisser ici · 50 %</small>');
+  s.lastChild.style.background = 'rgba(201,74,74,.2)'; s.lastChild.style.color = 'var(--dangerClair)'; s.lastChild.style.flexDirection = 'column'; s.lastChild.style.gap = '0';
+  // Sac au centre
+  const bx = 486, by = 120, cell = 100;
+  bag(s, bx, by, cell, usableDemo(), MY_BAG.map((r) => r[0] === 'grenade_incendiaire' ? [r[0], r[1], r[2], { cls: 'sel' }] : r), (g, c) => {
+    links(g, c);
+    for (const [hx, hy] of [[2, 6.6], [3, 6.6]]) el(g, 'div', 'hstar', { left: (hx + 0.5) * c - 15 + 'px', top: hy * c - 15 + 'px' }, '☆');
+  });
+  el(s, 'div', 't', { position: 'absolute', left: bx + 'px', top: '76px', fontSize: '24px' }, 'SAC À DOS <span class="q" style="font:400 16px Oswald;margin-left:12px">cases de 100 px (72 px sur mobile)</span>');
+  // Colonne de droite
+  arena(s, 1430, 88, 466, 330, { scale: 2.4 });
+  enemyPanel(s, 1430, 436, 466, 420);
+  btn(s, 1430, 880, 466, 82, 'SON SAC <span class="key">S</span>', '', 24);
+  btn(s, 1430, 970, 466, 92, 'COMBAT ! <span class="key">ESPACE</span>', 'prim', 30);
+  // Fiche au survol
+  const f = plate(s, 1110, 560, 300, 210, 'or', 12);
+  el(f, 'div', 't', { fontSize: '19px', color: 'var(--or)' }, 'GRENADE INCENDIAIRE');
+  el(f, 'div', 'q', { fontSize: '14px' }, 'Assemblé · Explosif');
+  el(f, 'div', '', { fontSize: '15px', marginTop: '8px' }, '14 dégâts + 4 Brûlure<br>2 charges · délai 7 s<br><span style="color:var(--or)">★ Explosif adjacent : +1 charge</span><br><span class="q">Survol : fiche · clic : sélection · clic droit : tourner</span>');
+  // Annotations
+  pin(s, 452, 450, 1); pin(s, 1400, 96, 2); pin(s, 1080, 548, 3); pin(s, 455, 950, 4);
+  note(s, 486, 932, 920, '<span class="pin">1</span><b>Tout est visible à la fois</b> : réserve (12 places), sacoches et vente à gauche. <span class="pin">2</span><b>L’adversaire reste affiché</b> à droite, sans fenêtre.');
+  note(s, 486, 1004, 920, '<span class="pin">3</span><b>Survol = fiche</b> (remplace l’appui long), clic = sélection et fils, clic droit ou <span class="key">R</span> = tourner. <span class="pin">4</span><b>Glisser-déposer</b> comme au doigt.');
+})();
+
+/* ---------- Écran 2 : sac et boutique ---------- */
+(() => {
+  const s = document.getElementById('s2');
+  topbar(s, 'RAVITAILLEMENT · CERCLE 4/5');
+  statsPanel(s, 24, 88, 420);
+  reserve(s, 24, 436, 420, ['plaque', 'ration', 'batterie', 'smg', 'taser', 'chg_9mm', 'lunette', 'pistolet']);
+  btn(s, 24, 744, 420, 110, '<span>VENDRE</span><small>glisser ici · 50 %</small>');
+  s.lastChild.style.background = 'rgba(201,74,74,.2)'; s.lastChild.style.color = 'var(--dangerClair)'; s.lastChild.style.flexDirection = 'column'; s.lastChild.style.gap = '0';
+  bag(s, 486, 120, 100, usableDemo(), MY_BAG, links);
+  el(s, 'div', 't', { position: 'absolute', left: '486px', top: '76px', fontSize: '24px' }, 'SAC À DOS');
+  // Boutique à droite
+  const p = plate(s, 1430, 88, 466, 820);
+  el(p, 'div', 't', { fontSize: '30px' }, 'RAVITAILLEMENT');
+  el(p, 'div', '', { position: 'absolute', right: '24px', top: '24px', font: '700 24px Oswald', color: 'var(--orange)' }, '◆ 34 cr');
+  const offers = [['armure_lourde', 'Armure lourde', 'Assemblé', 20, true], ['revolver', 'Revolver Taureau', 'Base', 7], ['fumigene', 'Fumigène', 'Base', 3], ['chg_tambour', 'Chargeur tambour', 'Base', 5, false, true], ['combinaison', 'Combinaison ignifugée', 'Base', 6]];
+  offers.forEach(([id, n, t, pr, star, lock], i) => {
+    const y = 74 + i * 130;
+    const c = el(p, 'div', '', { position: 'absolute', left: '20px', right: '20px', top: y + 'px', height: '120px', background: 'var(--fond2)', border: '2px solid ' + (lock ? 'var(--precision)' : 'var(--trait2)'), borderRadius: '10px' });
+    const [iw, ih] = SH[id] ?? [2, 3];
+    const sc = Math.min(110 / (iw * 32), 100 / (ih * 32), 1.6);
+    const im = el(c, 'img', '', { position: 'absolute', left: 16 + (120 - iw * 32 * sc) / 2 + 'px', top: (124 - ih * 32 * sc) / 2 + 'px', width: iw * 32 * sc + 'px', imageRendering: 'pixelated' });
+    im.src = IT + id + '.png';
+    el(c, 'div', '', { position: 'absolute', left: '150px', top: '16px', font: '700 21px Oswald' }, n);
+    el(c, 'div', '', { position: 'absolute', left: '150px', top: '46px', fontSize: '15px', color: t === 'Base' ? 'var(--discret)' : 'var(--or)' }, t + (star ? ' · <span style="color:var(--or)">★ se lierait à ton sac</span>' : ''));
+    el(c, 'div', 'btn prim', { left: '150px', top: '78px', width: '110px', height: '38px', fontSize: '18px' }, '◆ ' + pr);
+    el(c, 'div', '', { position: 'absolute', right: '14px', bottom: '14px', width: '40px', height: '36px', borderRadius: '8px', background: lock ? 'var(--precision)' : 'rgba(0,0,0,.45)', color: lock ? '#fff' : 'var(--discret)', textAlign: 'center', font: '700 20px/36px Oswald' }, lock ? '🔒' : '🔓');
+  });
+  btn(p, 20, 736, 240, 64, 'RELANCER · 2 <span class="key">F</span>', '', 20);
+  btn(s, 1430, 930, 466, 112, 'TERMINER <span class="key">ENTRÉE</span>', 'prim', 30);
+  pin(s, 1400, 96, 1); pin(s, 470, 830, 2);
+  note(s, 500, 140, 880, '<span class="pin">1</span><b>La boutique ne recouvre plus le sac</b> : on achète en glissant l’offre directement dans le sac ou la réserve, et on voit tout de suite les liens qu’elle allumerait.');
+  note(s, 500, 834, 880, '<span class="pin">2</span><b>Même logique pour les caisses et la fouille</b> du sac d’un vaincu : panneau à droite, sac au centre. Seules les fiches restent en surimpression.');
+})();
+
+/* ---------- Écran 3 : duel ---------- */
+(() => {
+  const s = document.getElementById('s3');
+  topbar(s, 'DUEL ÉLITE · 0:11');
+  arena(s, 24, 88, 1200, 640, { scale: 5.2, myHp: 0.62, myHpT: '465', foeHp: 0.41, foeHpT: '308', chips: true, myEnd: 0.35, foeEnd: 0.8, vs: false, stats: 'TOI &nbsp;♥ 465/750 &nbsp; ARM 22 &nbsp; ✦ DPS 61 &nbsp; END 3,5', head: 'ÉLITE · BOT FORT · 0:11' });
+  el(s, 'div', 'float', { left: '900px', top: '360px', color: 'var(--orange)' }, '24 CRIT');
+  el(s, 'div', 'float', { left: '980px', top: '420px', color: 'var(--orange)', fontSize: '24px' }, '-6');
+  el(s, 'div', 'float', { left: '300px', top: '350px', color: 'var(--quiet)', fontSize: '20px', color: '#a39a8c' }, 'ESSOUFFLÉ');
+  // Sacs en miniature sous l'arène
+  const mp = plate(s, 24, 748, 600, 314);
+  el(mp, 'div', 't', { fontSize: '18px' }, 'TON SAC · les objets qui se déclenchent s’allument');
+  bag(mp, -66, -48, 44, usableDemo(), MY_BAG.map((r) => r[0] === 'kr4_tactique' || r[0] === 'grenade_incendiaire' ? [r[0], r[1], r[2], { cls: 'glow', name: false }] : [r[0], r[1], r[2], { name: false }]));
+  const ep = plate(s, 640, 748, 584, 314, 'braise');
+  el(ep, 'div', 't', { fontSize: '18px', color: 'var(--dangerClair)' }, 'SAC DE FRELON');
+  const gg = el(ep, 'div', '', { position: 'absolute', left: '24px', top: '48px', width: '300px', height: '200px' });
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) el(gg, 'div', 'cell u', { left: c * 50 + 3 + 'px', top: r * 50 + 3 + 'px', width: '44px', height: '44px' });
+  for (const [id, x2, y2, gl] of [['mamba_akimbo', 0, 0, 1], ['chg_9mm', 2, 0], ['viseur_holo', 2, 1], ['casque_lourd', 4, 0], ['kit_trauma', 0, 2], ['machette', 3, 2, 1], ['flash', 2, 3], ['chg_44', 3, 3]]) item(gg, id, x2, y2, 50, { name: false, cls: gl ? 'glow' : '' });
+  // Rapport en direct à droite
+  const rp = plate(s, 1248, 88, 648, 974);
+  el(rp, 'div', 't', { fontSize: '30px', color: 'var(--soinClair)' }, 'RAPPORT EN DIRECT');
+  el(rp, 'div', 'q', { marginBottom: '10px' }, 'Infligés 442 · Reçus 285 (armure 120) · Soignés 35');
+  el(rp, 'div', 't', { fontSize: '19px', color: 'var(--orange)', marginTop: '14px' }, 'TON SAC');
+  const row = (id, n, d, parts, val, col) => {
+    const r = el(rp, 'div', 'rrow');
+    el(r, 'img').src = IT + id + '.png';
+    const m = el(r, 'div');
+    el(m, 'div', '', { font: '700 19px Oswald' }, n);
+    const bar = el(m, 'div', 'bar'); for (const [w, c] of parts) el(bar, 'i', '', { width: w + '%', background: c });
+    el(m, 'div', 'q', { fontSize: '14px' }, d);
+    el(r, 'div', '', { font: '700 22px Oswald', textAlign: 'right', color: col }, val);
+  };
+  row('kr4_tactique', 'KR-4 Tactique', '41/46 touches · 3 crit. · lié à Chg 5.56, Poignée, Refroid.', [[72, 'var(--orange)']], '286', 'var(--orange)');
+  row('grenade_incendiaire', 'Grenade incendiaire', '2 fois · dont 64 de brûlure', [[26, 'var(--orange)']], '92', 'var(--orange)');
+  row('couteau', 'Couteau', '11/11 touches', [[12, 'var(--orange)']], '44', 'var(--orange)');
+  row('casque', 'Casque', '72 dégâts pris par l’armure', [[18, 'var(--armure)']], '72', 'var(--armure)');
+  row('ifak', 'IFAK', '1 fois · +35 PV', [[9, 'var(--soin)']], '+35', 'var(--soinClair)');
+  el(rp, 'div', 't', { fontSize: '19px', color: 'var(--dangerClair)', marginTop: '18px' }, 'SAC DE FRELON');
+  row('mamba_akimbo', 'Mamba Akimbo', '38/52 touches · 4 crit. · essoufflée 2 fois', [[64, 'var(--orange)']], '251', 'var(--orange)');
+  row('machette', 'Machette', '9/9 touches', [[9, 'var(--orange)']], '34', 'var(--orange)');
+  row('casque_lourd', 'Casque lourd', '96 dégâts pris par l’armure', [[24, 'var(--armure)']], '96', 'var(--armure)');
+  btn(rp, 22, 974 - 110, 290, 70, 'VITESSE ×2 <span class="key">V</span>', '', 20);
+  btn(rp, 326, 974 - 110, 280, 70, 'PASSER <span class="key">ESPACE</span>', '', 20);
+  pin(s, 1220, 100, 1); pin(s, 30, 740, 2); pin(s, 500, 590, 3);
+  note(s, 520, 600, 440, '<span class="pin">3</span><b>Arène en grand</b> : personnages ×5, chiffres lisibles de loin, statuts (brûlure, choc) et Endurance sous chaque barre.');
+  note(s, 1260, 858, 620, '<span class="pin">1</span><b>Le rapport se remplit pendant le duel</b> au lieu d’attendre la fin : on comprend en direct ce qui marche.');
+  note(s, 990, 800, 220, '<span class="pin">2</span><b>Les deux sacs restent visibles</b> : chaque objet s’allume quand il se déclenche, comme sur mobile, mais sans recouvrir l’arène.');
+})();
+
+/* ---------- Écran 4 : carte ---------- */
+(() => {
+  const s = document.getElementById('s4');
+  topbar(s, 'CERCLE 3/5');
+  const M = { x: 24, y: 88, w: 1000, h: 974 };
+  const map = el(s, 'div', '', { position: 'absolute', left: M.x + 'px', top: M.y + 'px', width: M.w + 'px', height: M.h + 'px', overflow: 'hidden',
+    background: 'radial-gradient(500px 400px at 30% 40%, #3e3746, #342e3c)', border: '3px solid var(--trait2)' });
+  // Relief et quadrillage
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${M.w}' height='${M.h}'>
+    ${Array.from({ length: 9 }, (_, i) => `<line x1='${(i + 1) * 100}' y1='0' x2='${(i + 1) * 100}' y2='${M.h}' stroke='#000' stroke-opacity='.2'/><line x1='0' y1='${(i + 1) * 100}' x2='${M.w}' y2='${(i + 1) * 100}' stroke='#000' stroke-opacity='.2'/>`).join('')}
+    ${[[260, 300], [700, 640], [520, 220]].map(([cx, cy]) => [60, 100, 140, 180].map((r) => `<ellipse cx='${cx}' cy='${cy}' rx='${r * 1.3}' ry='${r * .85}' fill='none' stroke='#5a5162' stroke-opacity='.25'/>`).join('')).join('')}
+    <path d='M 380 0 C 300 200, 470 360, 400 520 S 330 800, 430 ${M.h}' stroke='#22465a' stroke-width='26' fill='none'/>
+    <circle cx='560' cy='520' r='420' fill='none' stroke='#b5d65a' stroke-width='5'/>
+    <circle cx='560' cy='520' r='300' fill='none' stroke='#fff' stroke-opacity='.6' stroke-width='3' stroke-dasharray='14 12'/>
+    <path d='M0 0 H${M.w} V${M.h} H0 Z M140 520 a420 420 0 1 0 840 0 a420 420 0 1 0 -840 0 Z' fill='#b5d65a' fill-opacity='.22' fill-rule='evenodd'/>
+  </svg>`;
+  el(map, 'div', '', { position: 'absolute', inset: 0 }, svg);
+  const zones = [[300, 260, 'p', 'Carrière', 'Chantier', '#ef7b72'], [520, 200, 'p', 'Centre commercial', 'Armurerie', '#f4b06a'], [760, 330, 'g', 'Marché couvert', 'Hôpital', '#a8c97a'],
+    [340, 520, 'm', 'Station-service', 'Hôpital', '#a8c97a'], [640, 560, 'm', 'Port de plaisance', 'Commissariat', '#5fb3e0'], [470, 760, 'g', 'Lotissement des Lilas', 'Chantier', '#ef7b72'], [820, 760, 'm', 'Château d’eau', 'Commissariat', '#5fb3e0']];
+  const SZ = { p: [42, '#86a95a', 4], m: [58, '#e9c46a', 6], g: [76, '#c94a4a', 8] };
+  zones.forEach(([x, y, sz, n, th, thc], i) => {
+    const [r, c, k] = SZ[sz];
+    const z = el(map, 'div', 'zone', { left: x - r + 'px', top: y - r + 'px', width: 2 * r + 'px', height: 2 * r + 'px', borderColor: c });
+    el(z, 'div', 'chiplet', { borderColor: c, color: c }, '▣ ' + k);
+    el(z, 'div', 'n', null, n.toUpperCase() + `<small style="color:${thc}">${th.toUpperCase()}</small>`);
+    if (i === 4) el(map, 'div', '', { position: 'absolute', left: x - r - 18 + 'px', top: y - r - 18 + 'px', width: 2 * r + 36 + 'px', height: 2 * r + 36 + 'px', borderRadius: '50%', border: '4px dashed #fff' });
+  });
+  for (let i = 0; i < 10; i++) {
+    el(map, 'div', 't', { position: 'absolute', left: i * 100 + 44 + 'px', top: '8px', fontSize: '14px', color: 'var(--discret)' }, 'ABCDEFGHIJ'[i]);
+    el(map, 'div', 't', { position: 'absolute', left: '8px', top: i * 100 + 40 + 'px', fontSize: '14px', color: 'var(--discret)' }, i + 1);
+  }
+  // Panneau de zone et cartes
+  const p = plate(s, 1048, 88, 848, 974);
+  el(p, 'div', 't', { fontSize: '36px' }, 'PORT DE PLAISANCE');
+  el(p, 'div', '', { margin: '6px 0 4px', fontSize: '17px' }, '<span style="background:var(--or);color:var(--nuit);font-weight:700;padding:1px 10px">ZONE MOYENNE · DISPUTÉE</span> &nbsp;<span class="q">Bots +0,5 niveau</span>');
+  el(p, 'div', '', { color: 'var(--precision)', fontWeight: 700, fontSize: '18px' }, 'COMMISSARIAT · Butin : accessoires et chargeurs');
+  el(p, 'div', 'q', { margin: '10px 0 18px', fontSize: '17px', maxWidth: '780px' }, 'Aperçu des cartes de la zone avant de sauter : sur desktop, on les voit dès la carte, sans changer d’écran.');
+  const cards = [['ÉLITE', '#c94a4a', 'rgba(201,74,74,.25)', 'px', 'BOT FORT', '2 objets à prendre'], ['SOLO', '#e8894a', 'rgba(232,137,74,.22)', 'px', '1 COMBAT', '1 objet à prendre'], ['CAISSE', '#86a95a', 'rgba(134,169,90,.22)', 'frag', 'SANS COMBAT', '1 objet sur 3'],
+    ['BOUTIQUE', '#5fb3e0', 'rgba(95,179,224,.2)', 'chg_9mm', '5 OFFRES', 'Achète et relance'], ['SOLO', '#e8894a', 'rgba(232,137,74,.22)', 'px', '1 COMBAT', '1 objet à prendre'], ['RENFORCÉE', '#5fb3e0', 'rgba(95,179,224,.2)', 'chg_tambour', 'SANS COMBAT', '2 objets sur 4']];
+  cards.forEach(([t, c, c2, ic, k, d], i) => {
+    const z = el(p, 'div', 'zc', { left: 22 + (i % 4) * 202 + 'px', top: 196 + Math.floor(i / 4) * 276 + 'px', background: c, '--c': c, '--c2': c2 });
+    const inn = el(z, 'div', 'in');
+    el(inn, 'div', 'band', { color: c }, t);
+    const disc = el(inn, 'div', 'disc');
+    el(disc, 'img').src = ic === 'px' ? PX + 'soldat.png' : IT + ic + '.png';
+    if (ic !== 'px') disc.lastChild.style.width = '64px';
+    el(inn, 'div', 'k', null, k);
+    el(inn, 'div', 'q', { fontSize: '15px' }, d);
+  });
+  btn(p, 22, 974 - 120, 260, 92, 'SAC <span class="key">B</span>', '', 26);
+  btn(p, 300, 974 - 120, 504, 92, 'LARGUER ▸ <span class="key">ENTRÉE</span>', 'prim', 30);
+  pin(s, 1020, 96, 1); pin(s, 690, 560, 2);
+  note(s, 1070, 836, 780, '<span class="pin">1</span><b>Carte et zone côte à côte</b> : la carte occupe la gauche en carré (1000 px), le panneau de droite montre la zone survolée ou choisie et ses cartes tirées. Sur mobile, ces deux vues sont empilées.');
+  note(s, 70, 130, 270, '<span class="pin">2</span><b>Survol d’une zone</b> = aperçu de ses cartes ; clic = sélection ; double-clic = larguer.');
+})();
+</script>
+</body>
+</html>
