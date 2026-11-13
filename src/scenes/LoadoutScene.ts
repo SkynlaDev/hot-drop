@@ -61,6 +61,12 @@ const SHOT_SFX: Record<string, SfxId> = {
 };
 const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
 const ARMOR_STR = '#a9bccb';
+/** Icône du type d'objet qu'attend une étoile (sous l'étoile vide de l'objet sélectionné). */
+const TAG_ICON: Record<string, string> = {
+  arme: 'ic-rifle', arme_longue: 'ic-sniper', melee: 'ic-hand', munition: 'ic-mag', accessoire: 'ic-scope',
+  protection: 'ic-plate', explosif: 'ic-frag', medical: 'ic-medkit', composant: 'ic-bolt',
+};
+
 /** Petit cadenas centré en (x, y) : ouvert ou fermé. */
 function drawPadlock(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number, closed: boolean) {
   g.lineStyle(3, color, 1);
@@ -207,6 +213,9 @@ export default class LoadoutScene extends Phaser.Scene {
   /** Objet sélectionné (1er toucher) : ses fils de liens et de recettes sont affichés ; 2e toucher = rotation. */
   private selUid: number | null = null;
   private wireG!: Phaser.GameObjects.Graphics;
+  /** Étoiles de l'objet sélectionné (graphique fixe, au-dessus des objets) et icônes des types attendus. */
+  private selStarG!: Phaser.GameObjects.Graphics;
+  private selStarIcons: Phaser.GameObjects.Image[] = [];
   private sellG!: Phaser.GameObjects.Graphics;
   private trayLayer!: Container;
   private stripLayer!: Container;
@@ -277,6 +286,7 @@ export default class LoadoutScene extends Phaser.Scene {
     this.previewG = this.add.graphics().setDepth(40);
     this.starG = this.add.graphics().setDepth(45);
     this.wireG = this.add.graphics().setDepth(44);
+    this.selStarG = this.add.graphics().setDepth(44.5);
     this.sellG = this.add.graphics().setDepth(1.2);
     this.trayLayer = this.add.container(0, 0).setDepth(2);
     this.stripLayer = this.add.container(0, 0).setDepth(3);
@@ -876,6 +886,9 @@ export default class LoadoutScene extends Phaser.Scene {
   private drawWires(links: { a: number; b: number }[]) {
     const g = this.wireG;
     g.clear();
+    this.selStarG.clear();
+    for (const ic of this.selStarIcons) ic.destroy();
+    this.selStarIcons = [];
     this.tweens.killTweensOf(g);
     g.setAlpha(1);
     const uid = this.selUid;
@@ -927,8 +940,63 @@ export default class LoadoutScene extends Phaser.Scene {
     const b = view.getBounds();
     g.lineStyle(3, P.blanc, 0.9);
     g.strokeRoundedRect(b.x - 3, b.y - 3, b.width + 6, b.height + 6, 10);
+    this.drawSelectedStars(sel);
     if (!n) return;
     this.tweens.add({ targets: g, alpha: 0.65, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  }
+
+  /**
+   * Étoiles de l'objet sélectionné, sur leurs cases exactes (elles tournent avec lui) :
+   * dorée pleine = remplie ; creuse + icône du type attendu = vide. Plus, en petit, les cases libres où il
+   * allumerait l'étoile d'un autre objet (utile pour un objet encore en réserve).
+   */
+  private drawSelectedStars(sel: ItemInst) {
+    const g = this.selStarG;
+    const placed = this.run.items.filter((i) => i.placed);
+    const occupied = new Set(placed.flatMap((o) => cellsOf(o).map(([x, y]) => `${x},${y}`)));
+    const use = usable(this.run);
+    const inGrid = (x: number, y: number) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+    const cx = (x: number) => GRID_X + (x + 0.5) * CELL;
+    const cy = (y: number) => GRID_Y + (y + 0.5) * CELL;
+    const shown = new Set<string>();
+    if (sel.placed) {
+      for (const f of bagStars(placed)) {
+        if (f.uid !== sel.uid) continue;
+        const spec = starSpecs(sel.defId)[f.spec];
+        if (!spec.at) continue; // étoile « tout autour » (accessoires) : les fils dorés la montrent déjà
+        for (const c of f.cells) {
+          if (!inGrid(c.x, c.y)) continue;
+          const k = `${c.x},${c.y}`;
+          shown.add(k);
+          if (c.by !== null) {
+            drawStar(g, cx(c.x), cy(c.y), CELL * 0.22, true, GOLD_HEX, 1);
+          } else {
+            const free = !occupied.has(k) && use.has(k);
+            g.fillStyle(P.nuit, free ? 0.55 : 0.35);
+            g.fillCircle(cx(c.x), cy(c.y), CELL * 0.3);
+            drawStar(g, cx(c.x), cy(c.y) - CELL * 0.08, CELL * 0.2, false, GOLD_HEX, free ? 0.95 : 0.5);
+            const key = spec.want?.[0] ? TAG_ICON[spec.want[0]] : undefined;
+            if (key && this.textures.exists(key)) {
+              this.selStarIcons.push(this.add.image(cx(c.x), cy(c.y) + CELL * 0.18, key).setDisplaySize(CELL * 0.22, CELL * 0.22).setTint(GOLD_HEX).setAlpha(free ? 0.9 : 0.45).setDepth(44.6));
+            }
+          }
+        }
+      }
+    }
+    // Cases libres où il allumerait l'étoile précise d'un autre objet
+    const sd = ITEMS[sel.defId];
+    for (const f of bagStars(placed)) {
+      if (f.uid === sel.uid) continue;
+      const holder = placed.find((o) => o.uid === f.uid)!;
+      const spec = starSpecs(holder.defId)[f.spec];
+      if (!spec.at || !spec.wants(sd)) continue;
+      for (const c of f.cells) {
+        const k = `${c.x},${c.y}`;
+        if (shown.has(k) || occupied.has(k) || !use.has(k) || !inGrid(c.x, c.y)) continue;
+        shown.add(k);
+        drawStar(g, cx(c.x), cy(c.y), CELL * 0.16, false, GOLD_HEX, 0.7);
+      }
+    }
   }
 
   /** Un fil courbe de `a` vers `b` (plein ou en pointillé), avec une pastille à l'arrivée. `bend` = côté de la courbe. */

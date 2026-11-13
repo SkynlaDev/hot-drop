@@ -30,6 +30,8 @@ export interface StarSpec {
   /** Cases relatives à la forme non tournée ; null = toutes les cases voisines. */
   at: [number, number][] | null;
   wants: (d: ItemDef) => boolean;
+  /** Types attendus (étoiles d'objets) ; absent pour l'étoile d'un accessoire (elle attend une arme). */
+  want?: Tag[];
   /** Ce que l'étoile attend, pour la fiche : « Arme 9 mm ». */
   wantLabel: string;
   /** Ce qu'elle apporte : « −25 % de recharge (max 3) ». */
@@ -93,6 +95,7 @@ export function starSpecs(defId: string): StarSpec[] {
     out.push({
       at: s.at ?? null,
       wants: (o) => s.want.some((t) => o.tags.includes(t)),
+      want: s.want,
       wantLabel: s.want.map((t) => TAG_LABEL[t]).join(' ou '),
       text: effectText(s.effect),
       effect: s.effect,
