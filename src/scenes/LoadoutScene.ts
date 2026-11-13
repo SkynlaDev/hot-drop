@@ -135,6 +135,8 @@ interface Actor {
   shock: number;
   shockMax: number;
   lastTired: number;
+  /** Dernier « PERCE L'ARMURE » affiché (temps du duel), pour ne pas en couvrir l'écran. */
+  lastPierce: number;
   chips: Phaser.GameObjects.Text[];
 }
 
@@ -2126,7 +2128,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const a: Actor = {
       side, x, feet, hp, maxHp, armor, maxArmor: armor, fig, bars, hpText, barW, barX, barY,
       muzzle: pt(meta.muzzle), chest: pt(meta.chest),
-      end: ENDURANCE_MAX, endMax: ENDURANCE_MAX, endRegen: 1, burn: 0, shock: 0, shockMax: 5, lastTired: -9, chips: [],
+      end: ENDURANCE_MAX, endMax: ENDURANCE_MAX, endRegen: 1, burn: 0, shock: 0, shockMax: 5, lastTired: -9, lastPierce: -9, chips: [],
     };
     this.drawBars(a);
     return a;
@@ -2479,6 +2481,14 @@ export default class LoadoutScene extends Phaser.Scene {
     else sfx('hit', { vol: to === 'a' ? 0.7 : 0.5, pan });
   }
 
+  /** « PERCE L'ARMURE » : des dégâts passent aux PV alors qu'il reste de l'armure (au plus une fois par seconde et demie). */
+  private pierceHint(a: Actor) {
+    const t = this.play?.t ?? 0;
+    if (t - a.lastPierce < 1.5) return;
+    a.lastPierce = t;
+    this.floatText(a, "PERCE L'ARMURE", hex(P.acierClair), 15, 48);
+  }
+
   /** Éteint les badges de Feu continu de toutes les armes d'un camp (décharge du Choc). */
   private setHeatAll(side: Side, heat: number) {
     for (const w of this.fightL?.[side].weapons ?? []) this.setHeat(side, w.uid, heat);
@@ -2546,6 +2556,8 @@ export default class LoadoutScene extends Phaser.Scene {
             this.floatText(to, `${e.amount}${e.crit ? ' CRIT' : ''}${e.pierce ? ' ⇢' : ''}`, col, e.crit ? 32 : 24);
           }
           if (e.mark) this.setMark(to, true); // le viseur porte l'étiquette « MARQUÉ »
+          const w = this.fightL?.[e.from].weapons.find((x) => x.uid === e.uid);
+          if ((e.pierce || (w?.trueDmg ?? 0) > 0) && e.armor > 0.5 && (e.absorbed ?? 0) < e.amount - 0.5) this.pierceHint(to);
           this.hitReact(to);
           if (e.crit || e.marked) this.impact('medium');
           else if (to.side === 'a' && e.amount >= 10) this.impact('small');
@@ -2615,6 +2627,7 @@ export default class LoadoutScene extends Phaser.Scene {
           this.hitReact(to);
           this.floatText(to, `${e.amount}`, C.accentStr, 32);
           this.floatText(this.actor(e.side), 'FRAG !', '#e9c46a', 18);
+          if (e.armor > 0.5 && (e.absorbed ?? 0) < e.amount - 0.5) this.pierceHint(to);
           this.impact('medium');
           vibrate(20);
         }
