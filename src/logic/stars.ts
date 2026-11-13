@@ -11,7 +11,7 @@ export const DRUM_RELOAD = 0.4;
 
 export const TAG_LABEL: Record<Tag, string> = {
   arme: 'Arme', arme_longue: 'Arme longue', melee: 'Arme de mêlée', munition: 'Munition', accessoire: 'Accessoire',
-  protection: 'Protection', explosif: 'Explosif', medical: 'Soin',
+  protection: 'Protection', explosif: 'Explosif', medical: 'Soin', composant: 'Composant',
 };
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
@@ -43,7 +43,7 @@ function synergyText(d: ItemDef): string {
   const s = d.synergy!;
   const v = pct(s.value);
   switch (s.kind) {
-    case 'mag': return `−${v} de recharge (max 3)`;
+    case 'mag': return s.status ? `l'alimente (tout calibre), −${v} de recharge, chaque touche pose ${s.status === 'burn' ? 'de la Brûlure' : 'du Choc'}` : `−${v} de recharge (max 3)`;
     case 'scope': return `+${v} de critique`;
     case 'silencer': return 'son 1er tir est critique';
     case 'pierce': return `perce ${v} de l'armure`;
@@ -59,7 +59,7 @@ function synergyText(d: ItemDef): string {
 
 function synergyWant(d: ItemDef): string {
   const k = d.synergy!.kind;
-  if (k === 'mag') return `Arme ${d.caliber}`;
+  if (k === 'mag') return d.synergy!.status ? 'Arme' : `Arme ${d.caliber}`;
   if (k === 'scope' || k === 'bipod') return 'Arme longue';
   if (k === 'holo') return 'Arme courte';
   return 'Arme';

@@ -1,10 +1,10 @@
 // Définitions des objets. Pas de raretés : un objet a toujours les mêmes valeurs.
 // La puissance vient des recettes (objets assemblés, voir data/recipes.ts).
 
-export type Tag = 'arme' | 'arme_longue' | 'melee' | 'munition' | 'accessoire' | 'protection' | 'explosif' | 'medical';
+export type Tag = 'arme' | 'arme_longue' | 'melee' | 'munition' | 'accessoire' | 'protection' | 'explosif' | 'medical' | 'composant';
 export type Caliber = '9mm' | '5.56' | '7.62' | '12G' | '.44';
 export type Family = 'rafale' | 'precision' | 'demolition' | 'rempart' | 'tactique';
-export type Category = 'arme' | 'munition' | 'accessoire' | 'protection' | 'explosif' | 'medical';
+export type Category = 'arme' | 'munition' | 'accessoire' | 'protection' | 'explosif' | 'medical' | 'composant';
 
 export interface WeaponStats {
   dmg: number;
@@ -277,6 +277,33 @@ const DEFS: ItemDef[] = [
   { id: 'sac_medical', name: 'Sac médical', short: 'Sac méd.', shape: ['XX', 'XX'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 0, price: 8, crafted: true,
     active: { kind: 'heal', value: 28, cooldown: 5, charges: 3, threshold: 0.5 },
     stars: [{ want: ['medical'], effect: { on: 'target', kind: 'charges', value: 1 }, max: 2 }] },
+
+  // --- Combat v2 (design/COMBAT-V2.md) : composants, objets assemblés de rang 1, contres de statuts
+  { id: 'briquet', name: 'Briquet', short: 'Briquet', shape: ['X'], category: 'composant', family: 'demolition', tags: ['composant'], minRound: 0, price: 2,
+    stars: [{ want: ['explosif'], effect: { on: 'target', kind: 'dmg', value: 0.2 }, max: 1 }] },
+  { id: 'batterie', name: 'Batterie', short: 'Batterie', shape: ['X'], category: 'composant', family: 'tactique', tags: ['composant'], minRound: 0, price: 2,
+    stars: [{ want: ['arme'], effect: { on: 'target', kind: 'cadence', value: 0.05 }, max: 1 }] },
+  { id: 'ration', name: 'Ration de combat', short: 'Ration', shape: ['X'], category: 'composant', family: 'rempart', tags: ['composant'], minRound: 0, price: 3,
+    endRegen: 0.25 },
+  { id: 'chg_incendiaire', name: 'Chargeur incendiaire', short: 'Chg feu', shape: ['X'], category: 'munition', family: 'demolition', tags: ['munition'], minRound: 0, price: 6, crafted: true,
+    synergy: { kind: 'mag', value: 0.25, status: 'burn' } },
+  { id: 'chg_electrique', name: 'Chargeur électrique', short: 'Chg élec', shape: ['X'], category: 'munition', family: 'tactique', tags: ['munition'], minRound: 0, price: 6, crafted: true,
+    synergy: { kind: 'mag', value: 0.25, status: 'shock' } },
+  { id: 'grenade_incendiaire', name: 'Grenade incendiaire', short: 'Incend.', shape: ['X'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 7, crafted: true,
+    active: { kind: 'frag', value: 14, cooldown: 7, charges: 2, burn: 4 },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  { id: 'grenade_iem', name: 'Grenade IEM', short: 'IEM', shape: ['X'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 0, price: 8, crafted: true,
+    active: { kind: 'flash', value: 1.2, cooldown: 8, charges: 2, shock: 4, heatReset: true },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  { id: 'taser_lourd', name: 'Taser lourd', short: 'Taser L.', shape: ['XX'], category: 'accessoire', family: 'tactique', tags: ['accessoire'], minRound: 0, price: 8, crafted: true,
+    active: { kind: 'taser', value: 6, cooldown: 6, charges: 2, duration: 1.5, shock: 5 },
+    stars: [{ want: ['melee'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  { id: 'combinaison', name: 'Combinaison ignifugée', short: 'Ignifugée', shape: ['XX', 'XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 1, price: 6,
+    armor: 14, burnResist: 0.5,
+    stars: [{ at: [[2, 0], [2, 1]], want: ['protection'], effect: { on: 'self', kind: 'armor', value: 5 }, max: 1 }] },
+  { id: 'plaque_isolante', name: 'Plaque isolante', short: 'Isolante', shape: ['XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 1, price: 5,
+    armor: 10, shockThreshold: 3,
+    stars: [{ at: [[0, 1], [1, 1]], want: ['protection'], effect: { on: 'self', kind: 'armor', value: 4 }, max: 1 }] },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(DEFS.map((d) => [d.id, d]));
@@ -299,6 +326,7 @@ export const CATEGORY_COLORS: Record<Category, number> = {
   protection: 0x565b61,
   explosif: 0x6e2f27,
   medical: 0x3f5a35,
+  composant: 0x4a3626,
 };
 
 export const CATEGORY_NAMES: Record<Category, string> = {
@@ -308,4 +336,5 @@ export const CATEGORY_NAMES: Record<Category, string> = {
   protection: 'Protection',
   explosif: 'Explosif',
   medical: 'Médical',
+  composant: 'Composant',
 };

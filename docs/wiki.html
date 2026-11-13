@@ -369,6 +369,51 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <td>Soin (tout autour)</td>
 <td>+1 charge à cet objet (max 2)</td>
 </tr>
+<tr>
+<td>Briquet</td>
+<td>Explosif (tout autour)</td>
+<td>+20 % de dégâts à cet objet (max 1)</td>
+</tr>
+<tr>
+<td>Batterie</td>
+<td>Arme (tout autour)</td>
+<td>+5 % de cadence à cet objet (max 1)</td>
+</tr>
+<tr>
+<td>Chargeur incendiaire</td>
+<td>Arme (tout autour)</td>
+<td>l'alimente (tout calibre), −25 % de recharge, chaque touche pose de la Brûlure</td>
+</tr>
+<tr>
+<td>Chargeur électrique</td>
+<td>Arme (tout autour)</td>
+<td>l'alimente (tout calibre), −25 % de recharge, chaque touche pose du Choc</td>
+</tr>
+<tr>
+<td>Grenade incendiaire</td>
+<td>Explosif (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td>Grenade IEM</td>
+<td>Explosif (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td>Taser lourd</td>
+<td>Arme de mêlée (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td>Combinaison ignifugée</td>
+<td>Protection (cases précises)</td>
+<td>+5 d'armure (max 1)</td>
+</tr>
+<tr>
+<td>Plaque isolante</td>
+<td>Protection (cases précises)</td>
+<td>+4 d'armure (max 1)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="familles">Familles</h2>
@@ -479,6 +524,58 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <td><img src="../public/art/items/kit_trauma.png" height="24"> <strong>Kit de trauma</strong></td>
 </tr>
 <tr>
+<td><img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm +  Briquet</td>
+<td><strong>Chargeur incendiaire</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_9mm.png" height="24"> Chargeur 9 mm +  Batterie</td>
+<td><strong>Chargeur électrique</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56 +  Briquet</td>
+<td><strong>Chargeur incendiaire</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_556.png" height="24"> Chargeur 5.56 +  Batterie</td>
+<td><strong>Chargeur électrique</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62 +  Briquet</td>
+<td><strong>Chargeur incendiaire</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_762.png" height="24"> Chargeur 7.62 +  Batterie</td>
+<td><strong>Chargeur électrique</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_44.png" height="24"> Balles .44 +  Briquet</td>
+<td><strong>Chargeur incendiaire</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_44.png" height="24"> Balles .44 +  Batterie</td>
+<td><strong>Chargeur électrique</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G +  Briquet</td>
+<td><strong>Chargeur incendiaire</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/chg_12g.png" height="24"> Cartouches 12G +  Batterie</td>
+<td><strong>Chargeur électrique</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/frag.png" height="24"> Grenade frag +  Briquet</td>
+<td><strong>Grenade incendiaire</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/flash.png" height="24"> Grenade flash +  Batterie</td>
+<td><strong>Grenade IEM</strong></td>
+</tr>
+<tr>
+<td><img src="../public/art/items/taser.png" height="24"> Taser +  Batterie</td>
+<td><strong>Taser lourd</strong></td>
+</tr>
+<tr>
 <td><img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba</td>
 <td><img src="../public/art/items/mamba_akimbo.png" height="24"> <strong>Mamba Akimbo</strong></td>
 </tr>
@@ -549,7 +646,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <p>Une caisse propose toujours au moins une arme.</p>
 <ul>
 <li><strong>Boutique</strong> : 5 offres, 40 % de chance que l’une soit une sacoche. Relance : 2 crédits.</li>
-<li><strong>Répartition du butin</strong> par catégorie : Arme 20 %, Munition 25 %, Accessoire 22 %, Protection 12 %, Explosif 11 %, Médical 10 %.</li>
+<li><strong>Répartition du butin</strong> par catégorie : Arme 20 %, Munition 22 %, Accessoire 20 %, Protection 12 %, Explosif 10 %, Médical 8 %, Composant 8 %.</li>
 <li>Certains objets n’apparaissent qu’à partir d’un certain cercle (colonne « Dès » des tableaux d’objets).</li>
 </ul>
 <h2 id="sacoches">Sacoches</h2>
@@ -595,6 +692,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 11 toutes les 0,9 s</li>
 <li>Chargeur 8 balles · recharge 2 s</li>
 <li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,5 par tir</li>
 <li>Recette : Mamba + Mamba → Mamba Akimbo (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>3 cases · revente 2 cr</li>
@@ -606,6 +704,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 4,5 toutes les 0,4 s</li>
 <li>Chargeur 15 balles · recharge 2,5 s</li>
 <li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,2 par tir</li>
 <li>Recette : Furet + Guêpe → Furet Akimbo (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>4 cases · revente 3 cr</li>
@@ -617,6 +716,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 10 toutes les 0,7 s</li>
 <li>Chargeur 15 balles · recharge 2,5 s</li>
 <li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,4 par tir</li>
 <li>Recette : KR-4 + Poignée + Étendu → KR-4 Tactique (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>5 cases · revente 4 cr</li>
@@ -629,6 +729,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 4 balles · recharge 3 s</li>
 <li>Alimentation : un chargeur 12G adjacent, sinon recharge ×2</li>
 <li>Plombs : chaque tir touche 2 fois</li>
+<li>Endurance : 1 par tir</li>
 <li>★ Explosif adjacent : +15 % de dégâts</li>
 <li>Recette : Sanglier + Cart. 12G → Pompe Dragon (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
@@ -641,6 +742,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 51,5 toutes les 3 s</li>
 <li>Chargeur 4 balles · recharge 3,5 s</li>
 <li>Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2</li>
+<li>Endurance : 2,1 par tir</li>
 <li>Recette : Aigle + Lunette + Bipied → Aigle Longue-vue (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>6 cases · revente 7 cr</li>
@@ -652,6 +754,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 7,5 toutes les 0,6 s</li>
 <li>Chargeur 15 balles · recharge 2,2 s</li>
 <li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,3 par tir</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>4 cases · revente 4 cr</li>
 </ul>
@@ -662,6 +765,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 18 toutes les 1,1 s</li>
 <li>Chargeur 10 balles · recharge 3 s</li>
 <li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,6 par tir</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>6 cases · revente 5 cr</li>
 </ul>
@@ -672,6 +776,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 6 toutes les 0,5 s</li>
 <li>Chargeur 12 balles · recharge 1,8 s</li>
 <li>Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,3 par tir</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>5 cases · revente 3 cr</li>
 </ul>
@@ -682,6 +787,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 3 toutes les 0,3 s</li>
 <li>Chargeur 12 balles · recharge 1,8 s</li>
 <li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,2 par tir</li>
 <li>Recette : Furet + Guêpe → Furet Akimbo (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>3 cases · revente 2 cr</li>
@@ -693,6 +799,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 6 toutes les 0,5 s</li>
 <li>Chargeur 18 balles · recharge 2,6 s</li>
 <li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,3 par tir</li>
 <li>Recette : Ours + Tambour → Ours Déluge (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>5 cases · revente 4 cr</li>
@@ -704,6 +811,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 19 toutes les 1,4 s</li>
 <li>Chargeur 4 balles · recharge 2,4 s</li>
 <li>Alimentation : un chargeur .44 adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,8 par tir</li>
 <li>Recette : Taureau + Balles .44 + Silenc. → Taureau Magnum (ingrédients adjacents : assemblage automatique)</li>
 <li>Recette : Taureau + Taureau → Taureau Jumeaux (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
@@ -717,6 +825,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 4 balles · recharge 3,2 s</li>
 <li>Alimentation : un chargeur 12G adjacent, sinon recharge ×2</li>
 <li>Plombs : chaque tir touche 2 fois</li>
+<li>Endurance : 0,7 par tir</li>
 <li>★ Explosif adjacent : +15 % de dégâts</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
 <li>6 cases · revente 6 cr</li>
@@ -728,6 +837,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 35,5 toutes les 1,6 s</li>
 <li>Chargeur 5 balles · recharge 3 s</li>
 <li>Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2</li>
+<li>Endurance : 1,1 par tir</li>
 <li>Recette : Faucon + Traçantes → Faucon Traqueur (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>5 cases · revente 5 cr</li>
@@ -740,6 +850,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 6 balles · recharge 1,8 s</li>
 <li>Alimentation : un chargeur .44 adjacent, sinon recharge ×2</li>
 <li>+20 % de critique</li>
+<li>Endurance : 0,4 par tir</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>2 cases · revente 2 cr</li>
 </ul>
@@ -751,6 +862,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Dégâts 12,5 toutes les 0,6 s</li>
 <li>Chargeur 22 balles · recharge 2,2 s</li>
 <li>Alimentation : n'importe quel chargeur adjacent, sinon recharge ×2</li>
+<li>Endurance : 0,3 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>6 cases · revente 9 cr</li>
@@ -763,6 +875,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 24 balles · recharge 2,6 s</li>
 <li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
 <li>Plombs : chaque tir touche 2 fois</li>
+<li>Endurance : 0,2 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>6 cases · revente 8 cr</li>
@@ -776,6 +889,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2</li>
 <li>Son 1er tir est toujours critique</li>
 <li>Ignore 50 % de l'armure</li>
+<li>Endurance : 2 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>6 cases · revente 13 cr</li>
@@ -788,6 +902,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 6 balles · recharge 2,2 s</li>
 <li>Alimentation intégrée : jamais besoin de chargeur</li>
 <li>Ses critiques retardent les tirs adverses de 0,5 s</li>
+<li>Endurance : 0,7 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>4 cases · revente 8 cr</li>
@@ -800,6 +915,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 40 balles · recharge 3,4 s</li>
 <li>Alimentation intégrée : jamais besoin de chargeur</li>
 <li>Viper : Feu continu jusqu'à +50 % au lieu de +30 %</li>
+<li>Endurance : 0,2 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>6 cases · revente 9 cr</li>
@@ -813,6 +929,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Alimentation intégrée : jamais besoin de chargeur</li>
 <li>+10 % de critique</li>
 <li>Sentinelle : quand elle consomme la Marque, +30 % de dégâts en plus</li>
+<li>Endurance : 1 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>6 cases · revente 9 cr</li>
@@ -826,6 +943,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Alimentation intégrée : jamais besoin de chargeur</li>
 <li>Incendiaire : +3 dégâts qui ignorent l'armure</li>
 <li>Plombs : chaque tir touche 2 fois</li>
+<li>Endurance : 1 par tir</li>
 <li>★ Explosif adjacent : +15 % de dégâts</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
@@ -839,6 +957,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Chargeur 16 balles · recharge 2,2 s</li>
 <li>Alimentation : un chargeur 9mm adjacent, sinon recharge ×2</li>
 <li>Plombs : chaque tir touche 2 fois</li>
+<li>Endurance : 0,4 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>4 cases · revente 5 cr</li>
@@ -852,6 +971,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Alimentation : un chargeur .44 adjacent, sinon recharge ×2</li>
 <li>Plombs : chaque tir touche 2 fois</li>
 <li>+10 % de critique</li>
+<li>Endurance : 0,7 par tir</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>5 cases · revente 7 cr</li>
@@ -907,6 +1027,8 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <p><strong>Base · Munition · 9mm</strong> · Forme <code>■</code> (1 case) · Prix 2 · dès le cercle 1</p>
 <ul>
 <li>★ Arme 9mm adjacent : −25 % de recharge (max 3)</li>
+<li>Recette : Chg 9mm + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 9mm + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>1 case · revente 1 cr</li>
 </ul>
@@ -915,6 +1037,8 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <p><strong>Base · Munition · 5.56</strong> · Forme <code>■</code> (1 case) · Prix 2 · dès le cercle 1</p>
 <ul>
 <li>★ Arme 5.56 adjacent : −25 % de recharge (max 3)</li>
+<li>Recette : Chg 5.56 + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 5.56 + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>1 case · revente 1 cr</li>
 </ul>
@@ -923,6 +1047,8 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <p><strong>Base · Munition · 7.62</strong> · Forme <code>■</code> (1 case) · Prix 3 · dès le cercle 1</p>
 <ul>
 <li>★ Arme 7.62 adjacent : −25 % de recharge (max 3)</li>
+<li>Recette : Chg 7.62 + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 7.62 + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>1 case · revente 1 cr</li>
 </ul>
@@ -940,6 +1066,8 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <ul>
 <li>★ Arme 12G adjacent : −25 % de recharge (max 3)</li>
 <li>Recette : Sanglier + Cart. 12G → Pompe Dragon (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Cart. 12G + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Cart. 12G + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
 <li>1 case · revente 1 cr</li>
 </ul>
@@ -949,6 +1077,8 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <ul>
 <li>★ Arme .44 adjacent : −25 % de recharge (max 3)</li>
 <li>Recette : Taureau + Balles .44 + Silenc. → Taureau Magnum (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Balles .44 + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Balles .44 + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>1 case · revente 1 cr</li>
 </ul>
@@ -960,6 +1090,22 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Recette : Faucon + Traçantes → Faucon Traqueur (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>1 case · revente 2 cr</li>
+</ul>
+<h4 id="chargeur-incendiaire">Chargeur incendiaire</h4>
+<p><strong>Assemblé · Munition</strong> · Forme <code>■</code> (1 case) · Assemblé</p>
+<ul>
+<li>★ Arme adjacent : l'alimente (tout calibre), −25 % de recharge, chaque touche pose de la Brûlure</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 3 cr</li>
+</ul>
+<h4 id="chargeur-electrique">Chargeur électrique</h4>
+<p><strong>Assemblé · Munition</strong> · Forme <code>■</code> (1 case) · Assemblé</p>
+<ul>
+<li>★ Arme adjacent : l'alimente (tout calibre), −25 % de recharge, chaque touche pose du Choc</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>1 case · revente 3 cr</li>
 </ul>
 <h3 id="accessoires">Accessoires</h3>
 <h4 id="lunette-4">Lunette ×4</h4>
@@ -1039,8 +1185,20 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>3 dégâts, immobilise l'adversaire 1,5 s (quand il recharge, sinon à 6 s)</li>
 <li>1 charge par combat · délai 0 s</li>
 <li>★ Arme de mêlée adjacent : +1 charge</li>
+<li>Recette : Taser + Batterie → Taser lourd (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
 <li>2 cases · revente 2 cr</li>
+</ul>
+<h4 id="taser-lourd">Taser lourd</h4>
+<p><strong>Assemblé · Accessoire</strong> · Forme <code>■■</code> (2 cases) · Assemblé</p>
+<ul>
+<li>6 dégâts, immobilise l'adversaire 1,5 s (quand il recharge, sinon à 6 s)</li>
+<li>Pose 5 Choc : décharge immédiate</li>
+<li>2 charges par combat · délai 6 s</li>
+<li>★ Arme de mêlée adjacent : +1 charge</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>2 cases · revente 4 cr</li>
 </ul>
 <h3 id="protections">Protections</h3>
 <h4 id="plaque-ceramique">Plaque céramique</h4>
@@ -1086,6 +1244,24 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
 <li>4 cases · revente 4 cr</li>
 </ul>
+<h4 id="combinaison-ignifugee">Combinaison ignifugée</h4>
+<p><strong>Base · Protection</strong> · Forme <code>■■ / ■■</code> (4 cases) · Prix 6 · dès le cercle 2</p>
+<ul>
+<li>Armure +14</li>
+<li>Brûlure reçue −50 %</li>
+<li>★ Protection adjacent (cases marquées) : +5 d'armure</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>4 cases · revente 3 cr</li>
+</ul>
+<h4 id="plaque-isolante">Plaque isolante</h4>
+<p><strong>Base · Protection</strong> · Forme <code>■■</code> (2 cases) · Prix 5 · dès le cercle 2</p>
+<ul>
+<li>Armure +10</li>
+<li>Décharge du Choc à 8 cumuls au lieu de 5</li>
+<li>★ Protection adjacent (cases marquées) : +4 d'armure</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>2 cases · revente 2 cr</li>
+</ul>
 <h3 id="explosifs">Explosifs</h3>
 <h4 id="grenade-frag">Grenade frag</h4>
 <p><img src="../public/art/items/frag.png" height="48"></p>
@@ -1095,6 +1271,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>2 charges par combat · délai 7 s</li>
 <li>★ Explosif adjacent : +20 % de dégâts</li>
 <li>Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Frag + Briquet → Grenade incendiaire (ingrédients adjacents : assemblage automatique)</li>
 <li>Recette : Frag + Frag → Grenade à sous-munitions (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
 <li>1 case · revente 2 cr</li>
@@ -1117,6 +1294,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Étourdit les armes adverses 1,5 s</li>
 <li>2 charges par combat · délai 8 s</li>
 <li>★ Explosif adjacent : +1 charge</li>
+<li>Recette : Flash + Batterie → Grenade IEM (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
 <li>1 case · revente 2 cr</li>
 </ul>
@@ -1140,6 +1318,29 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>★ Explosif adjacent : +1 charge</li>
 <li>Objet assemblé (recette)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 4 cr</li>
+</ul>
+<h4 id="grenade-incendiaire">Grenade incendiaire</h4>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■</code> (1 case) · Assemblé</p>
+<ul>
+<li>14 dégâts à l'adversaire</li>
+<li>Pose 4 Brûlure</li>
+<li>2 charges par combat · délai 7 s</li>
+<li>★ Explosif adjacent : +1 charge</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 3 cr</li>
+</ul>
+<h4 id="grenade-iem">Grenade IEM</h4>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■</code> (1 case) · Assemblé</p>
+<ul>
+<li>Étourdit les armes adverses 1,2 s</li>
+<li>Pose 4 Choc</li>
+<li>Éteint le Feu continu adverse</li>
+<li>2 charges par combat · délai 8 s</li>
+<li>★ Explosif adjacent : +1 charge</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
 <li>1 case · revente 4 cr</li>
 </ul>
 <h3 id="medical">Médical</h3>
@@ -1197,4 +1398,39 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Objet assemblé (recette)</li>
 <li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
 <li>4 cases · revente 4 cr</li>
+</ul>
+<h3 id="composants">Composants</h3>
+<h4 id="briquet">Briquet</h4>
+<p><strong>Base · Composant</strong> · Forme <code>■</code> (1 case) · Prix 2 · dès le cercle 1</p>
+<ul>
+<li>★ Explosif adjacent : +20 % de dégâts à cet objet</li>
+<li>Recette : Chg 9mm + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 5.56 + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 7.62 + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Balles .44 + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Cart. 12G + Briquet → Chargeur incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Frag + Briquet → Grenade incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="batterie">Batterie</h4>
+<p><strong>Base · Composant</strong> · Forme <code>■</code> (1 case) · Prix 2 · dès le cercle 1</p>
+<ul>
+<li>★ Arme adjacent : +5 % de cadence à cet objet</li>
+<li>Recette : Chg 9mm + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 5.56 + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Chg 7.62 + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Balles .44 + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Cart. 12G + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Flash + Batterie → Grenade IEM (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Taser + Batterie → Taser lourd (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="ration-de-combat">Ration de combat</h4>
+<p><strong>Base · Composant</strong> · Forme <code>■</code> (1 case) · Prix 3 · dès le cercle 1</p>
+<ul>
+<li>Endurance +0,3 par seconde</li>
+<li>Famille Rempart : 2 → +20 % d'armure · 4 → l'armure se régénère de 2 par seconde</li>
+<li>1 case · revente 1 cr</li>
 </ul>

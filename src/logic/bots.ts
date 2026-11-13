@@ -47,6 +47,11 @@ const BACKPACKS: [number, number, number, number][] = [
 export const CRAFTED_ODDS = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.85];
 /** Chance qu'un objet tiré vienne de l'archétype du bot (sinon de son pool « cœur »). */
 export const ARCH_FOCUS = 0.8;
+/** Objets que les bots n'utilisent pas (encore). */
+export const BOT_EXCLUDED = new Set([
+  'briquet', 'batterie', 'ration', 'chg_incendiaire', 'chg_electrique', 'grenade_incendiaire', 'grenade_iem', 'taser_lourd',
+  'combinaison', 'plaque_isolante',
+]);
 export const ARCH_FOCUS_LANDING = 0.4;
 /** Manche (0 = 1er cercle) à partir de laquelle un bot peut jouer le build Lame. */
 export const LAME_FROM = 3;
@@ -125,12 +130,13 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   // Hors archétype, le bot reste dans son pool « cœur » pour garder un sac cohérent.
   const capOk = (id: string) => ITEMS[id].minRound <= cap && (isWeapon(id) || ITEMS[id].price <= itemCap);
   // 1er cercle : pas encore d'objets de signature (ils se trouvent en jouant).
-  const pool = lootPool(operator).filter((id) => capOk(id) && !(landing && ITEMS[id].signature));
+  // Objets du combat v2 : réservés au joueur jusqu'au calibrage des bots (design/COMBAT-V2.md, étape 4).
+  const pool = lootPool(operator).filter((id) => capOk(id) && !(landing && ITEMS[id].signature) && !BOT_EXCLUDED.has(id));
   const core = new Set(corePool(operator));
   const coreFams = [OPERATORS[operator].family, ...NEUTRAL_FAMILIES];
   // Objets assemblés : « cœur » si leur famille l'est (corePool ne contient pas d'objets assemblés).
   const inCoreOf = (id: string) => core.has(id) || (!!ITEMS[id].crafted && coreFams.includes(ITEMS[id].family));
-  const crafted = RECIPES.filter((r) => canUse(operator, r.output)).map((r) => r.output);
+  const crafted = RECIPES.filter((r) => canUse(operator, r.output) && !BOT_EXCLUDED.has(r.output)).map((r) => r.output);
   const craftChance = landing ? 0 : Math.min(0.95, CRAFTED_ODDS[lvl] + (quality === 'fort' ? FORT_CRAFTED_BONUS : 0));
   const A = ARCHETYPES[archetype];
   const wanted = new Set([...A.weapons, ...A.crafted, ...A.extras]);

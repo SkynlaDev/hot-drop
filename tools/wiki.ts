@@ -180,7 +180,7 @@ const groups: [string, (d: ItemDef) => boolean][] = [
   ['Armes à feu', (d) => !!d.weapon && !d.crafted],
   ['Armes à feu assemblées', (d) => !!d.weapon && !!d.crafted],
   ['Armes de mêlée', (d) => !!d.melee],
-  ...(['munition', 'accessoire', 'protection', 'explosif', 'medical'] as Category[]).map((c) =>
+  ...(['munition', 'accessoire', 'protection', 'explosif', 'medical', 'composant'] as Category[]).map((c) =>
     [CATEGORY_NAMES[c] + (c === 'munition' || c === 'accessoire' ? 's' : c === 'medical' ? '' : 's'), (d: ItemDef) => d.category === c && !d.weapon && !d.melee] as [string, (d: ItemDef) => boolean]),
 ];
 for (const [title, f] of groups) {

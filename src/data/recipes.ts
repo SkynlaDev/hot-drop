@@ -17,6 +17,14 @@ export const RECIPES: Recipe[] = [
   { id: 'thermite', inputs: ['frag', 'fumigene'], output: 'thermite' },
   { id: 'armure_lourde', inputs: ['plaque', 'casque'], output: 'armure_lourde' },
   { id: 'kit_trauma', inputs: ['ifak', 'seringue'], output: 'kit_trauma' },
+  // Combat v2 : chargeur (tout calibre) + composant → chargeur spécial ; grenades et taser améliorés.
+  ...['chg_9mm', 'chg_556', 'chg_762', 'chg_44', 'chg_12g'].flatMap((c) => [
+    { id: `chg_incendiaire_${c}`, inputs: [c, 'briquet'], output: 'chg_incendiaire' },
+    { id: `chg_electrique_${c}`, inputs: [c, 'batterie'], output: 'chg_electrique' },
+  ]),
+  { id: 'grenade_incendiaire', inputs: ['frag', 'briquet'], output: 'grenade_incendiaire' },
+  { id: 'grenade_iem', inputs: ['flash', 'batterie'], output: 'grenade_iem' },
+  { id: 'taser_lourd', inputs: ['taser', 'batterie'], output: 'taser_lourd' },
   // Recettes de doublon (remplacent l'ancienne fusion de raretés). Après les autres : à ingrédients égaux,
   // la première recette de la liste l'emporte (frag + fumigène donne la thermite avant frag + frag).
   { id: 'mamba_akimbo', inputs: ['pistolet', 'pistolet'], output: 'mamba_akimbo' },

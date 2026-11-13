@@ -498,7 +498,7 @@ export function zoneGassed(run: RunState, zone: MapZone, round = run.round): boo
 
 /** Part de chaque catégorie dans le butin et la boutique (%), quel que soit le nombre d'objets qu'elle contient. */
 export const CATEGORY_WEIGHTS: Record<Category, number> = {
-  arme: 20, munition: 25, accessoire: 22, protection: 12, explosif: 11, medical: 10,
+  arme: 20, munition: 22, accessoire: 20, protection: 12, explosif: 10, medical: 8, composant: 8,
 };
 
 function pickWeighted(rng: Rng, ids: string[]): string {

@@ -404,6 +404,9 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (wp.critBonus) lines.push(`+${pct(wp.critBonus)} de critique`);
     if (wp.heatBonus) lines.push(`Viper : Feu continu jusqu'à +${pct(FEU_CAP + wp.heatBonus)} au lieu de +${pct(FEU_CAP)}`);
     if (wp.markBoost) lines.push(`Sentinelle : quand elle consomme la Marque, +${pct(wp.markBoost)} de dégâts en plus`);
+    if (wp.burn) lines.push(`Chaque touche pose ${wp.burn * slowStacks(wp.interval)} Brûlure`);
+    if (wp.shock) lines.push(`Chaque touche pose ${wp.shock * slowStacks(wp.interval)} Choc`);
+    lines.push(`Endurance : ${r1((ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * wp.interval)} par tir`);
   }
   if (d.melee) {
     const ml = d.melee;
@@ -416,6 +419,11 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     lines.push(`Armure +${d.armor}`);
     if (d.flatReduce) lines.push(`Chaque balle reçue perd ${d.flatReduce} dégâts`);
   }
+  if (d.burnResist) lines.push(`Brûlure reçue −${pct(d.burnResist)}`);
+  if (d.shockThreshold) lines.push(`Décharge du Choc à ${SHOCK_THRESHOLD + d.shockThreshold} cumuls au lieu de ${SHOCK_THRESHOLD}`);
+  if (d.shockImmune) lines.push('Immunisé à la décharge du Choc');
+  if (d.endRegen) lines.push(`Endurance +${r1(d.endRegen)} par seconde`);
+  if (d.endCostMult) lines.push(`Tirs : Endurance +${pct(d.endCostMult)}`);
   if (d.active) {
     const a = d.active;
     const cd = r1(a.cooldown);
@@ -427,6 +435,9 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (a.kind === 'adrenaline') lines.push(`+${pct(a.value)} de cadence pendant ${r1(a.duration ?? 0)} s sous 30 % PV`);
     if (a.kind === 'taser') lines.push(`${a.value} dégâts, immobilise l'adversaire ${r1(a.duration ?? 0)} s (quand il recharge, sinon à 6 s)`);
     if (a.kind === 'bandage') lines.push(`Retire ${a.cure} de saignement et soigne ${a.value} PV (saignement ≥ 8 ou PV sous 50 %)`);
+    if (a.burn) lines.push(`Pose ${a.burn} Brûlure`);
+    if (a.shock) lines.push(`Pose ${a.shock} Choc${a.shock >= SHOCK_THRESHOLD ? ' : décharge immédiate' : ''}`);
+    if (a.heatReset) lines.push('Éteint le Feu continu adverse');
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
   }
   // Étoiles : « ★ Ce qu'elle attend : ce qu'elle apporte ».

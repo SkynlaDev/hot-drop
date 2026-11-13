@@ -20,9 +20,9 @@ export function themeFits(theme: ZoneTheme | undefined, defId: string): boolean 
   const d = ITEMS[defId];
   switch (theme) {
     case 'armurerie': return !!d.weapon || !!d.melee;
-    case 'hopital': return d.category === 'medical' || d.category === 'protection';
+    case 'hopital': return d.category === 'medical' || d.category === 'protection' || (d.category === 'composant' && d.family === 'rempart');
     case 'chantier': return d.category === 'explosif' || d.family === 'demolition';
-    case 'commissariat': return d.category === 'accessoire' || d.category === 'munition';
+    case 'commissariat': return d.category === 'accessoire' || d.category === 'munition' || (d.category === 'composant' && d.family === 'tactique');
     default: return false;
   }
 }

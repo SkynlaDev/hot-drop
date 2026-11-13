@@ -92,3 +92,10 @@ dans `combat.ts` (nouveaux événements `burn`, `discharge`, `tired`), rapport d
 décharges, essoufflements), arène (jauge d'Endurance dorée, pastilles flamme et éclair, « DÉCHARGE », « ESSOUFFLÉ »).
 Aucun objet ne pose encore de statut (étape 2). Mesure (`runsim 40`) : agressif 38 % de Top 1 (inchangé), prudent
 3 % (contre ~15 %) : à calibrer à l'étape 4.
+
+**Étape 2 (composants, rang 1, contres : fait)** : Briquet, Batterie, Ration (nouvelle catégorie « Composant », 8 %
+du butin, thèmes Chantier / Commissariat / Hôpital) ; Chargeur incendiaire et Chargeur électrique (5 recettes
+chacun, un par calibre), Grenade incendiaire, Grenade IEM, Taser lourd ; Combinaison ignifugée et Plaque isolante
+(à partir du 2e cercle). Fiches d'objets à jour (statuts, Endurance par tir). Ces objets sont **réservés au joueur**
+jusqu'au calibrage des bots (`BOT_EXCLUDED` dans `bots.ts`, étape 4) : avec eux, la Brûlure faisait tomber Rempart
+à 17 % au Top 1. Icônes provisoires en attendant les sprites (étape 5).

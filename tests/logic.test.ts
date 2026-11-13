@@ -793,3 +793,40 @@ describe('largage de départ', () => {
     }
   });
 });
+
+describe('combat v2 : composants et recettes de rang 1', () => {
+  it('chargeur (tout calibre) + briquet = chargeur incendiaire ; + batterie = chargeur électrique', () => {
+    for (const c of ['chg_9mm', 'chg_556', 'chg_762', 'chg_44', 'chg_12g']) {
+      expect(findCraftable([inst(1, c, 2, 2), inst(2, 'briquet', 3, 2)])[0].recipe.output).toBe('chg_incendiaire');
+      expect(findCraftable([inst(1, c, 2, 2), inst(2, 'batterie', 3, 2)])[0].recipe.output).toBe('chg_electrique');
+    }
+    expect(findCraftable([inst(1, 'frag', 2, 2), inst(2, 'briquet', 3, 2)])[0].recipe.output).toBe('grenade_incendiaire');
+    expect(findCraftable([inst(1, 'flash', 2, 2), inst(2, 'batterie', 3, 2)])[0].recipe.output).toBe('grenade_iem');
+    expect(findCraftable([inst(1, 'taser', 2, 2), inst(2, 'batterie', 4, 2)])[0].recipe.output).toBe('taser_lourd');
+  });
+
+  it('un chargeur spécial alimente une arme de n’importe quel calibre et pose son statut', () => {
+    for (const w of ['fusil_assaut', 'revolver', 'pompe', 'precision']) {
+      const { loadout } = computeLoadout([inst(1, w, 2, 2), inst(2, 'chg_incendiaire', 2, 3)], 'viper', 300);
+      expect(loadout.weapons[0].fed, w).toBe(true);
+      expect(loadout.weapons[0].burn, w).toBeGreaterThan(0);
+    }
+    // Règle des armes lentes : le fusil de précision pose 3 cumuls par touche.
+    const sniper = computeLoadout([inst(1, 'precision', 2, 2), inst(2, 'chg_electrique', 2, 3)], 'sentinelle', 300).loadout.weapons[0];
+    expect(sniper.shock).toBe(3);
+  });
+
+  it('contres et Endurance : combinaison, plaque isolante, ration', () => {
+    const l = computeLoadout([inst(1, 'combinaison', 2, 2), inst(2, 'plaque_isolante', 4, 2), inst(3, 'ration', 6, 2)], 'viper', 300).loadout;
+    expect(l.burnResist).toBeCloseTo(0.5);
+    expect(l.shockThreshold).toBe(8);
+    expect(l.endRegen).toBeCloseTo(1.25);
+  });
+
+  it('les composants tombent dans le butin, avec leur thème de zone', () => {
+    for (const id of ['briquet', 'batterie', 'ration']) expect(lootPool('viper')).toContain(id);
+    expect(themeFits('chantier', 'briquet')).toBe(true);
+    expect(themeFits('commissariat', 'batterie')).toBe(true);
+    expect(themeFits('hopital', 'ration')).toBe(true);
+  });
+});
