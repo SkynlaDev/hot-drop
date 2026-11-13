@@ -180,7 +180,7 @@ On choisit un opérateur au début de la partie. Le pool d’objets est commun :
 
 *Fusils d’assaut et SMG : noie l’ennemi sous les balles, sans lâcher la gâchette.*
 
-- **Passif** : Feu continu : chaque arme gagne +5 % de cadence par seconde de tir sans recharger (max +30 %).
+- **Passif** : Feu continu : chaque arme gagne +6 % de cadence par seconde de tir sans recharger (max +35 %).
 - **Famille** : Rafale.
 - **Objets de signature** : Chargeur tambour, Refroidisseur de canon.
 - **Sac de départ** : Casque balistique, Pistolet Mamba, Chargeur 9 mm, Refroidisseur de canon, Couteau.
@@ -189,12 +189,12 @@ On choisit un opérateur au début de la partie. Le pool d’objets est commun :
 
 *Fusils de précision et revolvers : une arme marque, l’autre achève.*
 
-- **Passif** : Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +50 %.
+- **Passif** : Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +40 %.
 - **Famille** : Précision.
 - **Objets de signature** : Munitions traçantes.
 - **Sac de départ** : Casque balistique, Revolver Taureau, Balles .44, Poignée verticale, Couteau.
 
-Détails des passifs : Feu continu +5 % de cadence par seconde de tir sans recharger, plafonné à +30 % ; Marque +50 % de dégâts sur la touche suivante d’une autre arme.
+Détails des passifs : Feu continu +6 % de cadence par seconde de tir sans recharger, plafonné à +35 % ; Marque +40 % de dégâts sur la touche suivante d’une autre arme.
 
 ## Recettes
 
@@ -281,7 +281,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 11 toutes les 0,9 s
 - Chargeur 8 balles · recharge 2 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
-- Endurance : 0,5 par tir
+- Endurance : 0,6 par tir
 - Recette : Mamba + Mamba → Mamba Akimbo (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 3 cases · revente 2 cr
@@ -324,7 +324,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chargeur 4 balles · recharge 3 s
 - Alimentation : un chargeur 12G adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
-- Endurance : 1 par tir
+- Endurance : 1,2 par tir
 - ★ Explosif adjacent : +15 % de dégâts
 - Recette : Sanglier + Cart. 12G → Pompe Dragon (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
@@ -366,7 +366,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 18 toutes les 1,1 s
 - Chargeur 10 balles · recharge 3 s
 - Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2
-- Endurance : 0,5 par tir
+- Endurance : 0,6 par tir
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 6 cases · revente 5 cr
 
@@ -379,7 +379,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 6 toutes les 0,5 s
 - Chargeur 12 balles · recharge 1,8 s
 - Alimentation : un chargeur 5.56 adjacent, sinon recharge ×2
-- Endurance : 0,2 par tir
+- Endurance : 0,3 par tir
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 5 cases · revente 3 cr
 
@@ -392,7 +392,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 3 toutes les 0,3 s
 - Chargeur 12 balles · recharge 1,8 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
-- Endurance : 0,1 par tir
+- Endurance : 0,2 par tir
 - Recette : Furet + Guêpe → Furet Akimbo (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 3 cases · revente 2 cr
@@ -406,7 +406,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 6 toutes les 0,5 s
 - Chargeur 18 balles · recharge 2,6 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
-- Endurance : 0,2 par tir
+- Endurance : 0,3 par tir
 - Recette : Ours + Tambour → Ours Déluge (ingrédients adjacents : assemblage automatique)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 5 cases · revente 4 cr
@@ -420,7 +420,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 19 toutes les 1,4 s
 - Chargeur 4 balles · recharge 2,4 s
 - Alimentation : un chargeur .44 adjacent, sinon recharge ×2
-- Endurance : 0,8 par tir
+- Endurance : 0,9 par tir
 - Recette : Taureau + Balles .44 + Silenc. → Taureau Magnum (ingrédients adjacents : assemblage automatique)
 - Recette : Taureau + Taureau → Taureau Jumeaux (ingrédients adjacents : assemblage automatique)
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
@@ -436,7 +436,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chargeur 4 balles · recharge 3,2 s
 - Alimentation : un chargeur 12G adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
-- Endurance : 0,7 par tir
+- Endurance : 0,8 par tir
 - ★ Explosif adjacent : +15 % de dégâts
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 6 cases · revente 6 cr
@@ -465,7 +465,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chargeur 6 balles · recharge 1,8 s
 - Alimentation : un chargeur .44 adjacent, sinon recharge ×2
 - +20 % de critique
-- Endurance : 0,4 par tir
+- Endurance : 0,5 par tir
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
 - 2 cases · revente 2 cr
 
@@ -496,7 +496,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chargeur 24 balles · recharge 2,6 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
-- Endurance : 0,2 par tir
+- Endurance : 0,3 par tir (deux armes à la fois)
 - Objet assemblé (recette)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 6 cases · revente 8 cr
@@ -512,7 +512,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Alimentation : un chargeur 7.62 adjacent, sinon recharge ×2
 - Son 1er tir est toujours critique
 - Ignore 50 % de l'armure
-- Endurance : 2 par tir
+- Endurance : 1,9 par tir
 - Objet assemblé (recette)
 - Recette : Longue-vue + Perfo. → Fusil anti-matériel Rhinocéros (ingrédients adjacents : assemblage automatique)
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
@@ -528,7 +528,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chargeur 6 balles · recharge 2,2 s
 - Alimentation intégrée : jamais besoin de chargeur
 - Ses critiques retardent les tirs adverses de 0,5 s
-- Endurance : 0,7 par tir
+- Endurance : 0,8 par tir
 - Objet assemblé (recette)
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
 - 4 cases · revente 8 cr
@@ -542,7 +542,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 9,5 toutes les 0,4 s
 - Chargeur 40 balles · recharge 3,4 s
 - Alimentation intégrée : jamais besoin de chargeur
-- Viper : Feu continu jusqu'à +50 % au lieu de +30 %
+- Viper : Feu continu jusqu'à +55 % au lieu de +35 %
 - Endurance : 0,2 par tir
 - Objet assemblé (recette)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
@@ -575,7 +575,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Alimentation intégrée : jamais besoin de chargeur
 - Incendiaire : +3 dégâts qui ignorent l'armure
 - Plombs : chaque tir touche 2 fois
-- Endurance : 1 par tir
+- Endurance : 1,1 par tir
 - ★ Explosif adjacent : +15 % de dégâts
 - Objet assemblé (recette)
 - Recette : Dragon + Incend. → Souffle du Dragon (ingrédients adjacents : assemblage automatique)
@@ -592,7 +592,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Chargeur 16 balles · recharge 2,2 s
 - Alimentation : un chargeur 9mm adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
-- Endurance : 0,4 par tir
+- Endurance : 0,6 par tir (deux armes à la fois)
 - Objet assemblé (recette)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 4 cases · revente 5 cr
@@ -608,7 +608,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Alimentation : un chargeur .44 adjacent, sinon recharge ×2
 - Plombs : chaque tir touche 2 fois
 - +10 % de critique
-- Endurance : 0,7 par tir
+- Endurance : 1 par tir (deux armes à la fois)
 - Objet assemblé (recette)
 - Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2
 - 5 cases · revente 7 cr
@@ -624,7 +624,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Alimentation intégrée : jamais besoin de chargeur
 - Plombs : chaque tir touche 2 fois
 - Chaque touche pose 2 Brûlure
-- Endurance : 1 par tir
+- Endurance : 1,1 par tir
 - ★ Explosif adjacent : +15 % de dégâts
 - Objet assemblé (recette)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
@@ -671,9 +671,9 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Dégâts 12 toutes les 0,5 s
 - Chargeur 60 balles · recharge 4 s
 - Alimentation intégrée : jamais besoin de chargeur
-- Viper : Feu continu jusqu'à +50 % au lieu de +30 %
+- Viper : Feu continu jusqu'à +55 % au lieu de +35 %
 - Viper : le Feu continu ne retombe pas à la recharge
-- Endurance : 0,2 par tir
+- Endurance : 0,3 par tir
 - Objet assemblé (recette)
 - Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois
 - 8 cases · revente 16 cr
@@ -688,6 +688,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - Mêlée : 4 dégâts toutes les 1 s, pendant tout le duel
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
+- Endurance : 0,3 par coup
 - ★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup
 - Recette : Couteau + Couteau → Machette (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
@@ -702,6 +703,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Mêlée : 3 dégâts toutes les 1 s, pendant tout le duel
 - Saignement +4 par coup (ignore l'armure)
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
+- Endurance : 0,3 par coup
 - ★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup
 - Recette : Machette + Couteau C. → Lame rouge (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
@@ -716,6 +718,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Mêlée : 12 dégâts toutes les 1,8 s, pendant tout le duel
 - Ignore 30 % de l'armure
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
+- Endurance : 0,5 par coup
 - ★ Protection adjacent : +25 % de dégâts
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
 - 3 cases · revente 3 cr
@@ -728,6 +731,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - Mêlée : 8 dégâts toutes les 1,2 s, pendant tout le duel
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
+- Endurance : 0,3 par coup
 - ★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts
 - Objet assemblé (recette)
 - Recette : Machette + Couteau C. → Lame rouge (ingrédients adjacents : assemblage automatique)
@@ -743,6 +747,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Mêlée : 11 dégâts toutes les 0,9 s, pendant tout le duel
 - Saignement +12 par coup (ignore l'armure)
 - Frappe 1.5 fois plus vite dans un sac sans arme à feu
+- Endurance : 0,2 par coup
 - ★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts
 - Objet assemblé (recette)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
@@ -1078,6 +1083,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - 20 dégâts à l'adversaire
 - 2 charges par combat · délai 7 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +20 % de dégâts
 - Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)
 - Recette : Frag + Briquet → Grenade incendiaire (ingrédients adjacents : assemblage automatique)
@@ -1093,6 +1099,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - Précision adverse −50 % pendant 3 s
 - 2 charges par combat · délai 8 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
@@ -1106,6 +1113,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - Étourdit les armes adverses 1,5 s
 - 2 charges par combat · délai 8 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Recette : Flash + Batterie → Grenade IEM (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
@@ -1119,6 +1127,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - 30 dégâts à l'adversaire, ignore l'armure
 - 2 charges par combat · délai 7 s
+- Endurance : 0.5 par lancer
 - ★ Arme adjacent : +10 % de dégâts à cet objet
 - Objet assemblé (recette)
 - Recette : Thermite + Sous-mun. → Bombe au phosphore (ingrédients adjacents : assemblage automatique)
@@ -1133,6 +1142,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 - 22 dégâts à l'adversaire
 - 3 charges par combat · délai 6 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
 - Recette : Thermite + Sous-mun. → Bombe au phosphore (ingrédients adjacents : assemblage automatique)
@@ -1148,6 +1158,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 14 dégâts à l'adversaire
 - Pose 4 Brûlure
 - 2 charges par combat · délai 7 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
 - Recette : Dragon + Incend. → Souffle du Dragon (ingrédients adjacents : assemblage automatique)
@@ -1164,6 +1175,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Pose 4 Choc
 - Éteint le Feu continu adverse
 - 2 charges par combat · délai 8 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone
@@ -1178,6 +1190,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 30 dégâts à l'adversaire, ignore l'armure
 - Pose 8 Brûlure
 - 3 charges par combat · délai 6 s
+- Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure

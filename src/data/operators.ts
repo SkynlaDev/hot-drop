@@ -26,7 +26,7 @@ export const OPERATORS: Record<OperatorId, OperatorDef> = {
     name: 'Viper',
     family: 'rafale',
     pitch: 'Fusils d’assaut et SMG : noie l’ennemi sous les balles, sans lâcher la gâchette.',
-    passive: 'Feu continu : chaque arme gagne +5\u00a0% de cadence par seconde de tir sans recharger (max +30\u00a0%)',
+    passive: 'Feu continu : chaque arme gagne +6\u00a0% de cadence par seconde de tir sans recharger (max +35\u00a0%)',
     start: [['casque', 2, 4], ['pistolet', 4, 2], ['chg_9mm', 6, 2], ['refroidisseur', 4, 4], ['couteau', 4, 5]],
   },
   sentinelle: {
@@ -34,7 +34,7 @@ export const OPERATORS: Record<OperatorId, OperatorDef> = {
     name: 'Sentinelle',
     family: 'precision',
     pitch: 'Fusils de précision et revolvers : une arme marque, l’autre achève.',
-    passive: 'Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +50\u00a0%',
+    passive: 'Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +40\u00a0%',
     start: [['casque', 2, 4], ['revolver', 4, 2], ['chg_44', 5, 3], ['poignee', 6, 3], ['couteau', 4, 4]],
   },
 };

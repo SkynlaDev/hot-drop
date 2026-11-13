@@ -127,3 +127,19 @@ simulateur ne vise ni les composants ni les recettes de rang 2, un joueur si.
 objets assemblés dessinés depuis leur objet de base), recalés par `fit-place.py`, meilleur candidat choisi sur planche.
 Coût : 180 générations. Aperçu : `design/da/combat-v2-objets.png`. Le Rhinocéros n'a eu qu'un candidat (la taille
 192 px n'en donne qu'un) : à refaire si sa crosse paraît trop maigre.
+
+**Retour de playtest : l'Endurance ne contraignait pas (13 novembre 2026)**. Mesure : un sac à deux armes ne
+s'essoufflait que dans 2 % des duels (Endurance minimale moyenne 6,4/10), donc la Ration ne servait à rien.
+Réglage par balayage, puis recalage de l'équilibre :
+- Coûts par seconde des armes : pistolet 0,64, SMG 0,6, fusil d'assaut 0,6, pompe 0,8, précision 0,69, électrique 0,72.
+- **Armes jumelées** (Mamba Akimbo, Taureau Jumeaux, Furet Akimbo) : coût ×1,25 (deux armes à la fois). Akimbo
+  n'échappe plus à la contrainte.
+- **Mêlée** : 0,25 par seconde ; **lancer une grenade** : 0,5. Sans ça, Lame (75 %) et Démolition (73 %) écrasaient
+  les autres une fois les armes à feu bridées.
+- Viper contre Sentinelle rééquilibré : Feu continu +6 %/s jusqu'à +35 % (au lieu de +5 % et +30 %), Marque +40 %
+  (au lieu de +50 %).
+
+Résultat : un sac à deux armes s'essouffle dans **48 %** des duels (une arme : jamais) ; la **Ration** fait passer
+l'essoufflement de 45 % à 12 % et les victoires de 44 % à 52 %. Matrice au Top 1 : 45 à 58 % pour tous les
+archétypes (Akimbo 51 %, Lame 60 % au 5e cercle) ; Viper 47 %, Sentinelle 53 %. `runsim 60` : agressif 25 % de
+Top 1 (Viper 23 %, Sentinelle 27 %), prudent 7 %.

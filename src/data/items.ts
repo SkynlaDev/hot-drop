@@ -36,6 +36,8 @@ export interface WeaponStats {
   shock?: number;
   /** Le Feu continu (Viper) ne retombe pas à la recharge (KR-4 Mitrailleur). */
   heatKeep?: boolean;
+  /** Coût en Endurance multiplié (armes jumelées : deux armes à la fois). */
+  endMult?: number;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel, plus vite quand toutes les armes à feu sont à sec. */
@@ -229,7 +231,7 @@ const DEFS: ItemDef[] = [
   { id: 'kr4_tactique', name: 'KR-4 Tactique', short: 'KR-4 T.', wclass: "Fusil d'assaut", shape: ['XXXX', '.XX.'], category: 'arme', family: 'rafale', tags: ['arme', 'arme_longue'], caliber: '5.56', minRound: 0, price: 18, crafted: true,
     weapon: { dmg: 12.5, interval: 0.55, mag: 22, reload: 2.2, feedsAny: true } },
   { id: 'furet_akimbo', name: 'Furet Akimbo', short: 'Akimbo', wclass: 'SMG', shape: ['XXX', 'XXX'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 16, crafted: true,
-    weapon: { dmg: 4.5, interval: 0.38, mag: 24, reload: 2.6, targets: 2 } },
+    weapon: { dmg: 4.5, interval: 0.38, mag: 24, reload: 2.6, targets: 2, endMult: 1.25 } },
   { id: 'aigle_longuevue', name: 'Aigle Longue-vue', short: 'Longue-vue', wclass: 'Fusil de précision', shape: ['XXXXX', '..X..'], category: 'arme', family: 'precision', tags: ['arme', 'arme_longue'], caliber: '7.62', minRound: 0, price: 26, crafted: true,
     weapon: { dmg: 51.5, interval: 2.8, mag: 5, reload: 3.2, firstCrit: true, armorPierce: 0.5 } },
   { id: 'taureau_magnum', name: 'Taureau Magnum', short: 'Magnum', wclass: 'Pistolet', shape: ['XXX', 'X..'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRound: 0, price: 16, crafted: true,
@@ -271,9 +273,9 @@ const DEFS: ItemDef[] = [
     stars: [{ at: [[3, 0]], want: ['melee'], effect: { on: 'self', kind: 'dmg', value: 0.25 }, max: 1 }] },
   // --- Recettes de doublon : deux exemplaires identiques adjacents
   { id: 'mamba_akimbo', name: 'Mamba Akimbo', short: 'Akimbo M.', wclass: 'Pistolet', shape: ['XX', 'XX'], category: 'arme', family: 'rafale', tags: ['arme'], caliber: '9mm', minRound: 0, price: 10, crafted: true,
-    weapon: { dmg: 9, interval: 0.8, mag: 16, reload: 2.2, targets: 2 } },
+    weapon: { dmg: 9, interval: 0.8, mag: 16, reload: 2.2, targets: 2, endMult: 1.25 } },
   { id: 'taureau_jumeaux', name: 'Taureau Jumeaux', short: 'Jumeaux', wclass: 'Pistolet', shape: ['XXX', 'XX.'], category: 'arme', family: 'precision', tags: ['arme'], caliber: '.44', minRound: 0, price: 14, crafted: true,
-    weapon: { dmg: 18, interval: 1.3, mag: 8, reload: 2.6, targets: 2, critBonus: 0.1 } },
+    weapon: { dmg: 18, interval: 1.3, mag: 8, reload: 2.6, targets: 2, critBonus: 0.1, endMult: 1.25 } },
   { id: 'casque_lourd', name: 'Casque lourd', short: 'Casque L.', shape: ['XX', 'XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 0, price: 8, crafted: true,
     armor: 32, flatReduce: 1,
     stars: [{ at: [[0, 2], [1, 2]], want: ['protection'], effect: { on: 'self', kind: 'armor', value: 10 }, max: 1 }] },

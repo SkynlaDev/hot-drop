@@ -59,6 +59,8 @@ export interface MeleeRt {
   interval: number;
   bleed: number;
   armorPierce: number;
+  /** Endurance dépensée à chaque coup (0 = gratuit). */
+  endCost?: number;
 }
 
 export interface ActiveRt {
@@ -123,11 +125,11 @@ export interface SynergyLink {
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 type StarEffectKind = StarEffect['kind'];
 
-/** Feu continu (Viper) : +5 % de cadence par seconde de tir sans recharger, au plus +30 %. */
-export const FEU_RATE = 0.05;
-export const FEU_CAP = 0.3;
-/** Marque (Sentinelle) : la touche suivante d'une autre arme fait +50 %. */
-export const MARK_BONUS = 0.5;
+/** Feu continu (Viper) : +6 % de cadence par seconde de tir sans recharger, au plus +35 %. */
+export const FEU_RATE = 0.06;
+export const FEU_CAP = 0.35;
+/** Marque (Sentinelle) : la touche suivante d'une autre arme fait +40 %. */
+export const MARK_BONUS = 0.4;
 
 /** Famille Rempart : armure ×REMPART_ARMOR au palier 2, régénération d'armure par seconde au palier 4. */
 export const REMPART_ARMOR = 1.3;
@@ -138,8 +140,12 @@ export const ENDURANCE_MAX = 10;
 export const ENDURANCE_REGEN = 1;
 /** Endurance dépensée par seconde de tir, par classe d'arme (coût d'un tir = débit × intervalle de base). */
 export const ENDURANCE_DRAIN: Record<string, number> = {
-  Pistolet: 0.55, SMG: 0.5, "Fusil d'assaut": 0.5, 'Fusil à pompe': 0.7, 'Fusil de précision': 0.7, 'Arme électrique': 0.6,
+  Pistolet: 0.64, SMG: 0.6, "Fusil d'assaut": 0.6, 'Fusil à pompe': 0.8, 'Fusil de précision': 0.69, 'Arme électrique': 0.72,
 };
+/** Endurance dépensée pour lancer une grenade (frag, flash, fumigène et leurs variantes). */
+export const THROW_COST = 0.5;
+/** Endurance dépensée par seconde de mêlée (moins que les armes à feu). */
+export const MELEE_DRAIN = 0.25;
 /** Cumuls de Choc qui déclenchent la décharge. */
 export const SHOCK_THRESHOLD = 5;
 
@@ -296,7 +302,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         heatRate: FEU_RATE * (1 + cooler),
         heatCap,
         markBoost,
-        endCost: (ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * d.weapon.interval * (1 + endCostMult),
+        endCost: (ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * d.weapon.interval * (d.weapon.endMult ?? 1) * (1 + endCostMult),
         burn: ((d.weapon.burn ?? 0) + magBurn) * slowStacks(d.weapon.interval),
         shock: ((d.weapon.shock ?? 0) + magShock) * slowStacks(d.weapon.interval),
         heatKeep: d.weapon.heatKeep,
@@ -307,6 +313,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       melee.push({
         uid: it.uid, name: d.name, dmg: d.melee.dmg * (1 + sb.dmg), interval: d.melee.interval / (1 + sb.cadence),
         bleed: (d.melee.bleed ?? 0) + sb.bleed, armorPierce: d.melee.armorPierce ?? 0,
+        endCost: MELEE_DRAIN * d.melee.interval * (1 + endCostMult),
       });
     }
 
@@ -419,7 +426,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (wp.burn) lines.push(`Chaque touche pose ${wp.burn * slowStacks(wp.interval)} Brûlure`);
     if (wp.shock) lines.push(`Chaque touche pose ${wp.shock * slowStacks(wp.interval)} Choc`);
     if (wp.heatKeep) lines.push('Viper : le Feu continu ne retombe pas à la recharge');
-    lines.push(`Endurance : ${r1((ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * wp.interval)} par tir`);
+    lines.push(`Endurance : ${r1((ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * wp.interval * (wp.endMult ?? 1))} par tir${wp.endMult ? ' (deux armes à la fois)' : ''}`);
   }
   if (d.melee) {
     const ml = d.melee;
@@ -427,6 +434,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (ml.bleed) lines.push(`Saignement +${ml.bleed} par coup (ignore l'armure)`);
     if (ml.armorPierce) lines.push(`Ignore ${pct(ml.armorPierce)} de l'armure`);
     lines.push(`Frappe ${MELEE_ONLY_SPEED} fois plus vite dans un sac sans arme à feu`);
+    lines.push(`Endurance : ${r1(MELEE_DRAIN * ml.interval)} par coup`);
   }
   if (d.armor) {
     lines.push(`Armure +${d.armor}`);
@@ -454,6 +462,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (a.heatReset) lines.push('Éteint le Feu continu adverse');
     if (a.cleanse) lines.push('Au 1er soin : retire Brûlure, Choc et Saignement');
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
+    if (a.kind === 'frag' || a.kind === 'flash' || a.kind === 'smoke') lines.push(`Endurance : ${THROW_COST} par lancer`);
   }
   // Étoiles : « ★ Ce qu'elle attend : ce qu'elle apporte ».
   for (const sp of starSpecs(d.id)) lines.push(`★ ${sp.wantLabel} adjacent${sp.at ? ' (cases marquées)' : ''} : ${sp.text}`);

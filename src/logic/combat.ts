@@ -1,6 +1,6 @@
 // Duel 1v1 sac contre sac : simulation symétrique et déterministe (même graine = même duel).
 import { hashParts, mulberry32 } from './rng';
-import { MELEE_ONLY_SPEED } from './stats';
+import { MELEE_ONLY_SPEED, THROW_COST } from './stats';
 import type { MeleeRt, PlayerLoadout, WeaponRt } from './stats';
 
 /** 'a' = le joueur, 'b' = le bot. */
@@ -358,6 +358,12 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     const bladeOnly = me.ws.length === 0;
     for (const s of me.ml) {
       if (t < s.next) continue;
+      const mCost = me.l.endMax === undefined || t < me.adrenalineUntil ? 0 : s.m.endCost ?? 0;
+      if (mCost > me.end) {
+        s.next = t + TIRED_WAIT;
+        continue;
+      }
+      me.end -= mCost;
       const dead = strike(me, foe, t, s.m.uid, s.m.dmg, s.m.armorPierce, s.m.bleed);
       s.next = t + (s.m.interval * cadence) / (bladeOnly ? MELEE_ONLY_SPEED : 1);
       if (dead) return dead;
@@ -367,6 +373,14 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     for (const s of me.as) {
       if (s.charges <= 0 || t < s.next) continue;
       const ac = s.a;
+      // Lancer une grenade coûte de l'Endurance (pas les soins, le taser ni l'adrénaline).
+      const thrown = ac.kind === 'frag' || ac.kind === 'flash' || ac.kind === 'smoke';
+      const aCost = thrown && me.l.endMax !== undefined && t >= me.adrenalineUntil ? THROW_COST : 0;
+      if (aCost > me.end) {
+        s.next = t + TIRED_WAIT;
+        continue;
+      }
+      me.end -= aCost;
       if (ac.kind === 'taser') {
         // Quand l'adversaire recharge (ou au plus tard à TASER_FALLBACK) : dégâts et immobilisation.
         if (!foe.ws.some((w) => w.reloadUntil > t) && t < TASER_FALLBACK) continue;
