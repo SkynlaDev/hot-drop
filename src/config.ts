@@ -17,7 +17,8 @@ export const ARENA = { x: 20, y: 72, w: 370, h: 290 };
 export const ENEMY = { x: 396, y: 72, w: 304, h: 290 };
 export const TRAY = { x: 20, y: 960, w: 680, h: 150 };
 export const SELL = { x: 20, y: 960, w: 84, h: 150 };
-export const RESERVE = { x: 108, y: 960, w: 396, h: 150, slots: 6 };
+/** Réserve d'objets : 2 rangées de 6 (RESERVE_MAX), pour pouvoir ranger un gros sac en fin de partie. */
+export const RESERVE = { x: 108, y: 960, w: 396, h: 150, slots: 12, cols: 6, rows: 2 };
 /** Sacoches en réserve (BAG_RESERVE_MAX). */
 export const BAG_RESERVE = { x: 508, y: 960, w: 192, h: 150, slots: 3 };
 export const BUTTON = { x: 20, y: 1124, w: 680, h: 92 };

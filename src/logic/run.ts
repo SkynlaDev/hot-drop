@@ -10,7 +10,7 @@ import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice, maxHpFor } from './stats';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, THEME_BIAS, ZoneTheme, drawCards, genMap, isGassed, themeFits, zonesInCircle } from './zone';
 
-export const RESERVE_MAX = 6;
+export const RESERVE_MAX = 12;
 /** Sacoches en réserve (non posées), comptées à part des objets. */
 export const BAG_RESERVE_MAX = 3;
 export const START_CREDITS = 10;

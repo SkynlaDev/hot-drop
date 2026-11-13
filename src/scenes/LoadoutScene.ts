@@ -61,6 +61,13 @@ const SHOT_SFX: Record<string, SfxId> = {
 };
 const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
 const ARMOR_STR = '#a9bccb';
+/** Case n° i de la réserve (2 rangées de RESERVE.cols, sous l'intitulé). */
+function reserveSlot(i: number): { x: number; y: number; w: number; h: number } {
+  const w = RESERVE.w / RESERVE.cols;
+  const h = (RESERVE.h - 30) / RESERVE.rows;
+  return { x: RESERVE.x + (i % RESERVE.cols) * w, y: RESERVE.y + 26 + Math.floor(i / RESERVE.cols) * h, w, h };
+}
+
 /** Icône du type d'objet qu'attend une étoile (sous l'étoile vide de l'objet sélectionné). */
 const TAG_ICON: Record<string, string> = {
   arme: 'ic-rifle', arme_longue: 'ic-sniper', melee: 'ic-hand', munition: 'ic-mag', accessoire: 'ic-scope',
@@ -341,12 +348,12 @@ export default class LoadoutScene extends Phaser.Scene {
     tg.strokeRoundedRect(SELL.x + 6, SELL.y + 8, SELL.w - 10, SELL.h - 16, 12);
     txt(this, SELL.x + SELL.w / 2 + 2, SELL.y + SELL.h / 2 - 12, 'VENDRE', 17, C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5);
     txt(this, SELL.x + SELL.w / 2 + 2, SELL.y + SELL.h / 2 + 12, '50 %', 15, C.quiet).setOrigin(0.5);
-    const slotW = RESERVE.w / RESERVE.slots;
     for (let i = 0; i < RESERVE.slots; i++) {
+      const r = reserveSlot(i);
       tg.fillStyle(0x000000, 0.18);
-      tg.fillRoundedRect(RESERVE.x + i * slotW + 3, RESERVE.y + 28, slotW - 6, RESERVE.h - 36, 10);
+      tg.fillRoundedRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 8);
       tg.lineStyle(2, C.cellLine, 1);
-      tg.strokeRoundedRect(RESERVE.x + i * slotW + 3, RESERVE.y + 28, slotW - 6, RESERVE.h - 36, 10);
+      tg.strokeRoundedRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 8);
     }
     const bw = BAG_RESERVE.w / BAG_RESERVE.slots;
     for (let i = 0; i < BAG_RESERVE.slots; i++) {
@@ -535,18 +542,16 @@ export default class LoadoutScene extends Phaser.Scene {
     this.trayBagViews.clear();
     this.trayItems = reserve(this.run);
     this.trayBags = reserveBags(this.run);
-    const slotW = RESERVE.w / RESERVE.slots;
     const innerH = RESERVE.h - 58;
     this.trayItems.slice(0, RESERVE.slots).forEach((it, i) => {
       const { w, h } = dims(it);
-      const s = Math.min((slotW - 14) / (w * CELL), innerH / (h * CELL), 0.6);
+      const r = reserveSlot(i);
+      const s = Math.min((r.w - 10) / (w * CELL), (r.h - 8) / (h * CELL), 0.6);
       const v = itemView(this, it, CELL).setScale(s);
-      const sx = RESERVE.x + i * slotW;
-      v.setPosition(sx + (slotW - w * CELL * s) / 2, RESERVE.y + 32 + (innerH - h * CELL * s) / 2);
+      v.setPosition(r.x + (r.w - w * CELL * s) / 2, r.y + (r.h - h * CELL * s) / 2);
       this.trayLayer.add(v);
       this.trayViews.set(it.uid, v);
       if (this.hidden.has(it.uid) || (this.drag?.item?.uid === it.uid && this.drag.moved)) v.setVisible(false);
-      this.trayLayer.add(txt(this, sx + slotW / 2, RESERVE.y + RESERVE.h - 16, TIER_NAMES[tierOf(it.defId)], 12, TIER_HEX[tierOf(it.defId)], { fontStyle: 'bold' }).setOrigin(0.5));
     });
     const bw = BAG_RESERVE.w / BAG_RESERVE.slots;
     this.trayBags.slice(0, BAG_RESERVE.slots).forEach((b, i) => {
@@ -706,7 +711,11 @@ export default class LoadoutScene extends Phaser.Scene {
 
   private traySlot(px: number, py: number): ItemInst | undefined {
     if (!inRect(px, py, RESERVE)) return undefined;
-    return this.trayItems[Math.floor((px - RESERVE.x) / (RESERVE.w / RESERVE.slots))];
+    for (let i = 0; i < this.trayItems.length; i++) {
+      const r = reserveSlot(i);
+      if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h) return this.trayItems[i];
+    }
+    return undefined;
   }
 
   private trayBagSlot(px: number, py: number): BagInst | undefined {

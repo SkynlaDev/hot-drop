@@ -78,7 +78,7 @@ Chaque zone a un thème : 50 % du butin (boutique, caisses, objets des bots) en 
 
 - La grille fait 9 × 8 cases. Le sac de base occupe le centre (5 × 4 cases) ; les **sacoches** posées autour ajoutent des cases utilisables.
 - Chaque objet a une forme ; on peut le tourner par quarts de tour. Ses étoiles tournent avec lui.
-- Réserve : 6 objets et 3 sacoches non posés. Seuls les objets posés dans le sac comptent en combat.
+- Réserve : 12 objets et 3 sacoches non posés. Seuls les objets posés dans le sac comptent en combat.
 - Revente : 50 % du prix (au moins 1 crédit).
 - Crédits de départ : 10.
 
