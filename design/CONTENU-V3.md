@@ -131,3 +131,16 @@ prochain playtest humain (cible : 30 à 45 % de Top 1).
 
 Une fois sur trois (`SHOP_SALE_CHANCE`), une offre d'objet est à −50 % (arrondi au supérieur) : pastille rouge et
 ancien prix barré. Comme dans Backpack Battles, ça pousse à acheter un objet hors de son plan… ou à relancer.
+
+## 7. Recettes de soutien
+
+| Recette | Résultat |
+|---|---|
+| Seringue + Ration | **Stimulant de combat** : adrénaline +45 % de cadence 5 s sous 40 % PV, Endurance +0,3/s ; ★ arme +12 % de cadence |
+| Bandage + IFAK | **Garrot et pansements** : 2 bandages renforcés (26 PV, −20 saignement) ; contre du build Lame |
+| Fumigène + Fumigène | **Écran de fumée** : 3 fumées de 4 s ; ★ arme +10 % de dégâts |
+| Flash + Flash | **Grenade aveuglante lourde** : étourdit 2,2 s, 2 charges |
+| Bidon de napalm + Grenade incendiaire (rang 2) | **Tempête de feu** : 20 dégâts + 12 Brûlure, 3 charges |
+
+Bots : Garrot et Stimulant chez Rempart, Écran de fumée chez Tir lourd, Flash lourde et Tempête de feu chez
+Démolition. Sprites des 3 objets de signature du Sapeur : PixelLab, 30 générations (`design/da/sapeur-objets.png`).

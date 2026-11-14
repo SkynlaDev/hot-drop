@@ -39,6 +39,9 @@ export const RECIPES: Recipe[] = [
   { id: 'appui_mortier', inputs: ['radio', 'frag'], output: 'appui_mortier' },
   { id: 'designateur', inputs: ['radio', 'lunette'], output: 'designateur' },
   { id: 'essaim', inputs: ['drone_assaut', 'appui_mortier'], output: 'essaim' },
+  { id: 'stimulant', inputs: ['seringue', 'ration'], output: 'stimulant' },
+  { id: 'garrot', inputs: ['bandage', 'ifak'], output: 'garrot' },
+  { id: 'tempete_feu', inputs: ['bidon_napalm', 'grenade_incendiaire'], output: 'tempete_feu' },
   // Recettes de doublon (remplacent l'ancienne fusion de raretés). Après les autres : à ingrédients égaux,
   // la première recette de la liste l'emporte (frag + fumigène donne la thermite avant frag + frag).
   { id: 'mamba_akimbo', inputs: ['pistolet', 'pistolet'], output: 'mamba_akimbo' },
@@ -48,5 +51,7 @@ export const RECIPES: Recipe[] = [
   { id: 'sac_medical', inputs: ['ifak', 'ifak'], output: 'sac_medical' },
   { id: 'machette', inputs: ['couteau', 'couteau'], output: 'machette' },
   { id: 'bidon_napalm', inputs: ['molotov', 'molotov'], output: 'bidon_napalm' },
+  { id: 'ecran_fumee', inputs: ['fumigene', 'fumigene'], output: 'ecran_fumee' },
+  { id: 'flash_lourde', inputs: ['flash', 'flash'], output: 'flash_lourde' },
   { id: 'coffre_fort', inputs: ['tirelire', 'tirelire'], output: 'coffre_fort' },
 ];

@@ -57,7 +57,7 @@ export const ARCH_FOCUS = 0.8;
 /** Composants : les bots ne les portent pas seuls, ils ont directement les versions assemblées. */
 export const BOT_EXCLUDED = new Set(['briquet', 'batterie']);
 /** Objets de rang 2 (ingrédients assemblés) : seulement chez les bots du 5e cercle et du Top 1, et plus rarement. */
-export const RANK2 = new Set(['souffle_dragon', 'bobine_tesla', 'juggernaut', 'poste_secours', 'lame_rouge', 'rhinoceros', 'kr4_mitrailleur', 'bombe_phosphore', 'essaim']);
+export const RANK2 = new Set(['souffle_dragon', 'bobine_tesla', 'juggernaut', 'poste_secours', 'lame_rouge', 'rhinoceros', 'kr4_mitrailleur', 'bombe_phosphore', 'essaim', 'tempete_feu']);
 export const RANK2_FROM_LEVEL = 4;
 export const RANK2_SHARE = 0.25;
 export const ARCH_FOCUS_LANDING = 0.4;

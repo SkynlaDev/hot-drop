@@ -159,15 +159,20 @@ Les objets se renforcent quand ils se touchent dans le sac (bords partagés). To
 | <img src="../public/art/items/poste_secours.png" height="24"> Poste de secours | Protection (tout autour) | soins +30 % (max 1) |
 | <img src="../public/art/items/lame_rouge.png" height="24"> Lame rouge | Arme de mêlée (cases précises) | +25 % de dégâts (max 1) |
 | <img src="../public/art/items/bombe_phosphore.png" height="24"> Bombe au phosphore | Explosif (tout autour) | +1 charge (max 1) |
-|  Charge C4 | Explosif (tout autour) | +1 charge (max 2) |
-|  Amorces électriques | Explosif (tout autour) | +15 % de dégâts à cet objet (max 2) |
-|  Gilet de démineur | Explosif (tout autour) | +1 charge à cet objet (max 1) |
+| <img src="../public/art/items/charge_c4.png" height="24"> Charge C4 | Explosif (tout autour) | +1 charge (max 2) |
+| <img src="../public/art/items/amorces.png" height="24"> Amorces électriques | Explosif (tout autour) | +15 % de dégâts à cet objet (max 2) |
+| <img src="../public/art/items/gilet_demineur.png" height="24"> Gilet de démineur | Explosif (tout autour) | +1 charge à cet objet (max 1) |
 | <img src="../public/art/items/radio.png" height="24"> Radio de campagne | Arme (tout autour) | +10 % de dégâts à cet objet (max 1) |
 | <img src="../public/art/items/pointe_creuse.png" height="24"> Balles à pointe creuse | Arme (tout autour) | +20 % de dégâts (ne l'alimente pas) |
 | <img src="../public/art/items/molotov.png" height="24"> Cocktail Molotov | Explosif (tout autour) | +20 % de dégâts (max 2) |
 | <img src="../public/art/items/appui_mortier.png" height="24"> Appui mortier | Explosif (tout autour) | +1 charge (max 1) |
 | <img src="../public/art/items/designateur.png" height="24"> Désignateur laser | Arme (tout autour) | +15 % de dégâts à cet objet (max 1) |
 | <img src="../public/art/items/bidon_napalm.png" height="24"> Bidon de napalm | Explosif (tout autour) | +20 % de dégâts (max 2) |
+|  Stimulant de combat | Arme (tout autour) | +12 % de cadence à cet objet (max 1) |
+|  Garrot et pansements | Protection (tout autour) | soins +40 % (max 1) |
+|  Écran de fumée | Arme (tout autour) | +10 % de dégâts à cet objet (max 1) |
+|  Grenade aveuglante lourde | Explosif (tout autour) | +1 charge (max 1) |
+|  Tempête de feu | Explosif (tout autour) | +20 % de dégâts (max 2) |
 | <img src="../public/art/items/ange_gardien.png" height="24"> Médaille de l'ange gardien | Protection (tout autour) | +10 d'armure à cet objet (max 1) |
 | <img src="../public/art/items/detonateur.png" height="24"> Détonateur de recharge | Explosif (tout autour) | +20 % de dégâts à cet objet (max 2) |
 | <img src="../public/art/items/poche_sang.png" height="24"> Poche de sang | Soin (tout autour) | soins +25 % à cet objet (max 2) |
@@ -260,6 +265,9 @@ Quand tous les ingrédients d’une recette sont **posés dans le sac et se touc
 | <img src="../public/art/items/radio.png" height="24"> Radio de campagne + <img src="../public/art/items/frag.png" height="24"> Grenade frag | <img src="../public/art/items/appui_mortier.png" height="24"> **Appui mortier** |
 | <img src="../public/art/items/radio.png" height="24"> Radio de campagne + <img src="../public/art/items/lunette.png" height="24"> Lunette ×4 | <img src="../public/art/items/designateur.png" height="24"> **Désignateur laser** |
 | <img src="../public/art/items/drone_assaut.png" height="24"> Drone d'assaut + <img src="../public/art/items/appui_mortier.png" height="24"> Appui mortier | <img src="../public/art/items/essaim.png" height="24"> **Essaim de drones** |
+| <img src="../public/art/items/seringue.png" height="24"> Seringue d'adrénaline + <img src="../public/art/items/ration.png" height="24"> Ration de combat |  **Stimulant de combat** |
+| <img src="../public/art/items/bandage.png" height="24"> Bandage + <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK |  **Garrot et pansements** |
+| <img src="../public/art/items/bidon_napalm.png" height="24"> Bidon de napalm + <img src="../public/art/items/grenade_incendiaire.png" height="24"> Grenade incendiaire |  **Tempête de feu** |
 | <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba | <img src="../public/art/items/mamba_akimbo.png" height="24"> **Mamba Akimbo** |
 | <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau + <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau | <img src="../public/art/items/taureau_jumeaux.png" height="24"> **Taureau Jumeaux** |
 | <img src="../public/art/items/casque.png" height="24"> Casque balistique + <img src="../public/art/items/casque.png" height="24"> Casque balistique | <img src="../public/art/items/casque_lourd.png" height="24"> **Casque lourd** |
@@ -267,6 +275,8 @@ Quand tous les ingrédients d’une recette sont **posés dans le sac et se touc
 | <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK + <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK | <img src="../public/art/items/sac_medical.png" height="24"> **Sac médical** |
 | <img src="../public/art/items/couteau.png" height="24"> Couteau + <img src="../public/art/items/couteau.png" height="24"> Couteau | <img src="../public/art/items/machette.png" height="24"> **Machette** |
 | <img src="../public/art/items/molotov.png" height="24"> Cocktail Molotov + <img src="../public/art/items/molotov.png" height="24"> Cocktail Molotov | <img src="../public/art/items/bidon_napalm.png" height="24"> **Bidon de napalm** |
+| <img src="../public/art/items/fumigene.png" height="24"> Fumigène + <img src="../public/art/items/fumigene.png" height="24"> Fumigène |  **Écran de fumée** |
+| <img src="../public/art/items/flash.png" height="24"> Grenade flash + <img src="../public/art/items/flash.png" height="24"> Grenade flash |  **Grenade aveuglante lourde** |
 | <img src="../public/art/items/tirelire.png" height="24"> Caisse de l'intendant + <img src="../public/art/items/tirelire.png" height="24"> Caisse de l'intendant | <img src="../public/art/items/coffre_fort.png" height="24"> **Coffre-fort** |
 
 ## Butin, caisses et boutique
@@ -1193,6 +1203,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Gilet de démineur
 
+<img src="../public/art/items/gilet_demineur.png" height="48">
+
 **Base · Protection** · Forme `■■ / ■■` (4 cases) · Prix 7 · dès le cercle 2 · Signature Sapeur
 
 - Armure +24
@@ -1244,6 +1256,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)
+- Recette : Fumi + Fumi → Écran de fumée (ingrédients adjacents : assemblage automatique)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite
 - 2 cases · revente 1 cr
 
@@ -1258,6 +1271,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +1 charge
 - Recette : Flash + Batterie → Grenade IEM (ingrédients adjacents : assemblage automatique)
+- Recette : Flash + Flash → Grenade aveuglante lourde (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 1 case · revente 2 cr
 
@@ -1304,6 +1318,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
 - Recette : Dragon + Incend. → Souffle du Dragon (ingrédients adjacents : assemblage automatique)
+- Recette : Napalm + Incend. → Tempête de feu (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 1 case · revente 3 cr
 
@@ -1339,6 +1354,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 cases · revente 12 cr
 
 #### Charge C4
+
+<img src="../public/art/items/charge_c4.png" height="48">
 
 **Base · Explosif** · Forme `■■` (2 cases) · Prix 6 · dès le cercle 1 · Signature Sapeur
 
@@ -1420,8 +1437,46 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Endurance : 0.5 par lancer
 - ★ Explosif adjacent : +20 % de dégâts
 - Objet assemblé (recette)
+- Recette : Napalm + Incend. → Tempête de feu (ingrédients adjacents : assemblage automatique)
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 2 cases · revente 6 cr
+
+#### Écran de fumée
+
+**Assemblé · Explosif** · Forme `■ / ■ / ■` (3 cases) · Assemblé
+
+- Précision adverse −50 % pendant 4 s
+- 3 charges par combat · délai 7 s
+- Endurance : 0.5 par lancer
+- ★ Arme adjacent : +10 % de dégâts à cet objet
+- Objet assemblé (recette)
+- Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite
+- 3 cases · revente 4 cr
+
+#### Grenade aveuglante lourde
+
+**Assemblé · Explosif** · Forme `■ / ■` (2 cases) · Assemblé
+
+- Étourdit les armes adverses 2,2 s
+- 2 charges par combat · délai 8 s
+- Endurance : 0.5 par lancer
+- ★ Explosif adjacent : +1 charge
+- Objet assemblé (recette)
+- Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
+- 2 cases · revente 5 cr
+
+#### Tempête de feu
+
+**Assemblé · Explosif** · Forme `■■ / ■■` (4 cases) · Assemblé
+
+- 20 dégâts à l'adversaire
+- Pose 12 Brûlure
+- 3 charges par combat · délai 6 s
+- Endurance : 0.5 par lancer
+- ★ Explosif adjacent : +20 % de dégâts
+- Objet assemblé (recette)
+- Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
+- 4 cases · revente 14 cr
 
 #### Détonateur de recharge
 
@@ -1447,6 +1502,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 1 charge par combat · délai 4 s
 - ★ Protection adjacent (cases marquées) : soins +20 %
 - Recette : IFAK + Adré. → Kit de trauma (ingrédients adjacents : assemblage automatique)
+- Recette : Bandage + IFAK → Garrot et pansements (ingrédients adjacents : assemblage automatique)
 - Recette : IFAK + IFAK → Sac médical (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 4 cases · revente 2 cr
@@ -1461,6 +1517,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 1 charge par combat · délai 6 s
 - ★ Arme adjacent : +10 % de cadence à cet objet
 - Recette : IFAK + Adré. → Kit de trauma (ingrédients adjacents : assemblage automatique)
+- Recette : Adré. + Ration → Stimulant de combat (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 2 cases · revente 2 cr
 
@@ -1487,6 +1544,7 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Retire 10 de saignement et soigne 12 PV (saignement ≥ 8 ou PV sous 50 %)
 - 1 charge par combat · délai 2 s
 - ★ Protection adjacent : soins +50 %
+- Recette : Bandage + IFAK → Garrot et pansements (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 1 case · revente 1 cr
 
@@ -1517,6 +1575,29 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Objet assemblé (recette)
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 6 cases · revente 13 cr
+
+#### Stimulant de combat
+
+**Assemblé · Médical** · Forme `■■ / ■·` (3 cases) · Assemblé
+
+- Endurance +0,3 par seconde
+- +45 % de cadence pendant 5 s sous 30 % PV
+- 1 charge par combat · délai 6 s
+- ★ Arme adjacent : +12 % de cadence à cet objet
+- Objet assemblé (recette)
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
+- 3 cases · revente 6 cr
+
+#### Garrot et pansements
+
+**Assemblé · Médical** · Forme `■■ / ■·` (3 cases) · Assemblé
+
+- Retire 20 de saignement et soigne 26 PV (saignement ≥ 8 ou PV sous 50 %)
+- 2 charges par combat · délai 2 s
+- ★ Protection adjacent : soins +40 %
+- Objet assemblé (recette)
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
+- 3 cases · revente 5 cr
 
 #### Médaille de l'ange gardien
 
@@ -1598,10 +1679,13 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 **Base · Composant** · Forme `■` (1 case) · Prix 3 · dès le cercle 1
 
 - Endurance +0,3 par seconde
+- Recette : Adré. + Ration → Stimulant de combat (ingrédients adjacents : assemblage automatique)
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 1 case · revente 1 cr
 
 #### Amorces électriques
+
+<img src="../public/art/items/amorces.png" height="48">
 
 **Base · Composant** · Forme `■` (1 case) · Prix 4 · dès le cercle 1 · Signature Sapeur
 
