@@ -4,6 +4,7 @@ import { C, TITLE_FONT, W, H, MONO } from '../config';
 import { CATEGORY_NAMES, Category, ITEMS } from '../data/items';
 import { OPERATORS, OPERATOR_IDS } from '../data/operators';
 import { dims } from '../logic/grid';
+import { RECIPES } from '../data/recipes';
 import { MENACE_MAX, Profile, collection, loadProfile } from '../logic/profile';
 import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { ROUNDS } from '../logic/zone';
@@ -19,6 +20,7 @@ export default class CarnetScene extends Phaser.Scene {
   private info!: Phaser.GameObjects.Text;
   private infoSub!: Phaser.GameObjects.Text;
   private sel!: Phaser.GameObjects.Graphics;
+  private seen = new Set<string>();
 
   constructor() {
     super('carnet');
@@ -63,6 +65,7 @@ export default class CarnetScene extends Phaser.Scene {
   /** Tous les objets, classés par niveau puis catégorie : en couleur s'ils ont déjà été trouvés. */
   private collectionGrid(p: Profile, y: number): number {
     const seen = new Set(p.seen);
+    this.seen = seen;
     const ids = Object.values(ITEMS)
       .sort((a, b) => tierOf(a.id) - tierOf(b.id) || CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category) || a.price - b.price)
       .map((d) => d.id);
@@ -100,13 +103,16 @@ export default class CarnetScene extends Phaser.Scene {
     this.sel.clear();
     this.sel.lineStyle(3, P.orangeClair, 1);
     this.sel.strokeRoundedRect(x, y, TILE, TILE, 10);
+    // Recette : ingrédients déjà trouvés en clair, les autres en « ? » (une piste pour la prochaine partie).
+    const r = RECIPES.find((x) => x.output === id);
+    const recipe = r ? r.inputs.map((i) => (this.seen.has(i) ? ITEMS[i].short : '?')).join(' + ') : '';
     if (!found) {
       this.info.setText('???').setColor(C.quiet);
-      this.infoSub.setText(d.crafted ? 'Objet assemblé pas encore découvert' : d.legendary ? 'Légendaire pas encore trouvé' : 'Pas encore trouvé');
+      this.infoSub.setText(d.crafted ? `Recette : ${recipe}` : d.legendary ? 'Légendaire : dès le 2e cercle (caisse épique, boutique, Élites)' : 'Pas encore trouvé');
       return;
     }
     this.info.setText(d.name).setColor(TIER_HEX[tierOf(id)]);
-    this.infoSub.setText(`${TIER_NAMES[tierOf(id)]} · ${d.wclass ?? CATEGORY_NAMES[d.category]}`);
+    this.infoSub.setText(`${TIER_NAMES[tierOf(id)]} · ${d.wclass ?? CATEGORY_NAMES[d.category]}${recipe ? ` · ${recipe}` : ''}`);
   }
 
   /** Les dernières parties. */
