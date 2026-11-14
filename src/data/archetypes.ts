@@ -26,11 +26,13 @@ export interface ArchetypeDef {
   /** Objets en plus et sac un cran plus grand : compense des objets gros et peu nombreux (Rempart). */
   extraItems?: number;
   bigBag?: boolean;
+  /** Objets légendaires qui vont avec ce plan (Élites et Top 1). */
+  legendaries: string[];
 }
 
 export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
   feu_continu: {
-    id: 'feu_continu', name: 'Feu continu', ops: ['viper'],
+    id: 'feu_continu', legendaries: ['condensateur', 'cocktail', 'plaques_veteran'], name: 'Feu continu', ops: ['viper'],
     blurb: 'SMG et fusils d’assaut à gros chargeurs : la cadence monte tant qu’il tire.',
     weapons: ['smg', 'smg_ours', 'smg_guepe', 'fusil_assaut', 'ar_vesta', 'ar_hades', 'ar_lynx'],
     crafted: ['ours_deluge', 'kr4_tactique', 'furet_akimbo', 'kr4_mitrailleur'],
@@ -38,7 +40,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     armorShare: 0.15,
   },
   akimbo: {
-    id: 'akimbo', name: 'Akimbo',
+    id: 'akimbo', legendaries: ['poche_sang', 'plaques_veteran', 'condensateur'], name: 'Akimbo',
     blurb: 'Deux armes de poing jumelées : beaucoup de petites touches.',
     weapons: ['pistolet', 'revolver', 'smg', 'smg_guepe'],
     crafted: ['mamba_akimbo', 'taureau_jumeaux', 'furet_akimbo'],
@@ -46,7 +48,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     armorShare: 0.15,
   },
   marque: {
-    id: 'marque', name: 'Marque', ops: ['sentinelle'],
+    id: 'marque', legendaries: ['lunette_thermique', 'ange_gardien'], name: 'Marque', ops: ['sentinelle'],
     blurb: 'Une arme marque sur critique, l’autre achève la cible marquée.',
     weapons: ['dmr_faucon', 'revolver', 'colibri', 'precision'],
     crafted: ['faucon_traqueur', 'taureau_magnum'],
@@ -54,21 +56,21 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     twoGuns: true,
   },
   tir_lourd: {
-    id: 'tir_lourd', name: 'Tir lourd',
+    id: 'tir_lourd', legendaries: ['lunette_thermique', 'ange_gardien'], name: 'Tir lourd',
     blurb: 'Fusils de précision : premier tir critique, critiques énormes.',
     weapons: ['precision', 'dmr_faucon'],
     crafted: ['aigle_longuevue', 'faucon_traqueur', 'rhinoceros'],
     extras: ['lunette', 'bipied', 'silencieux', 'perforantes', 'chg_762', 'fumigene'],
   },
   demolition: {
-    id: 'demolition', name: 'Démolition',
+    id: 'demolition', legendaries: ['detonateur', 'cocktail'], name: 'Démolition',
     blurb: 'Fusils à pompe et grenades en chaîne : des explosions qui percent l’armure.',
     weapons: ['pompe', 'pompe_belier'],
     crafted: ['pompe_dragon', 'thermite', 'sous_munitions', 'grenade_incendiaire', 'chg_incendiaire', 'souffle_dragon', 'bombe_phosphore'],
     extras: ['frag', 'flash', 'fumigene', 'chg_12g', 'casque', 'ifak'],
   },
   rempart: {
-    id: 'rempart', name: 'Rempart',
+    id: 'rempart', legendaries: ['bouclier_emeute', 'ange_gardien', 'poche_sang'], name: 'Rempart',
     blurb: 'Armure épaisse et soins renforcés : il encaisse et tient la distance.',
     weapons: ['fusil_assaut', 'ar_vesta', 'ar_lynx', 'revolver', 'pompe'],
     crafted: ['armure_lourde', 'casque_lourd', 'kit_trauma', 'sac_medical', 'juggernaut', 'poste_secours'],
@@ -79,7 +81,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     bigBag: true,
   },
   lame: {
-    id: 'lame', name: 'Lame',
+    id: 'lame', legendaries: ['insigne_lames', 'poche_sang'], name: 'Lame',
     blurb: 'Aucune arme à feu : lames et saignement qui ignore l’armure.',
     weapons: [],
     crafted: ['machette', 'casque_lourd', 'lame_rouge'],

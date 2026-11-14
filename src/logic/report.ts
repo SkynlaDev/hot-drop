@@ -20,6 +20,8 @@ export interface ItemReport {
   uses: number;
   /** Tirs adverses ratés pendant ce fumigène. */
   dodged: number;
+  /** Touches adverses bloquées (Bouclier anti-émeute). */
+  blocked: number;
   /** Secondes d'étourdissement infligées (flash, taser). */
   stun: number;
   /** Part de `dmg` venue de la Brûlure posée par cet objet. */
@@ -46,7 +48,7 @@ export type DuelReport = Record<Side, SideReport>;
 const other = (s: Side): Side => (s === 'a' ? 'b' : 'a');
 
 function blank(uid: number): ItemReport {
-  return { uid, dmg: 0, bleed: 0, shots: 0, hits: 0, crits: 0, heal: 0, absorbed: 0, uses: 0, dodged: 0, stun: 0, burnDmg: 0, discharges: 0, tired: 0 };
+  return { uid, dmg: 0, bleed: 0, shots: 0, hits: 0, crits: 0, heal: 0, absorbed: 0, uses: 0, dodged: 0, blocked: 0, stun: 0, burnDmg: 0, discharges: 0, tired: 0 };
 }
 
 /** Valeur unique pour classer les objets : ce qu'ils ont fait gagner en PV (infligés, soignés, protégés). */
@@ -102,6 +104,11 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
         if (!e.miss && !shotHit.get(key)) {
           r.hits++;
           shotHit.set(key, true);
+        }
+        if (e.blocked) {
+          const sh = L[other(e.from)].block;
+          if (sh) it(other(e.from), sh.uid).blocked++;
+          break;
         }
         if (e.miss) {
           const sm = smoke[other(e.from)];
@@ -203,6 +210,13 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
       case 'adrenaline':
         it(e.side, e.uid).uses++;
         break;
+      case 'revive': {
+        const r = it(e.side, e.uid);
+        r.uses++;
+        r.heal += e.hp;
+        sides[e.side].healed += e.hp;
+        break;
+      }
       case 'reload':
       case 'death':
         break;

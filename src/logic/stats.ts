@@ -1,4 +1,4 @@
-import { CATEGORY_NAMES, FAMILY_INFO, Family, ITEMS, StarEffect } from '../data/items';
+import { CATEGORY_NAMES, FAMILY_INFO, Family, ITEMS, Keystone, StarEffect } from '../data/items';
 import type { OperatorId } from '../data/operators';
 import { RECIPES } from '../data/recipes';
 import { ItemInst, maskOf, sharedEdge } from './grid';
@@ -113,6 +113,19 @@ export interface PlayerLoadout {
   dischargeDmg?: number;
   /** Armure apportée par chaque objet (uid → points, avant le bonus de famille), pour le rapport de duel. */
   armorBy?: Record<number, number>;
+  /** Objets légendaires (règles du duel) : uid de l'objet qui porte la règle, et sa valeur. */
+  revive?: { uid: number; value: number };
+  reloadBlast?: { uid: number; value: number };
+  lifesteal?: { uid: number; value: number };
+  block?: { uid: number; value: number };
+  critBurn?: number;
+  shockEvery?: { uid: number; value: number };
+}
+
+/** Contexte de la partie qui change le sac (objets légendaires qui grandissent). */
+export interface LoadoutCtx {
+  /** Duels gagnés depuis le début de la partie (Plaques du vétéran). */
+  wins?: number;
 }
 
 export interface SynergyLink {
@@ -174,8 +187,17 @@ export function familyStates(items: ItemInst[]): FamilyState[] {
 }
 
 /** Statistiques de combat d'un sac, pour un opérateur et des PV max donnés. */
-export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: number): { loadout: PlayerLoadout; links: SynergyLink[]; stars: StarFill[] } {
+export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: number, ctx: LoadoutCtx = {}): { loadout: PlayerLoadout; links: SynergyLink[]; stars: StarFill[] } {
   const placed = items.filter((i) => i.placed);
+  // Objets légendaires : la première occurrence de chaque règle compte (un seul exemplaire par partie).
+  const keyOf = <K extends keyof Keystone>(k: K): { uid: number; value: NonNullable<Keystone[K]> } | undefined => {
+    const it = placed.find((p) => ITEMS[p.defId].keystone?.[k] !== undefined);
+    return it ? { uid: it.uid, value: ITEMS[it.defId].keystone![k]! } : undefined;
+  };
+  const vet = keyOf('perWin');
+  const perWin = vet ? Math.min(ITEMS[placed.find((p) => p.uid === vet.uid)!.defId].keystone!.perWinCap ?? Infinity, vet.value * (ctx.wins ?? 0)) : 0;
+  const mBleed = keyOf('meleeBleed')?.value ?? 0;
+  const mHaste = keyOf('meleeHaste')?.value ?? 0;
   const families = familyStates(items);
   const tier = (f: Family) => families.find((s) => s.family === f)?.tier ?? 0;
   const links: SynergyLink[] = [];
@@ -287,7 +309,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       weapons.push({
         uid: it.uid,
         name: d.name,
-        dmg: d.weapon.dmg * dmgMult,
+        dmg: d.weapon.dmg * dmgMult + perWin,
         interval,
         mag: Math.round(d.weapon.mag * (1 + extMag) * (1 + drum)),
         reload,
@@ -311,8 +333,8 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
 
     if (d.melee) {
       melee.push({
-        uid: it.uid, name: d.name, dmg: d.melee.dmg * (1 + sb.dmg), interval: d.melee.interval / (1 + sb.cadence),
-        bleed: (d.melee.bleed ?? 0) + sb.bleed, armorPierce: d.melee.armorPierce ?? 0,
+        uid: it.uid, name: d.name, dmg: d.melee.dmg * (1 + sb.dmg) + perWin, interval: d.melee.interval / ((1 + sb.cadence) * (1 + mHaste)),
+        bleed: (d.melee.bleed ?? 0) + sb.bleed + mBleed, armorPierce: d.melee.armorPierce ?? 0,
         endCost: MELEE_DRAIN * d.melee.interval * (1 + endCostMult),
       });
     }
@@ -361,12 +383,18 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       markBonus: operator === 'sentinelle' ? MARK_BONUS : 0,
       families,
       armorBy,
-      endMax: ENDURANCE_MAX,
+      endMax: ENDURANCE_MAX + (keyOf('endMax')?.value ?? 0),
       endRegen: ENDURANCE_REGEN + sum((d) => d.endRegen),
       burnResist: Math.min(0.8, sum((d) => d.burnResist)),
       shockThreshold: SHOCK_THRESHOLD + sum((d) => d.shockThreshold),
       shockImmune: placed.some((it) => ITEMS[it.defId].shockImmune),
       dischargeDmg: sum((d) => d.dischargeDmg),
+      revive: keyOf('revive'),
+      reloadBlast: keyOf('reloadBlast'),
+      lifesteal: keyOf('lifesteal'),
+      block: keyOf('block'),
+      critBurn: keyOf('critBurn')?.value,
+      shockEvery: keyOf('shockEvery'),
     },
     links,
     stars,
@@ -408,6 +436,20 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
   const cal = d.caliber ? ` · ${d.caliber}` : '';
   const sub = `${TIER_NAMES[tierOf(inst.defId)]} · ${d.wclass ?? CATEGORY_NAMES[d.category]}${cal}`;
 
+  // Légendaire : sa règle d'abord (c'est la ligne affichée sur les offres de boutique).
+  const k = d.keystone;
+  if (k) {
+    if (k.revive) lines.push(`Une fois par duel, à 0 PV : revient à ${pct(k.revive)} des PV`);
+    if (k.reloadBlast) lines.push(`Chaque recharge d'une de tes armes : éclat de ${k.reloadBlast} dégâts (la moitié ignore l'armure)`);
+    if (k.perWin) lines.push(`+${k.perWin} dégât par touche (armes et mêlée) pour chaque duel gagné dans la partie, jusqu'à +${k.perWinCap}`);
+    if (k.lifesteal) lines.push(`Vol de vie : ${pct(k.lifesteal)} des dégâts infligés rendus en PV`);
+    if (k.block) lines.push(`Bloque les ${k.block} premières touches reçues (balles, coups, éclats)`);
+    if (k.critBurn) lines.push(`Chaque critique pose ${k.critBurn} Brûlure`);
+    if (k.meleeBleed) lines.push(`Toute ta mêlée : +${k.meleeBleed} saignement par coup et +${pct(k.meleeHaste ?? 0)} de vitesse`);
+    if (k.shockEvery) lines.push(`Toutes les ${k.shockEvery} touches d'arme à feu : 5 Choc (décharge)`);
+    if (k.endMax) lines.push(`Endurance max +${k.endMax}`);
+    lines.push('Légendaire : un seul exemplaire par partie');
+  }
   if (d.weapon) {
     const wp = d.weapon;
     lines.push(`Dégâts ${r1(wp.dmg)} toutes les ${r1(wp.interval)} s`);

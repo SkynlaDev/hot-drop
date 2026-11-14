@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ITEMS } from '../src/data/items';
+import { ITEMS, LEGENDARY_IDS } from '../src/data/items';
 import { RECIPES } from '../src/data/recipes';
 import { OPERATORS, canUse, lootPool } from '../src/data/operators';
 import { computeLoadout } from '../src/logic/stats';
@@ -440,7 +440,7 @@ describe('run', () => {
       expect(new Set(p.items.map((i) => i.defId)).size).toBe(5);
       expect(p.items.some((i) => ITEMS[i.defId].weapon)).toBe(true);
       expect(p.items.some((i) => ITEMS[i.defId].crafted)).toBe(true);
-      for (const it of p.items) expect([...lootPool(run.operator), ...craftedPool(run.operator)]).toContain(it.defId);
+      for (const it of p.items) expect([...lootPool(run.operator), ...craftedPool(run.operator), ...LEGENDARY_IDS]).toContain(it.defId);
     }
   });
 

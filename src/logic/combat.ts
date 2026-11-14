@@ -31,9 +31,13 @@ export type Side = 'a' | 'b';
  * - burn : `side` perd `amount` PV de Brûlure (ignore l'armure), `stacks` = cumuls restants.
  * - discharge : décharge du Choc sur `side`, déclenchée par l'objet `uid` du camp adverse.
  * - tired : l'arme `uid` de `side` attend, faute d'Endurance (`end` = Endurance restante).
+ * Objets légendaires :
+ * - shot `blocked` : la touche est bloquée (Bouclier anti-émeute de la cible), amount 0.
+ * - revive : `side` revient à `hp` PV (Médaille de l'ange gardien `uid`).
+ * - frag d'un Détonateur de recharge (uid du détonateur) ; heal du vol de vie (uid de la Poche de sang).
  */
 export type DuelEvent =
-  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; heat?: number; mark?: boolean; marked?: boolean; melee?: 'lame'; bleed?: number; absorbed?: number; hp: number; armor: number } & StatusFields & { end?: number }
+  | { t: number; kind: 'shot'; from: Side; uid: number; amount: number; crit: boolean; miss: boolean; pierce: boolean; double?: boolean; heat?: number; mark?: boolean; marked?: boolean; melee?: 'lame'; bleed?: number; absorbed?: number; blocked?: boolean; hp: number; armor: number } & StatusFields & { end?: number }
   | { t: number; kind: 'reload'; side: Side; uid: number }
   | { t: number; kind: 'bleed'; side: Side; amount: number; hp: number }
   | ({ t: number; kind: 'taser'; side: Side; uid: number; amount: number; until: number; absorbed?: number; hp: number; armor: number } & StatusFields)
@@ -46,7 +50,8 @@ export type DuelEvent =
   | { t: number; kind: 'death'; side: Side }
   | { t: number; kind: 'burn'; side: Side; amount: number; hp: number; stacks: number }
   | { t: number; kind: 'discharge'; side: Side; uid: number; amount?: number; hp?: number }
-  | { t: number; kind: 'tired'; side: Side; uid: number; end: number };
+  | { t: number; kind: 'tired'; side: Side; uid: number; end: number }
+  | { t: number; kind: 'revive'; side: Side; uid: number; hp: number };
 
 /** Statuts posés par un coup (absents si nuls). */
 export interface StatusFields {
@@ -122,6 +127,11 @@ interface Fighter {
   burnNext: number;
   burnDecay: number;
   shock: number;
+  /** Légendaires : touches encore bloquées, résurrection utilisée, vol de vie pas encore rendu, touches d'arme à feu. */
+  blocks: number;
+  revived: boolean;
+  steal: number;
+  gunHits: number;
 }
 
 /** Applique des dégâts : l'armure absorbe d'abord, sauf la part qui la perce. Renvoie l'absorbé. */
@@ -163,6 +173,10 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     burnNext: 0,
     burnDecay: 0,
     shock: 0,
+    blocks: l.block?.value ?? 0,
+    revived: false,
+    steal: 0,
+    gunHits: 0,
   });
   const hpA = Math.max(1, Math.min(a.maxHp, Math.round(opts.hpA ?? a.maxHp)));
   const A = make('a', a, hpA);
@@ -172,6 +186,41 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     events, win, timeout, duration: t, hpEndA: Math.round(A.hp), hpEndB: Math.round(B.hp),
   });
 
+  /** `f` est-il mort ? La Médaille de l'ange gardien le relève une fois par duel. Pousse l'événement. */
+  const dies = (f: Fighter, t: number): boolean => {
+    if (f.hp > 0) return false;
+    if (f.l.revive && !f.revived) {
+      f.revived = true;
+      f.hp = Math.round(f.l.maxHp * f.l.revive.value);
+      f.bleed = 0;
+      f.burn = 0;
+      events.push({ t, kind: 'revive', side: f.side, uid: f.l.revive.uid, hp: f.hp });
+      return false;
+    }
+    events.push({ t, kind: 'death', side: f.side });
+    return true;
+  };
+
+  /** Bouclier anti-émeute : bloque la touche si `foe` en a encore. */
+  const blocked = (foe: Fighter): boolean => {
+    if (foe.blocks <= 0) return false;
+    foe.blocks--;
+    return true;
+  };
+
+  /** Vol de vie (Poche de sang) : rend une part des dégâts, annoncé par paquets d'au moins 3 PV. */
+  const leech = (me: Fighter, amount: number, t: number) => {
+    const ls = me.l.lifesteal;
+    if (!ls || me.hp <= 0) return;
+    me.steal += amount * ls.value;
+    if (me.steal < 3) return;
+    const heal = Math.min(Math.floor(me.steal), Math.round(me.l.maxHp - me.hp));
+    me.steal -= Math.floor(me.steal);
+    if (heal <= 0) return;
+    me.hp += heal;
+    events.push({ t, kind: 'heal', side: me.side, uid: ls.uid, amount: heal, hp: round1(me.hp) });
+  };
+
   /** Étourdit `f` : ses armes et sa mêlée frappent `d` secondes plus tard. */
   const stun = (f: Fighter, t: number, d: number) => {
     for (const fw of f.ws) fw.next = Math.max(fw.next, t) + d;
@@ -180,18 +229,20 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
 
   /** Coup de mêlée : toujours au but, pas de critique. Renvoie le camp mort, s'il y en a un. */
   const strike = (me: Fighter, foe: Fighter, t: number, uid: number, dmg: number, pierce: number, bleed: number): Side | null => {
+    if (blocked(foe)) {
+      events.push({ t, kind: 'shot', from: me.side, uid, amount: 0, crit: false, miss: false, pierce: false, melee: 'lame', blocked: true, hp: round1(foe.hp), armor: round1(foe.armor) });
+      return null;
+    }
     const amount = Math.max(1, Math.round(dmg - Math.min(foe.l.flatReduce, dmg * MAX_FLAT_REDUCE)));
     const abs = applyDamage(foe, amount, pierce);
     me.dealt += amount;
     if (bleed > 0) foe.bleed += bleed;
+    leech(me, amount, t);
     events.push({
       t, kind: 'shot', from: me.side, uid, amount, crit: false, miss: false, pierce: pierce > 0, melee: 'lame',
       ...(bleed > 0 ? { bleed } : {}), ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor),
     });
-    if (foe.hp <= 0) {
-      events.push({ t, kind: 'death', side: foe.side });
-      return foe.side;
-    }
+    if (dies(foe, t)) return foe.side;
     return null;
   };
 
@@ -246,10 +297,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         foe.dealt += d;
         me.burnNext = t + BURN_TICK;
         events.push({ t, kind: 'burn', side: me.side, amount: round1(d), hp: round1(me.hp), stacks: me.burn });
-        if (me.hp <= 0) {
-          events.push({ t, kind: 'death', side: me.side });
-          return me.side;
-        }
+        if (dies(me, t)) return me.side;
       }
       if (t >= me.burnDecay) {
         me.burn -= 1;
@@ -268,10 +316,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         me.bleedAcc = 0;
         me.bleedNext = t + 0.5;
       }
-      if (me.hp <= 0) {
-        events.push({ t, kind: 'death', side: me.side });
-        return me.side;
-      }
+      if (dies(me, t)) return me.side;
     }
     const cadence = t < me.adrenalineUntil ? 1 / (1 + me.adrenalineBoost) : 1;
 
@@ -284,6 +329,18 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         s.reloadUntil = s.next;
         if (!s.w.heatKeep) s.fireStart = -1; // la recharge éteint le Feu continu (sauf KR-4 Mitrailleur)
         events.push({ t, kind: 'reload', side: me.side, uid: s.w.uid });
+        // Détonateur de recharge : un éclat part à chaque recharge.
+        const rb = me.l.reloadBlast;
+        if (rb) {
+          if (blocked(foe)) {
+            events.push({ t, kind: 'shot', from: me.side, uid: rb.uid, amount: 0, crit: false, miss: false, pierce: false, blocked: true, hp: round1(foe.hp), armor: round1(foe.armor) });
+          } else {
+            const abs = applyDamage(foe, rb.value, 0.5);
+            me.dealt += rb.value;
+            events.push({ t, kind: 'frag', side: me.side, uid: rb.uid, amount: rb.value, ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor) });
+            if (dies(foe, t)) return foe.side;
+          }
+        }
         continue;
       }
       // Endurance : le tir coûte au moment où il part ; sans assez d'Endurance, l'arme attend.
@@ -312,7 +369,12 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         const miss = rng() > acc;
         const crit = !miss && ((s.w.firstCrit && s.shots === 0 && n === 0) || rng() < s.w.crit);
         let amount = 0;
-        if (!miss) {
+        if (!miss && blocked(foe)) {
+          events.push({
+            t, kind: 'shot', from: me.side, uid: s.w.uid, amount: 0, crit: false, miss: false, pierce: false, blocked: true,
+            ...(n > 0 ? { double: true } : {}), ...heatField, hp: round1(foe.hp), armor: round1(foe.armor),
+          });
+        } else if (!miss) {
           // Marque : la touche d'une AUTRE arme la consomme.
           const marked = me.l.markBonus > 0 && foe.markedBy >= 0 && foe.markedBy !== s.w.uid;
           if (marked) foe.markedBy = -1;
@@ -329,7 +391,11 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           }
           me.dealt += amount;
           if (crit && s.w.critStun > 0) for (const fw of foe.ws) fw.next = Math.max(fw.next, t) + s.w.critStun;
-          const st = applyStatus(me, foe, t, s.w.burn, s.w.shock);
+          // Légendaires : Brûlure des critiques (Lunette thermique), Choc toutes les N touches (Condensateur).
+          me.gunHits++;
+          const extraBurn = crit ? me.l.critBurn ?? 0 : 0;
+          const extraShock = me.l.shockEvery && me.gunHits % me.l.shockEvery.value === 0 ? 5 : 0;
+          const st = applyStatus(me, foe, t, (s.w.burn ?? 0) + extraBurn, (s.w.shock ?? 0) + extraShock);
           events.push({
             t, kind: 'shot', from: me.side, uid: s.w.uid, amount, crit, miss: false,
             pierce: s.w.armorPierce > 0, ...(n > 0 ? { double: true } : {}), ...heatField,
@@ -338,10 +404,8 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
             hp: round1(foe.hp), armor: round1(foe.armor),
           });
           if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: s.w.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
-          if (foe.hp <= 0) {
-            events.push({ t, kind: 'death', side: foe.side });
-            return foe.side;
-          }
+          leech(me, amount, t);
+          if (dies(foe, t)) return foe.side;
         } else {
           events.push({
             t, kind: 'shot', from: me.side, uid: s.w.uid, amount: 0, crit: false, miss: true, pierce: false,
@@ -393,10 +457,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
         s.charges--;
         s.next = t + ac.cooldown;
-        if (foe.hp <= 0) {
-          events.push({ t, kind: 'death', side: foe.side });
-          return foe.side;
-        }
+        if (dies(foe, t)) return foe.side;
         continue;
       }
       if (ac.kind === 'bandage') {
@@ -410,17 +471,16 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         s.next = t + ac.cooldown;
         continue;
       }
-      if (ac.kind === 'frag') {
+      if (ac.kind === 'frag' && blocked(foe)) {
+        events.push({ t, kind: 'shot', from: me.side, uid: ac.uid, amount: 0, crit: false, miss: false, pierce: false, blocked: true, hp: round1(foe.hp), armor: round1(foe.armor) });
+      } else if (ac.kind === 'frag') {
         const amount = Math.round(ac.value);
         const abs = applyDamage(foe, amount, ac.ignoreArmor ? 1 : 0);
         me.dealt += amount;
         const st = applyStatus(me, foe, t, ac.burn, ac.shock);
         events.push({ t, kind: 'frag', side: me.side, uid: ac.uid, amount, ...absField(abs), ...st.f, hp: round1(foe.hp), armor: round1(foe.armor) });
         if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
-        if (foe.hp <= 0) {
-          events.push({ t, kind: 'death', side: foe.side });
-          return foe.side;
-        }
+        if (dies(foe, t)) return foe.side;
       } else if (ac.kind === 'smoke') {
         me.smokeUntil = t + ac.duration;
         events.push({ t, kind: 'smoke', side: me.side, uid: ac.uid, until: me.smokeUntil });
@@ -430,10 +490,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         const st = applyStatus(me, foe, t, ac.burn, ac.shock);
         events.push({ t, kind: 'flash', side: me.side, uid: ac.uid, until: t + ac.value, ...st.f });
         if (st.discharge) events.push({ t, kind: 'discharge', side: foe.side, uid: ac.uid, ...(st.f.discharged ? { amount: st.f.discharged, hp: round1(foe.hp) } : {}) });
-        if (foe.hp <= 0) {
-          events.push({ t, kind: 'death', side: foe.side });
-          return foe.side;
-        }
+        if (dies(foe, t)) return foe.side;
       } else if (ac.kind === 'adrenaline') {
         if (me.hp / me.l.maxHp >= ac.threshold) continue;
         me.adrenalineUntil = t + ac.duration;

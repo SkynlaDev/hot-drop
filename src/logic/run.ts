@@ -1,7 +1,7 @@
 // État d'une run et ses règles : carte battle royale, cartes jouées dans les zones, duels, Goulag, butin, boutique.
 // Tout est pur et déterministe pour une graine donnée ; les scènes appellent ces fonctions.
 // Ce module ne dépend ni des bots ni du combat : il renvoie les paramètres des duels, l'UI les simule.
-import { Category, ITEMS } from '../data/items';
+import { Category, ITEMS, LEGENDARY_IDS } from '../data/items';
 import { BAGS, BAG_IDS, BagId } from '../data/bags';
 import { OPERATORS, OperatorId, canUse, lootPool } from '../data/operators';
 import { RECIPES } from '../data/recipes';
@@ -122,6 +122,8 @@ export interface RunState {
   nextUid: number;
   shop?: { key: string; rerolls: number; offers: ShopOffer[] };
   over?: 'win' | 'lose';
+  /** Duels gagnés dans la partie (Goulag compris) : font grandir les Plaques du vétéran. */
+  wins?: number;
 }
 
 /** Paramètres d'un duel : l'UI génère le bot avec generateBot(seed, round, { danger }) et simule. */
@@ -357,11 +359,12 @@ export function resolveDuel(run: RunState, out: DuelOutcome): DuelResolution {
   const bagChance = f.kind === 'elite' ? ELITE_BAG_CHANCE : 0;
   const rng = rngFor(run.seed, 'loot', run.round, run.zoneId ?? -1, f.cardIndex);
   const bags = rng() < bagChance ? addBags(run, [rollBag(rng, run.round)]) : { taken: [], credits: 0 };
+  run.wins = (run.wins ?? 0) + 1;
   const reward = duelCredits(f.kind, run.round);
   run.credits += reward;
   const loot: Loot = { items: [], bags: bags.taken, credits: reward + bags.credits };
   // Le sac du vaincu, tel qu'il était rangé : on y choisit son butin (sauf les objets de signature de l'autre opérateur).
-  const choices = out.botItems.filter((it) => canUse(run.operator, it.defId)).map((it) => ({ ...it, placed: true }));
+  const choices = out.botItems.filter((it) => canUse(run.operator, it.defId) && !(ITEMS[it.defId].legendary && ownsItem(run, it.defId))).map((it) => ({ ...it, placed: true }));
   const picks = f.kind === 'elite' ? ELITE_PICKS : DUEL_PICKS;
   if (choices.length) run.pendingLoot = { items: choices, usable: out.botUsable ?? [], maxPicks: Math.min(picks, choices.length), picked: 0 };
   const res: DuelResolution = { loot, lootChoices: choices, actionDone: true, goulag: false };
@@ -461,6 +464,7 @@ export function goulagParams(run: RunState): DuelParams | null {
 export function resolveGoulag(run: RunState, win: boolean): void {
   if (!run.pendingGoulag) return;
   run.pendingGoulag = false;
+  if (win) run.wins = (run.wins ?? 0) + 1;
   if (!win) run.over = 'lose';
 }
 
@@ -566,6 +570,20 @@ export function missingIngredient(run: RunState, rng: Rng, exclude: string[] = [
   return cands.length ? pick(rng, cands) : undefined;
 }
 
+/** Le joueur possède déjà cet objet (sac ou réserve). */
+export function ownsItem(run: RunState, defId: string): boolean {
+  return run.items.some((i) => i.defId === defId);
+}
+
+/** Chance qu'une caisse épique propose un objet légendaire ; chance qu'une boutique en propose un. */
+export const EPIC_LEGENDARY_CHANCE = 0.6;
+export const SHOP_LEGENDARY_CHANCE = 0.18;
+
+/** Légendaires encore trouvables : déjà apparus à cette manche, pas encore possédés, utilisables par l'opérateur. */
+export function legendaryPool(run: RunState): string[] {
+  return LEGENDARY_IDS.filter((id) => ITEMS[id].minRound <= run.round && !ownsItem(run, id) && canUse(run.operator, id));
+}
+
 /** Objets proposés par une caisse : une arme, la garantie du type de caisse, puis des objets du pool, tous différents. */
 function crateOffers(run: RunState, crate: CrateKind, rng: Rng): ItemInst[] {
   const ids: string[] = [];
@@ -578,6 +596,8 @@ function crateOffers(run: RunState, crate: CrateKind, rng: Rng): ItemInst[] {
   if (crate === 'caisse_epique') {
     const crafted = craftedPool(run.operator).filter((id) => !ids.includes(id));
     if (crafted.length) ids.push(pick(rng, crafted));
+    const legs = legendaryPool(run);
+    if (legs.length && rng() < EPIC_LEGENDARY_CHANCE) ids.push(pick(rng, legs));
   }
   const pool = lootPool(run.operator).filter((id) => ITEMS[id].minRound <= run.round && !ids.includes(id));
   while (ids.length < CRATES[crate].offers && pool.length) ids.push(pickFromPool(run, rng, pool));
@@ -747,6 +767,11 @@ export function rollShop(run: RunState): void {
   const hasBag = !kept.some((o) => o.bag) && rng() < SHOP_BAG_CHANCE;
   const nItems = SHOP_OFFERS - kept.length - (hasBag ? 1 : 0);
   const items = randomItems(run, rng, Math.max(0, nItems));
+  // Une fois de temps en temps, un objet légendaire remplace la dernière offre (jamais deux).
+  const legs = legendaryPool(run).filter((id) => !kept.some((o) => o.item?.defId === id));
+  if (items.length && legs.length && !kept.some((o) => o.item && ITEMS[o.item.defId].legendary) && rng() < SHOP_LEGENDARY_CHANCE) {
+    items[items.length - 1] = drop(pick(rng, legs));
+  }
   const fresh: ShopOffer[] = items.map((item) => ({ item, price: itemPrice(item.defId), sold: false }));
   if (hasBag) {
     const bag = rollBag(rng, run.round);

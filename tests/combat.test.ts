@@ -72,7 +72,7 @@ describe('statistiques 1v1', () => {
   it("les fiches ne parlent plus de gilet, d'Établi ni d'escouade", () => {
     for (const id of Object.keys(ITEMS)) {
       const text = describeItem(inst(1, id, 0, 0)).lines.join(' ');
-      expect(text).not.toMatch(/Établi|escouade|Poitrine|Blindés|ennemi|rareté|légendaire/i);
+      expect(text).not.toMatch(/Établi|escouade|Poitrine|Blindés|ennemi|rareté/i);
     }
     expect(describeItem(inst(1, 'frag', 0, 0)).lines.join(' ')).toMatch(/assemblage automatique/);
   });

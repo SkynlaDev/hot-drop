@@ -416,7 +416,7 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private loadout() {
-    return computeLoadout(this.run.items, this.run.operator, this.params?.maxHp ?? roundMaxHp(Math.min(this.run.round, FINAL_ROUND)));
+    return computeLoadout(this.run.items, this.run.operator, this.params?.maxHp ?? roundMaxHp(Math.min(this.run.round, FINAL_ROUND)), { wins: this.run.wins });
   }
 
   private refresh() {
@@ -2544,7 +2544,13 @@ export default class LoadoutScene extends Phaser.Scene {
           this.trigger(e.from, e.uid, e.crit ? C.accent : 0xffffff);
           this.setHeat(e.from, e.uid, e.heat ?? 0);
         }
-        if (e.miss) this.floatText(to, 'raté', C.quiet, 20);
+        if (e.blocked) {
+          this.floatText(to, 'BLOQUÉ', ARMOR_STR, 22);
+          const sh = this.fightL?.[to.side].block;
+          const v = sh ? this.viewOf(to.side, sh.uid) : undefined;
+          if (v) flashItem(this, v, P.acierClair);
+          sfx('hit_armor', { vol: 0.6, pan: to.side === 'a' ? -0.3 : 0.3 });
+        } else if (e.miss) this.floatText(to, 'raté', C.quiet, 20);
         else {
           if (e.marked) {
             // Touche qui consomme la Marque : texte distinct, couleur Précision.
@@ -2710,6 +2716,21 @@ export default class LoadoutScene extends Phaser.Scene {
         }
         break;
       }
+      case 'revive': {
+        const a = this.actor(e.side);
+        a.hp = e.hp;
+        a.burn = 0;
+        this.drawBars(a);
+        if (animate) {
+          this.trigger(e.side, e.uid, P.violetClair);
+          sfx('heal', { vol: 0.8, pitch: 1.2 });
+          this.floatText(a, 'ANGE GARDIEN', hex(P.violetClair), 26, 20);
+          this.floatText(a, `+${e.hp}`, C.goodStr, 30);
+          this.cameras.main.flash(220, 195, 166, 224);
+          vibrate([30, 30, 30]);
+        }
+        break;
+      }
       case 'death': {
         const a = this.actor(e.side);
         a.hp = 0;
@@ -2771,7 +2792,7 @@ export default class LoadoutScene extends Phaser.Scene {
       defs: { a: new Map(mine.map((i) => [i.uid, i.defId])), b: new Map(this.bot.items.map((i) => [i.uid, i.defId])) },
       links: {
         a: computeLoadout(this.run.items, this.run.operator, this.fightL.a.maxHp).links,
-        b: computeLoadout(this.bot.items, this.bot.operator, this.bot.maxHp).links,
+        b: computeLoadout(this.bot.items, this.bot.operator, this.bot.maxHp, { wins: this.bot.wins }).links,
       },
     };
   }
@@ -2783,6 +2804,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (r.absorbed > 0) return { s: `${r.absorbed}`, color: ARMOR_STR };
     if (r.stun > 0) return { s: `${fmt1(r.stun)} s`, color: C.text };
     if (r.dodged > 0) return { s: `${r.dodged} ratés`, color: C.text };
+    if (r.blocked > 0) return { s: `${r.blocked} bloqués`, color: ARMOR_STR };
     if (r.uses > 0) return { s: `×${r.uses}`, color: C.text };
     return null;
   }
@@ -2831,6 +2853,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (r.heal > 0) parts.push(`+${r.heal} PV`);
     if (r.stun > 0) parts.push(`${fmt1(r.stun)} s d'étourdissement`);
     if (r.dodged > 0) parts.push(`${r.dodged} tirs adverses ratés dessous`);
+    if (r.blocked > 0) parts.push(`${r.blocked} touche${r.blocked > 1 ? 's' : ''} bloquée${r.blocked > 1 ? 's' : ''}`);
     if (r.absorbed > 0) parts.push(`${r.absorbed} dégâts pris par l'armure`);
     if (r.burnDmg > 0) parts.push(`dont ${r.burnDmg} de brûlure`);
     if (r.discharges > 0) parts.push(`${r.discharges} décharge${r.discharges > 1 ? 's' : ''}`);

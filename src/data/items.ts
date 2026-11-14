@@ -100,6 +100,31 @@ export interface StarDef {
   max?: number;
 }
 
+/** Règles changées par un objet légendaire (cumulées sur le sac, appliquées par computeLoadout et le duel). */
+export interface Keystone {
+  /** Une fois par duel, à 0 PV : revient à cette part des PV max. */
+  revive?: number;
+  /** À chaque recharge d'une arme : éclat de ces dégâts (la moitié ignore l'armure). */
+  reloadBlast?: number;
+  /** Dégâts en plus par touche (armes et mêlée), pour chaque duel gagné dans la partie… */
+  perWin?: number;
+  /** … au plus ce bonus. */
+  perWinCap?: number;
+  /** Part des dégâts infligés rendue en PV. */
+  lifesteal?: number;
+  /** Les N premières touches reçues (balles, coups, éclats) sont bloquées. */
+  block?: number;
+  /** Chaque critique pose ces cumuls de Brûlure. */
+  critBurn?: number;
+  /** Mêlée : saignement en plus par coup, cadence en plus. */
+  meleeBleed?: number;
+  meleeHaste?: number;
+  /** Toutes les N touches d'arme à feu, pose 5 Choc. */
+  shockEvery?: number;
+  /** Endurance max en plus. */
+  endMax?: number;
+}
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -138,6 +163,12 @@ export interface ItemDef {
   dischargeDmg?: number;
   /** Objet obtenu par une recette (assemblage automatique) : jamais dans le butin ni la boutique. */
   crafted?: boolean;
+  /**
+   * Objet légendaire : rare, un seul exemplaire par partie, à partir du 2e cercle (caisse épique, boutique,
+   * sac des Élites). Il change une règle du duel (`keystone`).
+   */
+  legendary?: boolean;
+  keystone?: Keystone;
   active?: ActiveStats;
   synergy?: SynergyStats;
 }
@@ -334,12 +365,38 @@ const DEFS: ItemDef[] = [
   { id: 'bombe_phosphore', name: 'Bombe au phosphore', short: 'Phosphore', shape: ['XX'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 24, crafted: true,
     active: { kind: 'frag', value: 30, cooldown: 6, charges: 3, pierce: true, burn: 8 },
     stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  // --- Objets légendaires (design/CONTENU-V3.md) : uniques, dès le 2e cercle, chacun change une règle du duel
+  { id: 'ange_gardien', name: "Médaille de l'ange gardien", short: 'Ange', shape: ['X'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 1, price: 18, legendary: true,
+    keystone: { revive: 0.35 },
+    stars: [{ want: ['protection'], effect: { on: 'target', kind: 'armor', value: 10 }, max: 1 }] },
+  { id: 'detonateur', name: 'Détonateur de recharge', short: 'Détonat.', shape: ['XX'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 1, price: 18, legendary: true,
+    keystone: { reloadBlast: 14 },
+    stars: [{ want: ['explosif'], effect: { on: 'target', kind: 'dmg', value: 0.2 }, max: 2 }] },
+  { id: 'plaques_veteran', name: 'Plaques du vétéran', short: 'Vétéran', shape: ['X'], category: 'accessoire', family: 'tactique', tags: ['accessoire'], minRound: 1, price: 16, legendary: true,
+    keystone: { perWin: 1, perWinCap: 10 } },
+  { id: 'poche_sang', name: 'Poche de sang', short: 'Poche', shape: ['X', 'X'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 1, price: 18, legendary: true,
+    keystone: { lifesteal: 0.1 },
+    stars: [{ want: ['medical'], effect: { on: 'target', kind: 'heal', value: 0.25 }, max: 2 }] },
+  { id: 'bouclier_emeute', name: 'Bouclier anti-émeute', short: 'Bouclier', shape: ['XX', 'XX', 'XX'], category: 'protection', family: 'rempart', tags: ['protection'], minRound: 1, price: 20, legendary: true,
+    armor: 25, keystone: { block: 6 },
+    stars: [{ want: ['melee'], effect: { on: 'target', kind: 'dmg', value: 0.25 }, max: 1 }] },
+  { id: 'lunette_thermique', name: 'Lunette thermique', short: 'Thermique', shape: ['XX'], category: 'accessoire', family: 'precision', tags: ['accessoire'], minRound: 1, price: 18, legendary: true,
+    keystone: { critBurn: 3 } },
+  { id: 'insigne_lames', name: 'Insigne des Lames', short: 'Insigne', shape: ['X'], category: 'accessoire', family: 'tactique', tags: ['accessoire'], minRound: 1, price: 16, legendary: true,
+    keystone: { meleeBleed: 4, meleeHaste: 0.25 } },
+  { id: 'condensateur', name: 'Condensateur', short: 'Condens.', shape: ['XX'], category: 'composant', family: 'tactique', tags: ['composant'], minRound: 1, price: 18, legendary: true,
+    keystone: { shockEvery: 8 } },
+  { id: 'cocktail', name: 'Cocktail de combat', short: 'Cocktail', shape: ['X'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 1, price: 16, legendary: true,
+    endRegen: 0.4, keystone: { endMax: 6 },
+    stars: [{ want: ['arme'], effect: { on: 'target', kind: 'cadence', value: 0.08 }, max: 1 }] },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(DEFS.map((d) => [d.id, d]));
 export const ITEM_IDS: string[] = DEFS.map((d) => d.id);
-/** Objets qu'on peut trouver dans le butin ou la boutique (hors objets assemblés). */
-export const LOOT_IDS: string[] = DEFS.filter((d) => !d.crafted).map((d) => d.id);
+/** Objets qu'on peut trouver dans le butin ou la boutique (hors objets assemblés et légendaires). */
+export const LOOT_IDS: string[] = DEFS.filter((d) => !d.crafted && !d.legendary).map((d) => d.id);
+/** Objets légendaires : tirés à part (caisse épique, boutique, sac des Élites), un seul exemplaire par partie. */
+export const LEGENDARY_IDS: string[] = DEFS.filter((d) => d.legendary).map((d) => d.id);
 
 export const FAMILY_INFO: Record<Family, { name: string; color: number; hex: string; tier2: string; tier4: string }> = {
   rafale: { name: 'Rafale', color: 0xf4b06a, hex: '#f4b06a', tier2: '+15 % de cadence des armes Rafale', tier4: '1 balle sur 3 touche deux fois' },
