@@ -83,3 +83,19 @@ describe('contenu v3 : drones, radio, Molotov, pointes creuses, économie', () =
     expect(run.items.map((i) => i.defId)).toEqual(['essaim']);
   });
 });
+
+describe('Sapeur : Réaction en chaîne', () => {
+  it('chaque explosion renforce les suivantes, plafonné ; seul le Sapeur en profite', async () => {
+    const { CHAIN_DMG, CHAIN_MAX } = await import('../src/logic/stats');
+    const items = [inst(1, 'charge_c4', 0, 0), inst(2, 'frag', 2, 0), inst(3, 'sous_munitions', 3, 0), inst(4, 'molotov', 4, 0)];
+    const sap = computeLoadout(items, 'sapeur', 3000).loadout;
+    expect(sap.chain).toEqual({ dmg: CHAIN_DMG, cd: expect.any(Number), max: CHAIN_MAX });
+    expect(computeLoadout(items, 'viper', 3000).loadout.chain).toBeUndefined();
+    expect(computeLoadout([...items, inst(5, 'amorces', 5, 0)], 'sapeur', 3000).loadout.chain!.max).toBe(CHAIN_MAX + 2);
+    const ev = simulateDuel(sap, L([inst(9, 'casque', 0, 0)], 3000), 3).events as DuelEvent[];
+    const frags = ev.filter((e) => e.kind === 'frag' && e.side === 'a' && e.uid === 2);
+    // La 2e frag tombe après d'autres explosions : plus forte que la valeur de base (étoiles comprises).
+    expect(frags.length).toBeGreaterThanOrEqual(2);
+    if (frags[1].kind === 'frag' && frags[0].kind === 'frag') expect(frags[1].amount).toBeGreaterThan(frags[0].amount);
+  });
+});

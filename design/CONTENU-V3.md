@@ -93,3 +93,31 @@ le défi du jour est en Menace 1 ; les objets vus au cours d'une partie (même r
 `design/da/contenu-v3-objets.png`. 70 générations : un appel par taille de canevas avec plusieurs objets dans la
 description (un appel coûte au moins 10 générations). Faibles : les ailes de la médaille de l'ange gardien se voient
 peu ; l'essaim est dense mais lisible.
+
+## 5. Troisième opérateur : le Sapeur
+
+| | |
+|---|---|
+| Famille | Démolition (fusils à pompe, explosifs) ; arme au largage : une pompe parmi les trois |
+| Passif | **Réaction en chaîne** : chaque explosion déclenchée (grenade, frappe de radio, C4, détonateur) donne +10 % de dégâts aux explosions suivantes et accélère ses explosifs de 6 %, 4 cumuls au plus |
+| Signatures | **Charge C4** (2 cases, 26 dégâts qui ignorent l'armure, ★ explosif : +1 charge) ; **Amorces électriques** (1 case, Réaction en chaîne jusqu'à 6 cumuls, ★ explosif : +15 % de dégâts) ; **Gilet de démineur** (2×2, armure 24, −1 par balle, ★ explosif : +1 charge, dès le 2e cercle) |
+| Kit | Casque, Charge C4, couteau |
+| Personnage | PixelLab (`public/art/px/sapeur.png`, planche `design/da/sapeur.png`), 10 générations |
+| Choix de l'opérateur | Onglets (un par opérateur) et une grande carte : passif, sac de départ, objets de signature, record |
+
+**Étape 5 (fait)**. Équilibrage mesuré (bots contre bots, 900 bots par cercle) : chaque opérateur entre 46 et 53 %
+à chaque cercle. Corrections en chemin :
+- Les **drones d'assaut** posaient du Choc, le contre du Feu continu : Viper avec Feu continu était tombé de 45 % à
+  39 % contre Sentinelle. Le Choc est remplacé par des dégâts (drone 5, drone d'assaut 10, essaim 8) et 30 % de
+  perce-armure.
+- Les **drones** ne posent ni ne consomment la Marque (ils tirent seuls) ; ils gardent le Feu continu de Viper.
+- Les **frappes de radio** étaient trop fortes (gratuites en Endurance) : radio 24, appui mortier 30 ×3, désignateur
+  34 ; chez les bots, seuls ceux du plan Drones en portent (les bots Lame en portaient quatre).
+- L'archétype de bot **Drones** est joué par Sentinelle et le Sapeur (Viper garde son identité de rafale).
+- Le test « Viper contre Sentinelle » passe à 600 paires : avec 300, l'échantillon du 5e cercle sortait de la marge
+  (41-43 %) alors que la valeur mesurée sur 2 400 duels est de 46 à 48 %.
+- Réaction en chaîne réduite (de +12 % / 8 % / 5 cumuls à +10 % / 6 % / 4) : Démolition et Drones du Sapeur
+  dépassaient 63 %.
+
+Simulation de runs (`runsim 40`, avant ces corrections) : agressif 18 % de Top 1 (Viper 0 %, Sentinelle 35 %),
+d'où la chasse ci-dessus. À remesurer.

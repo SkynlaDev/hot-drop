@@ -173,7 +173,9 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const nWeapons = gunless ? 0 : A.twoGuns && nItems >= 5 ? 2 : nItems >= 6 && rng() < (nItems - 5) / 3 ? 2 : 1;
   const craftedWeapons = crafted.filter((id) => isWeapon(id) && !isMelee(id));
   const craftedArmors = crafted.filter((id) => ITEMS[id].armor);
-  const craftedSupport = crafted.filter((id) => ITEMS[id].active);
+  // Frappes d'artillerie (radio) : seulement chez les bots dont le plan les vise (Drones).
+  const strikeOk = (id: string) => !ITEMS[id].active?.strike || wanted.has(id);
+  const craftedSupport = crafted.filter((id) => ITEMS[id].active && strikeOk(id));
   const chosenWeapons: string[] = [];
   for (let i = 0; i < nWeapons; i++) {
     const c = craftedWeapons.length && rng() < craftChance ? prefer(craftedWeapons, 0.9) : undefined;
@@ -207,7 +209,7 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   const armor = (craftedArmors.length && rng() < craftChance ? prefer(craftedArmors, 0.9) : undefined) ?? prefer(armors);
   if (armor) ids.push(armor);
   if (chosenWeapons[1]) ids.push(chosenWeapons[1], ...perWeapon[1]);
-  const support = pool.filter((id) => ITEMS[id].active && !isMelee(id));
+  const support = pool.filter((id) => ITEMS[id].active && !isMelee(id) && strikeOk(id));
   // Thème de la zone : une fois sur deux, l'objet en plus vient du thème (c'est ce qu'on trouvera en le fouillant).
   const themed = pool.filter((id) => !isWeapon(id) && themeFits(opts.theme, id));
   const armorShare = A.armorShare ?? 0.25;

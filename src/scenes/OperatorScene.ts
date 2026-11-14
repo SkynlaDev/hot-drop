@@ -7,18 +7,22 @@ import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
 import { clearRun, newRun, saveRun } from '../logic/run';
 import { MENACE_INFO, loadProfile } from '../logic/profile';
+import { describe } from '../logic/stats';
 import { P, hex } from '../ui/palette';
 import { Button, button, chamferPoints, fadeIn, itemView, pop, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
-const CARD = { x: 20, w: 680, h: 420 };
-const CARD_Y = [150, 590];
+const CARD = { x: 20, w: 680, h: 720 };
+/** Onglets des opérateurs, puis la carte de celui qui est choisi. */
+const TABS_Y = 152;
+const CARD_Y = 262;
 /** Bandeau de la Menace, sous les cartes. */
-const MENACE_Y = 1028;
+const MENACE_Y = 1000;
 const PCELL = 50;
 
 export default class OperatorScene extends Phaser.Scene {
   private chosen: OperatorId | null = null;
   private cards: { id: OperatorId; root: Phaser.GameObjects.Container; sel: Phaser.GameObjects.Graphics }[] = [];
+  private tabs!: Phaser.GameObjects.Container;
   private go!: Button;
   /** Niveau de Menace choisi, et le plus haut débloqué pour l'opérateur choisi. */
   private menace = 0;
@@ -43,13 +47,41 @@ export default class OperatorScene extends Phaser.Scene {
     txt(this, W / 2, 84, 'CHOISIS TON OPÉRATEUR', 38, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
     txt(this, W / 2, 124, 'Il fixe les objets que tu trouveras pendant la run', 20, C.quiet).setOrigin(0.5);
 
-    OPERATOR_IDS.forEach((id, i) => this.card(id, CARD_Y[i], i));
-
+    this.tabs = this.add.container(0, TABS_Y);
     this.menaceRow = this.add.container(0, MENACE_Y);
-    this.drawMenace();
-
     this.go = button(this, 20, H - 128, W - 40, 100, 'Choisis un opérateur', () => this.deploy(), { primary: true, size: 30 });
-    this.go.setEnabled(false);
+    // Par défaut : le dernier opérateur joué.
+    const last = loadProfile().history[0]?.operator;
+    this.pick(last && OPERATOR_IDS.includes(last) ? last : OPERATOR_IDS[0], true);
+  }
+
+  /** Onglets : un par opérateur, couleur de sa famille ; celui qui est choisi est plein. */
+  private drawTabs() {
+    const t = this.tabs;
+    t.removeAll(true);
+    const n = OPERATOR_IDS.length;
+    const gap = 10;
+    const w = (W - 40 - gap * (n - 1)) / n;
+    OPERATOR_IDS.forEach((id, i) => {
+      const op = OPERATORS[id];
+      const fam = FAMILY_INFO[op.family];
+      const on = id === this.chosen;
+      const x = 20 + i * (w + gap);
+      const g = this.add.graphics();
+      g.fillStyle(on ? fam.color : C.panel, on ? 0.25 : 1);
+      g.fillPoints(chamferPoints(x, 0, w, 92, 12), true);
+      g.lineStyle(on ? 4 : 2, on ? fam.color : C.panelLine, 1);
+      g.strokePoints(chamferPoints(x, 0, w, 92, 12), false, true);
+      t.add(g);
+      t.add(pxFigure(this, x + 38, 86, opFig(id), 1.2).setAlpha(on ? 1 : 0.5));
+      const nm = txt(this, x + 74, 32, op.name.toUpperCase(), 20, on ? C.text : C.quiet, { fontFamily: TITLE_FONT }).setOrigin(0, 0.5);
+      if (nm.width > w - 82) nm.setScale((w - 82) / nm.width);
+      t.add(nm);
+      t.add(txt(this, x + 74, 62, fam.name, 15, fam.hex, { fontStyle: 'bold' }).setOrigin(0, 0.5));
+      const z = this.add.zone(x + w / 2, 46, w, 92).setInteractive({ useHandCursor: true });
+      z.on('pointerup', () => this.pick(id));
+      t.add(z);
+    });
   }
 
   /** Bandeau de la Menace : niveau choisi (flèches), son nom, ce qu'il ajoute ; verrouillé tant qu'on n'a pas gagné. */
@@ -192,6 +224,32 @@ export default class OperatorScene extends Phaser.Scene {
     }
     root.add(txt(this, gx + (cols * PCELL) / 2, gy + PCELL, 'ARME AU\nLARGAGE', 15, C.accentStr, { fontStyle: 'bold', align: 'center' }).setOrigin(0.5));
 
+    // Objets de signature : seul cet opérateur les trouve.
+    // Une ligne par objet : l'objet, son nom et sa première ligne de fiche.
+    const sigs = Object.values(ITEMS).filter((d) => d.signature === id);
+    let sy = Math.max(400, gr.y + gr.height + 22, gy + rows * PCELL + 24);
+    root.add(txt(this, 32, sy, 'OBJETS DE SIGNATURE', 16, C.quiet, { fontStyle: 'bold' }));
+    sy += 28;
+    const SC = 30;
+    for (const d of sigs) {
+      const v = itemView(this, { defId: d.id, rot: 0 }, SC);
+      v.setPosition(32, sy);
+      root.add(v);
+      const tx2 = 32 + 3 * SC + 14;
+      root.add(txt(this, tx2, sy, d.name, 18, C.text, { fontStyle: 'bold' }));
+      // Accessoires et munitions : leur effet est leur étoile ; sinon la première ligne de la fiche.
+      const lines = describe({ defId: d.id }).lines;
+      const line = (d.synergy ? lines.find((l) => l.startsWith('★'))?.replace(/^★ /, '') : lines.find((l) => !l.startsWith('★'))) ?? '';
+      const lt = txt(this, tx2, sy + 24, line, 15, C.quiet, { wordWrap: { width: CARD.w - tx2 - 30 } });
+      root.add(lt);
+      sy += Math.max(d.shape.length * SC, 24 + lt.height) + 10;
+    }
+    // Record de l'opérateur (profil local).
+    const prof = loadProfile();
+    const best = prof.best[id];
+    const rec = best > 5 ? 'Top 1 gagné' : best >= 5 ? 'Top 1 atteint' : best > 0 ? `${best} cercle${best > 1 ? 's' : ''}` : 'aucune partie';
+    root.add(txt(this, 32, CARD.h - 44, `RECORD : ${rec.toUpperCase()} · MENACE DÉBLOQUÉE : ${prof.menace[id]}`, 16, C.quiet, { fontStyle: 'bold' }));
+
     // Contour de sélection
     const sel = this.add.graphics();
     sel.lineStyle(5, C.accent, 1);
@@ -212,31 +270,26 @@ export default class OperatorScene extends Phaser.Scene {
     this.cards.push({ id, root, sel });
 
     // Entrée : glisse depuis le côté
-    root.x = index === 0 ? -W : W;
+    root.x = index === 0 ? -60 : 60;
     root.alpha = 0;
-    this.tweens.add({ targets: root, x: CARD.x, alpha: 1, duration: 420, delay: 120 + index * 120, ease: 'Back.Out' });
+    this.tweens.add({ targets: root, x: CARD.x, alpha: 1, duration: 260, ease: 'Back.Out' });
   }
 
-  private pick(id: OperatorId) {
-    if (this.chosen === id) {
-      this.deploy();
-      return;
-    }
+  private pick(id: OperatorId, first = false) {
+    if (this.chosen === id) return;
+    const from = OPERATOR_IDS.indexOf(this.chosen ?? id);
     this.chosen = id;
-    vibrate(8);
-    for (const c of this.cards) {
-      const on = c.id === id;
-      c.sel.setVisible(on);
-      (c.sel.getData('check') as Phaser.GameObjects.Container).setVisible(on);
-      this.tweens.add({ targets: c.root, alpha: on ? 1 : 0.55, duration: 160 });
-      if (on) pop(this, c.root, 1.03, 220);
-    }
+    if (!first) vibrate(8);
+    for (const c of this.cards) c.root.destroy();
+    this.cards = [];
+    this.card(id, CARD_Y, OPERATOR_IDS.indexOf(id) < from ? 0 : 1);
+    this.drawTabs();
     this.menaceMax = loadProfile().menace[id];
     this.menace = this.menaceMax;
     this.drawMenace();
     this.go.setLabel(`Jouer ${OPERATORS[id].name} ▸`);
     this.go.setEnabled(true);
-    pop(this, this.go.root, 1.06, 200);
+    if (!first) pop(this, this.go.root, 1.04, 160);
   }
 
   private deploy() {

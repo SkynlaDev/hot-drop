@@ -149,7 +149,9 @@ export interface ItemDef {
   /** Étoiles de l'objet (les accessoires ont en plus une étoile tout autour, déduite de leur synergie). */
   stars?: StarDef[];
   /** Objet de signature : seul cet opérateur peut le trouver et l'utiliser (il nourrit son passif). */
-  signature?: 'viper' | 'sentinelle';
+  signature?: 'viper' | 'sentinelle' | 'sapeur';
+  /** Sapeur : cumuls de Réaction en chaîne en plus (Amorces). */
+  chainMax?: number;
   armor?: number;
   /** Chaque balle reçue perd ce nombre de dégâts (minimum 1). */
   flatReduce?: number;
@@ -371,11 +373,21 @@ const DEFS: ItemDef[] = [
   { id: 'bombe_phosphore', name: 'Bombe au phosphore', short: 'Phosphore', shape: ['XX'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 24, crafted: true,
     active: { kind: 'frag', value: 30, cooldown: 6, charges: 3, pierce: true, burn: 8 },
     stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  // --- Sapeur (3e opérateur) : objets de signature autour de la Réaction en chaîne
+  { id: 'charge_c4', name: 'Charge C4', short: 'C4', shape: ['XX'], category: 'explosif', family: 'demolition', tags: ['explosif'], signature: 'sapeur', minRound: 0, price: 6,
+    active: { kind: 'frag', value: 26, cooldown: 7, charges: 1, pierce: true },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 2 }] },
+  { id: 'amorces', name: 'Amorces électriques', short: 'Amorces', shape: ['X'], category: 'composant', family: 'demolition', tags: ['composant'], signature: 'sapeur', minRound: 0, price: 4,
+    chainMax: 2,
+    stars: [{ want: ['explosif'], effect: { on: 'target', kind: 'dmg', value: 0.15 }, max: 2 }] },
+  { id: 'gilet_demineur', name: 'Gilet de démineur', short: 'Démineur', shape: ['XX', 'XX'], category: 'protection', family: 'rempart', tags: ['protection'], signature: 'sapeur', minRound: 1, price: 7,
+    armor: 24, flatReduce: 1,
+    stars: [{ want: ['explosif'], effect: { on: 'target', kind: 'charges', value: 1 }, max: 1 }] },
   // --- Contenu v3 : drones et radio (palier 4 de Tactique), Molotov, pointes creuses, économie
   { id: 'drone', name: 'Drone de reconnaissance', short: 'Drone', wclass: 'Drone', shape: ['XX', 'XX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 1, price: 9,
-    weapon: { dmg: 4, interval: 0.7, mag: 30, reload: 2.5, selfFed: true, drone: true } },
+    weapon: { dmg: 5, interval: 0.7, mag: 30, reload: 2.5, selfFed: true, drone: true } },
   { id: 'radio', name: 'Radio de campagne', short: 'Radio', shape: ['X', 'X'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 1, price: 7,
-    active: { kind: 'frag', value: 30, cooldown: 9, charges: 2, strike: true },
+    active: { kind: 'frag', value: 24, cooldown: 9, charges: 2, strike: true },
     stars: [{ want: ['arme'], effect: { on: 'target', kind: 'dmg', value: 0.1 }, max: 1 }] },
   { id: 'pointe_creuse', name: 'Balles à pointe creuse', short: 'Pointe cr.', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], minRound: 1, price: 5,
     synergy: { kind: 'hollow', value: 0.2 } },
@@ -385,18 +397,18 @@ const DEFS: ItemDef[] = [
     active: { kind: 'frag', value: 8, cooldown: 6, charges: 2, burn: 5 },
     stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'dmg', value: 0.2 }, max: 2 }] },
   { id: 'drone_assaut', name: "Drone d'assaut", short: 'Drone A.', wclass: 'Drone', shape: ['XX', 'XX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 0, price: 20, crafted: true,
-    weapon: { dmg: 6, interval: 0.55, mag: 40, reload: 2.2, selfFed: true, drone: true, shock: 1 } },
+    weapon: { dmg: 10, interval: 0.55, mag: 40, reload: 2.2, selfFed: true, drone: true, armorPierce: 0.3 } },
   { id: 'appui_mortier', name: 'Appui mortier', short: 'Mortier', shape: ['XX', 'XX'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 0, price: 18, crafted: true,
-    active: { kind: 'frag', value: 40, cooldown: 8, charges: 3, strike: true },
+    active: { kind: 'frag', value: 30, cooldown: 9, charges: 3, strike: true },
     stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
   { id: 'designateur', name: 'Désignateur laser', short: 'Désign.', shape: ['XXX'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 0, price: 18, crafted: true,
-    active: { kind: 'frag', value: 55, cooldown: 10, charges: 2, strike: true, pierce: true },
+    active: { kind: 'frag', value: 34, cooldown: 11, charges: 2, strike: true, pierce: true },
     stars: [{ want: ['arme'], effect: { on: 'target', kind: 'dmg', value: 0.15 }, max: 1 }] },
   { id: 'bidon_napalm', name: 'Bidon de napalm', short: 'Napalm', shape: ['X', 'X'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 12, crafted: true,
     active: { kind: 'frag', value: 12, cooldown: 6, charges: 3, burn: 8 },
     stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'dmg', value: 0.2 }, max: 2 }] },
   { id: 'essaim', name: 'Essaim de drones', short: 'Essaim', wclass: 'Drone', shape: ['XXX', 'XXX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 0, price: 34, crafted: true,
-    weapon: { dmg: 5, interval: 0.3, mag: 60, reload: 2, selfFed: true, drone: true, shock: 1 } },
+    weapon: { dmg: 8, interval: 0.3, mag: 60, reload: 2, selfFed: true, drone: true, armorPierce: 0.3 } },
   { id: 'coffre_fort', name: 'Coffre-fort', short: 'Coffre', shape: ['XX', 'XX'], category: 'composant', family: 'tactique', tags: ['composant'], minRound: 0, price: 14, crafted: true,
     income: 6 },
   // --- Objets légendaires (design/CONTENU-V3.md) : uniques, dès le 2e cercle, chacun change une règle du duel

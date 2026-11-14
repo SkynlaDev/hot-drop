@@ -132,6 +132,8 @@ interface Fighter {
   revived: boolean;
   steal: number;
   gunHits: number;
+  /** Réaction en chaîne (Sapeur) : explosions déjà déclenchées (plafonné). */
+  chain: number;
 }
 
 /** Applique des dégâts : l'armure absorbe d'abord, sauf la part qui la perce. Renvoie l'absorbé. */
@@ -177,6 +179,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     revived: false,
     steal: 0,
     gunHits: 0,
+    chain: 0,
   });
   const hpA = Math.max(1, Math.min(a.maxHp, Math.round(opts.hpA ?? a.maxHp)));
   const A = make('a', a, hpA);
@@ -219,6 +222,15 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
     if (heal <= 0) return;
     me.hp += heal;
     events.push({ t, kind: 'heal', side: me.side, uid: ls.uid, amount: heal, hp: round1(me.hp) });
+  };
+
+  /** Réaction en chaîne (Sapeur) : dégâts d'une explosion de `me`, puis un cumul de plus. */
+  const blast = (me: Fighter, value: number): number => {
+    const c = me.l.chain;
+    if (!c) return Math.round(value);
+    const out = Math.round(value * (1 + c.dmg * me.chain));
+    me.chain = Math.min(c.max, me.chain + 1);
+    return out;
   };
 
   /** Étourdit `f` : ses armes et sa mêlée frappent `d` secondes plus tard. */
@@ -335,9 +347,10 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           if (blocked(foe)) {
             events.push({ t, kind: 'shot', from: me.side, uid: rb.uid, amount: 0, crit: false, miss: false, pierce: false, blocked: true, hp: round1(foe.hp), armor: round1(foe.armor) });
           } else {
-            const abs = applyDamage(foe, rb.value, 0.5);
-            me.dealt += rb.value;
-            events.push({ t, kind: 'frag', side: me.side, uid: rb.uid, amount: rb.value, ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor) });
+            const dmg = blast(me, rb.value);
+            const abs = applyDamage(foe, dmg, 0.5);
+            me.dealt += dmg;
+            events.push({ t, kind: 'frag', side: me.side, uid: rb.uid, amount: dmg, ...absField(abs), hp: round1(foe.hp), armor: round1(foe.armor) });
             if (dies(foe, t)) return foe.side;
           }
         }
@@ -376,10 +389,11 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
           });
         } else if (!miss) {
           // Marque : la touche d'une AUTRE arme la consomme.
-          const marked = me.l.markBonus > 0 && foe.markedBy >= 0 && foe.markedBy !== s.w.uid;
+          // Les drones tirent seuls : ils ne posent ni ne consomment la Marque.
+          const marked = me.l.markBonus > 0 && !s.w.drone && foe.markedBy >= 0 && foe.markedBy !== s.w.uid;
           if (marked) foe.markedBy = -1;
           // Une marque n'a de sens qu'avec une 2e arme pour la consommer.
-          const mark = crit && me.l.markBonus > 0 && me.ws.length > 1 && foe.markedBy < 0;
+          const mark = crit && me.l.markBonus > 0 && !s.w.drone && me.ws.length > 1 && foe.markedBy < 0;
           if (mark) foe.markedBy = s.w.uid;
           // Le bonus de Marque s'ajoute au multiplicateur (critique marqué ×2 → ×2,5), il ne le multiplie pas.
           const raw = s.w.dmg * ((crit ? me.l.critMult : 1) + (marked ? me.l.markBonus + s.w.markBoost : 0));
@@ -474,7 +488,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
       if (ac.kind === 'frag' && blocked(foe)) {
         events.push({ t, kind: 'shot', from: me.side, uid: ac.uid, amount: 0, crit: false, miss: false, pierce: false, blocked: true, hp: round1(foe.hp), armor: round1(foe.armor) });
       } else if (ac.kind === 'frag') {
-        const amount = Math.round(ac.value);
+        const amount = blast(me, ac.value);
         const abs = applyDamage(foe, amount, ac.ignoreArmor ? 1 : 0);
         me.dealt += amount;
         const st = applyStatus(me, foe, t, ac.burn, ac.shock);
@@ -508,7 +522,9 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
         events.push({ t, kind: 'heal', side: me.side, uid: ac.uid, amount, hp: round1(me.hp) });
       }
       s.charges--;
-      s.next = t + ac.cooldown;
+      // Réaction en chaîne (Sapeur) : les explosifs reviennent plus vite à chaque explosion déjà déclenchée.
+      const quick = me.l.chain && (ac.kind === 'frag' || ac.kind === 'flash' || ac.kind === 'smoke') ? 1 + me.l.chain.cd * me.chain : 1;
+      s.next = t + ac.cooldown / quick;
     }
     return null;
   };

@@ -124,6 +124,8 @@ export interface PlayerLoadout {
   block?: { uid: number; value: number };
   critBurn?: number;
   shockEvery?: { uid: number; value: number };
+  /** Réaction en chaîne (Sapeur) : par explosion déclenchée, dégâts des explosions suivantes et vitesse des explosifs. */
+  chain?: { dmg: number; cd: number; max: number };
 }
 
 /** Contexte de la partie qui change le sac (objets légendaires qui grandissent). */
@@ -147,6 +149,11 @@ export const FEU_RATE = 0.06;
 export const FEU_CAP = 0.35;
 /** Marque (Sentinelle) : la touche suivante d'une autre arme fait +40 %. */
 export const MARK_BONUS = 0.4;
+
+/** Réaction en chaîne (Sapeur) : +12 % de dégâts et +8 % de vitesse des explosifs par explosion, 5 cumuls. */
+export const CHAIN_DMG = 0.1;
+export const CHAIN_CD = 0.06;
+export const CHAIN_MAX = 4;
 
 /** Famille Tactique, palier 4 : drones et radios agissent ce facteur plus vite. */
 export const TACTIQUE_SPEED = 1.3;
@@ -409,6 +416,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       block: keyOf('block'),
       critBurn: keyOf('critBurn')?.value,
       shockEvery: keyOf('shockEvery'),
+      ...(operator === 'sapeur' ? { chain: { dmg: CHAIN_DMG, cd: CHAIN_CD, max: CHAIN_MAX + sum((d) => d.chainMax) } } : {}),
     },
     links,
     stars,
@@ -501,6 +509,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
   if (d.shockThreshold) lines.push(`Décharge du Choc à ${SHOCK_THRESHOLD + d.shockThreshold} cumuls au lieu de ${SHOCK_THRESHOLD}`);
   if (d.shockImmune) lines.push('Immunisé à la décharge du Choc');
   if (d.endRegen) lines.push(`Endurance +${r1(d.endRegen)} par seconde`);
+  if (d.chainMax) lines.push(`Sapeur : Réaction en chaîne jusqu'à ${CHAIN_MAX + d.chainMax} cumuls au lieu de ${CHAIN_MAX}`);
   if (d.income) lines.push(`Économie : à chaque nouveau cercle, posé dans le sac, +${d.income} crédits (+1 par cercle passé)`);
   if (d.endCostMult) lines.push(`Tirs : Endurance +${pct(d.endCostMult)}`);
   if (d.dischargeDmg) lines.push(`Chaque décharge de Choc que tu déclenches : +${d.dischargeDmg} dégâts qui ignorent l'armure`);

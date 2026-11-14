@@ -2,7 +2,7 @@
 import { Family, ITEMS, LOOT_IDS } from './items';
 import { RECIPES } from './recipes';
 
-export type OperatorId = 'viper' | 'sentinelle';
+export type OperatorId = 'viper' | 'sentinelle' | 'sapeur';
 
 export interface OperatorDef {
   id: OperatorId;
@@ -36,6 +36,14 @@ export const OPERATORS: Record<OperatorId, OperatorDef> = {
     pitch: 'Fusils de précision et revolvers : une arme marque, l’autre achève.',
     passive: 'Marque : un critique marque l’ennemi, la touche suivante d’une autre arme fait +40\u00a0%',
     start: [['casque', 2, 4], ['revolver', 4, 2], ['chg_44', 5, 3], ['poignee', 6, 3], ['couteau', 4, 4]],
+  },
+  sapeur: {
+    id: 'sapeur',
+    name: 'Sapeur',
+    family: 'demolition',
+    pitch: 'Fusils à pompe et explosifs : chaque détonation prépare la suivante.',
+    passive: 'Réaction en chaîne : chaque explosion déclenchée donne +10\u00a0% de dégâts aux suivantes et accélère tes explosifs de 6\u00a0% (max 4 cumuls)',
+    start: [['casque', 2, 4], ['pompe', 3, 2], ['chg_12g', 6, 3], ['charge_c4', 4, 4], ['couteau', 4, 5]],
   },
 };
 

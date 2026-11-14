@@ -52,7 +52,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     blurb: 'Une arme marque sur critique, l’autre achève la cible marquée.',
     weapons: ['dmr_faucon', 'revolver', 'colibri', 'precision'],
     crafted: ['faucon_traqueur', 'taureau_magnum'],
-    extras: ['tracantes', 'chg_762', 'chg_44', 'viseur_holo', 'silencieux', 'lunette', 'pointe_creuse'],
+    extras: ['tracantes', 'chg_762', 'chg_44', 'viseur_holo', 'silencieux', 'lunette'],
     twoGuns: true,
   },
   tir_lourd: {
@@ -88,7 +88,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     extras: ['couteau', 'couteau_combat', 'masse', 'bandage', 'taser', 'casque', 'seringue'],
   },
   drones: {
-    id: 'drones', legendaries: ['condensateur', 'cocktail'], name: 'Drones',
+    id: 'drones', legendaries: ['condensateur', 'cocktail'], name: 'Drones', ops: ['sentinelle', 'sapeur'],
     blurb: 'Drones qui tirent sans s’essouffler et frappes d’artillerie à la radio.',
     weapons: ['drone', 'smg', 'ar_vesta', 'smg_guepe'],
     crafted: ['drone_assaut', 'appui_mortier', 'designateur', 'essaim'],

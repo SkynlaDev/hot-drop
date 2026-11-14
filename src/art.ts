@@ -22,6 +22,7 @@ const ICON_OF: Record<string, string> = {
   plaque: 'plate', armure_lourde: 'plate', casque: 'helmet', casque_lourd: 'helmet',
   frag: 'frag', thermite: 'frag', sous_munitions: 'frag', fumigene: 'smoke', flash: 'flash',
   couteau: 'bolt', couteau_combat: 'bolt', machette: 'bolt', masse: 'hand', taser: 'flash', bandage: 'medkit',
+  charge_c4: 'frag', amorces: 'bolt', gilet_demineur: 'plate',
   ifak: 'medkit', kit_trauma: 'medkit', sac_medical: 'medkit', seringue: 'syringe',
 };
 export const iconKey = (defId: string) => `ic-${ICON_OF[defId] ?? 'bolt'}`;
@@ -43,6 +44,7 @@ export interface PxFig {
 export const PX_FIGS = {
   viper: { feet: [32, 62], muzzle: [21, -28], head: [0, -56], chest: [-2, -38] },
   sentinelle: { feet: [32, 62], muzzle: [27, -21], head: [0, -56], chest: [-1, -37] },
+  sapeur: { feet: [32, 62], muzzle: [26, -33], head: [1, -55], chest: [-1, -38] },
   soldat: { feet: [32, 62], muzzle: [14, -22], head: [-1, -55], chest: [-2, -38] },
   tireur: { feet: [32, 62], muzzle: [6, -32], head: [-3, -53], chest: [-4, -37] },
   lieutenant: { feet: [32, 62], muzzle: [18, -24], head: [2, -54], chest: [-2, -36] },
@@ -54,7 +56,7 @@ export const PX_SIZE = 64;
 export const pxKey = (id: PxFigId) => `px-${id}`;
 
 /** Personnage d'un opérateur (Viper ou Sentinelle). */
-export const opFig = (op: string): PxFigId => (op === 'sentinelle' ? 'sentinelle' : 'viper');
+export const opFig = (op: string): PxFigId => (op === 'sentinelle' ? 'sentinelle' : op === 'sapeur' ? 'sapeur' : 'viper');
 
 /** Personnage d'un adversaire : boss final, bot fort, sinon un des trois soldats selon la graine. */
 export function foeFig(final: boolean, strong: boolean, seed: number): PxFigId {

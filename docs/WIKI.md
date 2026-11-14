@@ -159,17 +159,20 @@ Les objets se renforcent quand ils se touchent dans le sac (bords partagés). To
 | <img src="../public/art/items/poste_secours.png" height="24"> Poste de secours | Protection (tout autour) | soins +30 % (max 1) |
 | <img src="../public/art/items/lame_rouge.png" height="24"> Lame rouge | Arme de mêlée (cases précises) | +25 % de dégâts (max 1) |
 | <img src="../public/art/items/bombe_phosphore.png" height="24"> Bombe au phosphore | Explosif (tout autour) | +1 charge (max 1) |
-|  Radio de campagne | Arme (tout autour) | +10 % de dégâts à cet objet (max 1) |
-|  Balles à pointe creuse | Arme (tout autour) | +20 % de dégâts (ne l'alimente pas) |
-|  Cocktail Molotov | Explosif (tout autour) | +20 % de dégâts (max 2) |
-|  Appui mortier | Explosif (tout autour) | +1 charge (max 1) |
-|  Désignateur laser | Arme (tout autour) | +15 % de dégâts à cet objet (max 1) |
-|  Bidon de napalm | Explosif (tout autour) | +20 % de dégâts (max 2) |
-|  Médaille de l'ange gardien | Protection (tout autour) | +10 d'armure à cet objet (max 1) |
-|  Détonateur de recharge | Explosif (tout autour) | +20 % de dégâts à cet objet (max 2) |
-|  Poche de sang | Soin (tout autour) | soins +25 % à cet objet (max 2) |
-|  Bouclier anti-émeute | Arme de mêlée (tout autour) | +25 % de dégâts à cet objet (max 1) |
-|  Cocktail de combat | Arme (tout autour) | +8 % de cadence à cet objet (max 1) |
+|  Charge C4 | Explosif (tout autour) | +1 charge (max 2) |
+|  Amorces électriques | Explosif (tout autour) | +15 % de dégâts à cet objet (max 2) |
+|  Gilet de démineur | Explosif (tout autour) | +1 charge à cet objet (max 1) |
+| <img src="../public/art/items/radio.png" height="24"> Radio de campagne | Arme (tout autour) | +10 % de dégâts à cet objet (max 1) |
+| <img src="../public/art/items/pointe_creuse.png" height="24"> Balles à pointe creuse | Arme (tout autour) | +20 % de dégâts (ne l'alimente pas) |
+| <img src="../public/art/items/molotov.png" height="24"> Cocktail Molotov | Explosif (tout autour) | +20 % de dégâts (max 2) |
+| <img src="../public/art/items/appui_mortier.png" height="24"> Appui mortier | Explosif (tout autour) | +1 charge (max 1) |
+| <img src="../public/art/items/designateur.png" height="24"> Désignateur laser | Arme (tout autour) | +15 % de dégâts à cet objet (max 1) |
+| <img src="../public/art/items/bidon_napalm.png" height="24"> Bidon de napalm | Explosif (tout autour) | +20 % de dégâts (max 2) |
+| <img src="../public/art/items/ange_gardien.png" height="24"> Médaille de l'ange gardien | Protection (tout autour) | +10 d'armure à cet objet (max 1) |
+| <img src="../public/art/items/detonateur.png" height="24"> Détonateur de recharge | Explosif (tout autour) | +20 % de dégâts à cet objet (max 2) |
+| <img src="../public/art/items/poche_sang.png" height="24"> Poche de sang | Soin (tout autour) | soins +25 % à cet objet (max 2) |
+| <img src="../public/art/items/bouclier_emeute.png" height="24"> Bouclier anti-émeute | Arme de mêlée (tout autour) | +25 % de dégâts à cet objet (max 1) |
+| <img src="../public/art/items/cocktail.png" height="24"> Cocktail de combat | Arme (tout autour) | +8 % de cadence à cet objet (max 1) |
 
 ## Familles
 
@@ -204,6 +207,15 @@ On choisit un opérateur au début de la partie. Le pool d’objets est commun :
 - **Famille** : Précision.
 - **Objets de signature** : Munitions traçantes.
 - **Sac de départ** : Casque balistique, Revolver Taureau, Balles .44, Poignée verticale, Couteau.
+
+### Sapeur
+
+*Fusils à pompe et explosifs : chaque détonation prépare la suivante.*
+
+- **Passif** : Réaction en chaîne : chaque explosion déclenchée donne +10 % de dégâts aux suivantes et accélère tes explosifs de 6 % (max 4 cumuls).
+- **Famille** : Démolition.
+- **Objets de signature** : Charge C4, Amorces électriques, Gilet de démineur.
+- **Sac de départ** : Casque balistique, Pompe Sanglier, Cartouches 12G, Charge C4, Couteau.
 
 Détails des passifs : Feu continu +6 % de cadence par seconde de tir sans recharger, plafonné à +35 % ; Marque +40 % de dégâts sur la touche suivante d’une autre arme.
 
@@ -244,18 +256,18 @@ Quand tous les ingrédients d’une recette sont **posés dans le sac et se touc
 | <img src="../public/art/items/aigle_longuevue.png" height="24"> Aigle Longue-vue + <img src="../public/art/items/perforantes.png" height="24"> Munitions perforantes | <img src="../public/art/items/rhinoceros.png" height="24"> **Fusil anti-matériel Rhinocéros** |
 | <img src="../public/art/items/kr4_tactique.png" height="24"> KR-4 Tactique + <img src="../public/art/items/chg_tambour.png" height="24"> Chargeur tambour | <img src="../public/art/items/kr4_mitrailleur.png" height="24"> **KR-4 Mitrailleur** |
 | <img src="../public/art/items/thermite.png" height="24"> Grenade thermite + <img src="../public/art/items/sous_munitions.png" height="24"> Grenade à sous-munitions | <img src="../public/art/items/bombe_phosphore.png" height="24"> **Bombe au phosphore** |
-|  Drone de reconnaissance + <img src="../public/art/items/batterie.png" height="24"> Batterie |  **Drone d'assaut** |
-|  Radio de campagne + <img src="../public/art/items/frag.png" height="24"> Grenade frag |  **Appui mortier** |
-|  Radio de campagne + <img src="../public/art/items/lunette.png" height="24"> Lunette ×4 |  **Désignateur laser** |
-|  Drone d'assaut +  Appui mortier |  **Essaim de drones** |
+| <img src="../public/art/items/drone.png" height="24"> Drone de reconnaissance + <img src="../public/art/items/batterie.png" height="24"> Batterie | <img src="../public/art/items/drone_assaut.png" height="24"> **Drone d'assaut** |
+| <img src="../public/art/items/radio.png" height="24"> Radio de campagne + <img src="../public/art/items/frag.png" height="24"> Grenade frag | <img src="../public/art/items/appui_mortier.png" height="24"> **Appui mortier** |
+| <img src="../public/art/items/radio.png" height="24"> Radio de campagne + <img src="../public/art/items/lunette.png" height="24"> Lunette ×4 | <img src="../public/art/items/designateur.png" height="24"> **Désignateur laser** |
+| <img src="../public/art/items/drone_assaut.png" height="24"> Drone d'assaut + <img src="../public/art/items/appui_mortier.png" height="24"> Appui mortier | <img src="../public/art/items/essaim.png" height="24"> **Essaim de drones** |
 | <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba | <img src="../public/art/items/mamba_akimbo.png" height="24"> **Mamba Akimbo** |
 | <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau + <img src="../public/art/items/revolver.png" height="24"> Revolver Taureau | <img src="../public/art/items/taureau_jumeaux.png" height="24"> **Taureau Jumeaux** |
 | <img src="../public/art/items/casque.png" height="24"> Casque balistique + <img src="../public/art/items/casque.png" height="24"> Casque balistique | <img src="../public/art/items/casque_lourd.png" height="24"> **Casque lourd** |
 | <img src="../public/art/items/frag.png" height="24"> Grenade frag + <img src="../public/art/items/frag.png" height="24"> Grenade frag | <img src="../public/art/items/sous_munitions.png" height="24"> **Grenade à sous-munitions** |
 | <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK + <img src="../public/art/items/ifak.png" height="24"> Trousse IFAK | <img src="../public/art/items/sac_medical.png" height="24"> **Sac médical** |
 | <img src="../public/art/items/couteau.png" height="24"> Couteau + <img src="../public/art/items/couteau.png" height="24"> Couteau | <img src="../public/art/items/machette.png" height="24"> **Machette** |
-|  Cocktail Molotov +  Cocktail Molotov |  **Bidon de napalm** |
-|  Caisse de l'intendant +  Caisse de l'intendant |  **Coffre-fort** |
+| <img src="../public/art/items/molotov.png" height="24"> Cocktail Molotov + <img src="../public/art/items/molotov.png" height="24"> Cocktail Molotov | <img src="../public/art/items/bidon_napalm.png" height="24"> **Bidon de napalm** |
+| <img src="../public/art/items/tirelire.png" height="24"> Caisse de l'intendant + <img src="../public/art/items/tirelire.png" height="24"> Caisse de l'intendant | <img src="../public/art/items/coffre_fort.png" height="24"> **Coffre-fort** |
 
 ## Butin, caisses et boutique
 
@@ -488,9 +500,11 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Drone de reconnaissance
 
+<img src="../public/art/items/drone.png" height="48">
+
 **Base · Drone** · Forme `■■ / ■■` (4 cases) · Prix 9 · dès le cercle 2
 
-- Dégâts 4 toutes les 0,7 s
+- Dégâts 5 toutes les 0,7 s
 - Chargeur 30 balles · recharge 2,5 s
 - Alimentation intégrée : jamais besoin de chargeur
 - Drone : tire tout seul, sans dépenser d'Endurance
@@ -709,12 +723,14 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Drone d'assaut
 
+<img src="../public/art/items/drone_assaut.png" height="48">
+
 **Assemblé · Drone** · Forme `■■ / ■■` (4 cases) · Assemblé
 
-- Dégâts 6 toutes les 0,6 s
+- Dégâts 10 toutes les 0,6 s
 - Chargeur 40 balles · recharge 2,2 s
 - Alimentation intégrée : jamais besoin de chargeur
-- Chaque touche pose 1 Choc
+- Ignore 30 % de l'armure
 - Drone : tire tout seul, sans dépenser d'Endurance
 - Objet assemblé (recette)
 - Recette : Drone A. + Mortier → Essaim de drones (ingrédients adjacents : assemblage automatique)
@@ -723,12 +739,14 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Essaim de drones
 
+<img src="../public/art/items/essaim.png" height="48">
+
 **Assemblé · Drone** · Forme `■■■ / ■■■` (6 cases) · Assemblé
 
-- Dégâts 5 toutes les 0,3 s
+- Dégâts 8 toutes les 0,3 s
 - Chargeur 60 balles · recharge 2 s
 - Alimentation intégrée : jamais besoin de chargeur
-- Chaque touche pose 1 Choc
+- Ignore 30 % de l'armure
 - Drone : tire tout seul, sans dépenser d'Endurance
 - Objet assemblé (recette)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite
@@ -920,6 +938,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Balles à pointe creuse
 
+<img src="../public/art/items/pointe_creuse.png" height="48">
+
 **Base · Munition** · Forme `■` (1 case) · Prix 5 · dès le cercle 2
 
 - ★ Arme adjacent : +20 % de dégâts (ne l'alimente pas)
@@ -1046,6 +1066,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Plaques du vétéran
 
+<img src="../public/art/items/plaques_veteran.png" height="48">
+
 **Légendaire · Accessoire** · Forme `■` (1 case) · Prix 16 · dès le cercle 2
 
 - +1 dégât par touche (armes et mêlée) pour chaque duel gagné dans la partie, jusqu'à +10
@@ -1055,6 +1077,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Lunette thermique
 
+<img src="../public/art/items/lunette_thermique.png" height="48">
+
 **Légendaire · Accessoire** · Forme `■■` (2 cases) · Prix 18 · dès le cercle 2
 
 - Chaque critique pose 3 Brûlure
@@ -1063,6 +1087,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 cases · revente 9 cr
 
 #### Insigne des Lames
+
+<img src="../public/art/items/insigne_lames.png" height="48">
 
 **Légendaire · Accessoire** · Forme `■` (1 case) · Prix 16 · dès le cercle 2
 
@@ -1165,7 +1191,19 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 9 cases · revente 17 cr
 
+#### Gilet de démineur
+
+**Base · Protection** · Forme `■■ / ■■` (4 cases) · Prix 7 · dès le cercle 2 · Signature Sapeur
+
+- Armure +24
+- Chaque balle reçue perd 1 dégâts
+- ★ Explosif adjacent : +1 charge à cet objet
+- Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
+- 4 cases · revente 3 cr
+
 #### Bouclier anti-émeute
+
+<img src="../public/art/items/bouclier_emeute.png" height="48">
 
 **Légendaire · Protection** · Forme `■■ / ■■ / ■■` (6 cases) · Prix 20 · dès le cercle 2
 
@@ -1300,11 +1338,24 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
 - 2 cases · revente 12 cr
 
+#### Charge C4
+
+**Base · Explosif** · Forme `■■` (2 cases) · Prix 6 · dès le cercle 1 · Signature Sapeur
+
+- 26 dégâts à l'adversaire, ignore l'armure
+- 1 charge par combat · délai 7 s
+- Endurance : 0.5 par lancer
+- ★ Explosif adjacent : +1 charge
+- Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
+- 2 cases · revente 3 cr
+
 #### Radio de campagne
+
+<img src="../public/art/items/radio.png" height="48">
 
 **Base · Explosif** · Forme `■ / ■` (2 cases) · Prix 7 · dès le cercle 2
 
-- 30 dégâts à l'adversaire
+- 24 dégâts à l'adversaire
 - Frappe d'artillerie : ne coûte pas d'Endurance
 - 2 charges par combat · délai 9 s
 - ★ Arme adjacent : +10 % de dégâts à cet objet
@@ -1314,6 +1365,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 cases · revente 3 cr
 
 #### Cocktail Molotov
+
+<img src="../public/art/items/molotov.png" height="48">
 
 **Base · Explosif** · Forme `■` (1 case) · Prix 4 · dès le cercle 1
 
@@ -1328,11 +1381,13 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Appui mortier
 
+<img src="../public/art/items/appui_mortier.png" height="48">
+
 **Assemblé · Explosif** · Forme `■■ / ■■` (4 cases) · Assemblé
 
-- 40 dégâts à l'adversaire
+- 30 dégâts à l'adversaire
 - Frappe d'artillerie : ne coûte pas d'Endurance
-- 3 charges par combat · délai 8 s
+- 3 charges par combat · délai 9 s
 - ★ Explosif adjacent : +1 charge
 - Objet assemblé (recette)
 - Recette : Drone A. + Mortier → Essaim de drones (ingrédients adjacents : assemblage automatique)
@@ -1341,17 +1396,21 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Désignateur laser
 
+<img src="../public/art/items/designateur.png" height="48">
+
 **Assemblé · Explosif** · Forme `■■■` (3 cases) · Assemblé
 
-- 55 dégâts à l'adversaire, ignore l'armure
+- 34 dégâts à l'adversaire, ignore l'armure
 - Frappe d'artillerie : ne coûte pas d'Endurance
-- 2 charges par combat · délai 10 s
+- 2 charges par combat · délai 11 s
 - ★ Arme adjacent : +15 % de dégâts à cet objet
 - Objet assemblé (recette)
 - Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite
 - 3 cases · revente 9 cr
 
 #### Bidon de napalm
+
+<img src="../public/art/items/bidon_napalm.png" height="48">
 
 **Assemblé · Explosif** · Forme `■ / ■` (2 cases) · Assemblé
 
@@ -1365,6 +1424,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 cases · revente 6 cr
 
 #### Détonateur de recharge
+
+<img src="../public/art/items/detonateur.png" height="48">
 
 **Légendaire · Explosif** · Forme `■■` (2 cases) · Prix 18 · dès le cercle 2
 
@@ -1459,6 +1520,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Médaille de l'ange gardien
 
+<img src="../public/art/items/ange_gardien.png" height="48">
+
 **Légendaire · Médical** · Forme `■` (1 case) · Prix 18 · dès le cercle 2
 
 - Une fois par duel, à 0 PV : revient à 35 % des PV
@@ -1469,6 +1532,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Poche de sang
 
+<img src="../public/art/items/poche_sang.png" height="48">
+
 **Légendaire · Médical** · Forme `■ / ■` (2 cases) · Prix 18 · dès le cercle 2
 
 - Vol de vie : 10 % des dégâts infligés rendus en PV
@@ -1478,6 +1543,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 2 cases · revente 9 cr
 
 #### Cocktail de combat
+
+<img src="../public/art/items/cocktail.png" height="48">
 
 **Légendaire · Médical** · Forme `■` (1 case) · Prix 16 · dès le cercle 2
 
@@ -1534,7 +1601,18 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde
 - 1 case · revente 1 cr
 
+#### Amorces électriques
+
+**Base · Composant** · Forme `■` (1 case) · Prix 4 · dès le cercle 1 · Signature Sapeur
+
+- Sapeur : Réaction en chaîne jusqu'à 6 cumuls au lieu de 4
+- ★ Explosif adjacent : +15 % de dégâts à cet objet
+- Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure
+- 1 case · revente 2 cr
+
 #### Caisse de l'intendant
+
+<img src="../public/art/items/tirelire.png" height="48">
 
 **Base · Composant** · Forme `■■` (2 cases) · Prix 6 · dès le cercle 1
 
@@ -1545,6 +1623,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 
 #### Coffre-fort
 
+<img src="../public/art/items/coffre_fort.png" height="48">
+
 **Assemblé · Composant** · Forme `■■ / ■■` (4 cases) · Assemblé
 
 - Économie : à chaque nouveau cercle, posé dans le sac, +6 crédits (+1 par cercle passé)
@@ -1553,6 +1633,8 @@ Formes : ■ = case occupée, · = case vide, lignes séparées par « / » (ava
 - 4 cases · revente 7 cr
 
 #### Condensateur
+
+<img src="../public/art/items/condensateur.png" height="48">
 
 **Légendaire · Composant** · Forme `■■` (2 cases) · Prix 18 · dès le cercle 2
 

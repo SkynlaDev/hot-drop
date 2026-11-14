@@ -411,7 +411,9 @@ describe('bots', () => {
   });
 
   it('Viper contre Sentinelle : entre 44 et 56 % à chaque manche et au Top 1 (bots de même tour)', () => {
-    const N = 300;
+    // 600 paires : avec 300, un échantillon malchanceux sortait de la marge alors que la vraie valeur était au milieu
+    // (5e cercle mesuré à 46-48 % sur 2 400 duels, contenu v3).
+    const N = 600;
     for (const round of [0, 1, 2, 3, 4, 5]) {
       const v: BotBuild[] = [];
       const s: BotBuild[] = [];
@@ -428,7 +430,7 @@ describe('bots', () => {
         if (!simulateDuel(b, a, i * 2 + 1).win) w++;
       }
       const rate = w / (2 * N);
-      // 600 duels : l'écart-type d'échantillon est d'environ 2 points, d'où la marge de 6 points.
+      // 1 200 duels : l'écart-type d'échantillon est d'environ 1,5 point ; marge de 6 points.
       expect(rate, `manche ${round}`).toBeGreaterThan(0.44);
       expect(rate, `manche ${round}`).toBeLessThan(0.56);
     }
