@@ -1,5 +1,6 @@
 // Mode Zombie : créateur de classe. Nom de code, apparence, arme de départ, atout passif.
 import Phaser from 'phaser';
+import { editText } from '../ui/textInput';
 import { C, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { button, fadeIn, panel, plate, toast, txt } from '../ui/widgets';
@@ -82,12 +83,12 @@ export default class ZClassScene extends Phaser.Scene {
       this.draw();
     }, { size: 20, icon: 'ic-reroll' }).root);
     L.add(button(this, 504, 214, 176, 70, 'Écrire', () => {
-      // Pas de champ texte dans le canevas : la boîte de saisie du navigateur suffit (et ouvre le clavier sur mobile).
-      const v = globalThis.prompt?.('Nom de code (16 lettres max.)', d.name);
-      if (v && v.trim()) {
-        d.name = v.trim().slice(0, 16);
-        this.draw();
-      }
+      // Champ de saisie posé sur le nom (ouvre le clavier sur mobile).
+      nameT.setVisible(false);
+      editText(this, { x: 312, y: 142, w: 380, h: 60 }, d.name, { max: 16, size: 40, upper: true }, (v) => {
+        if (v && v.trim()) d.name = v.trim().slice(0, 16);
+        if (this.scene.isActive()) this.draw();
+      });
     }, { size: 20, icon: 'ic-tag' }).root);
     // Résumé de l'atout choisi
     const perk = PERKS[d.perk];

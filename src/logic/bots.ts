@@ -27,6 +27,8 @@ export interface BotBuild {
 /** Chance qu'une Élite porte un objet légendaire de son plan, à partir de ce tour (le Top 1 en a toujours un). */
 export const ELITE_LEGENDARY_CHANCE = 0.4;
 export const ELITE_LEGENDARY_FROM = 2;
+/** Chance que le bot du Top 1 porte un objet légendaire (toujours, c'était trop dur : runsim 25 % → 18 %). */
+export const FINAL_LEGENDARY_CHANCE = 0.5;
 
 // Indicatifs originaux.
 const CALLSIGNS = [
@@ -231,8 +233,8 @@ export function generateBot(seed: number, round: number, opts: { danger?: number
   ids.length = Math.min(ids.length, nItems);
   if (melee) ids.push(melee);
 
-  // Objet légendaire du plan : toujours au Top 1, parfois chez une Élite (c'est aussi du butin à fouiller).
-  if (opts.final || (opts.elite && round >= ELITE_LEGENDARY_FROM && rng() < ELITE_LEGENDARY_CHANCE)) {
+  // Objet légendaire du plan : un Top 1 sur deux, parfois chez une Élite (c'est aussi du butin à fouiller).
+  if ((opts.final && rng() < FINAL_LEGENDARY_CHANCE) || (opts.elite && round >= ELITE_LEGENDARY_FROM && rng() < ELITE_LEGENDARY_CHANCE)) {
     const legs = A.legendaries.filter((id) => canUse(operator, id));
     if (legs.length) ids.push(pick(rng, legs));
   }

@@ -95,13 +95,14 @@ describe('objets légendaires', () => {
     expect(legendaryPool(run)).not.toContain('ange_gardien');
   });
 
-  it('le bot du Top 1 porte un légendaire de son plan ; les archétypes en ont tous', () => {
+  it('le bot du Top 1 porte souvent un légendaire de son plan ; les archétypes en ont tous', () => {
     for (const id of ARCHETYPE_IDS) expect(ARCHETYPES[id].legendaries.length).toBeGreaterThan(0);
     let withLeg = 0;
     for (let s = 0; s < 20; s++) {
       const b = generateBot(500 + s, 5, { final: true, danger: 2 });
       if (b.items.some((i) => ITEMS[i.defId].legendary)) withLeg++;
     }
-    expect(withLeg).toBeGreaterThanOrEqual(16);
+    expect(withLeg).toBeGreaterThanOrEqual(5);
+    expect(withLeg).toBeLessThanOrEqual(15);
   });
 });

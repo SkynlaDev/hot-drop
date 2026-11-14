@@ -17,8 +17,6 @@ import { Rng, mulberry32, hashParts } from '../src/logic/rng';
 import { PlayerLoadout, computeLoadout, itemPrice } from '../src/logic/stats';
 import { Card, ROUNDS } from '../src/logic/zone';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const process: { argv: string[] };
 
 export type Policy = 'prudent' | 'agressif';
 
@@ -319,7 +317,10 @@ export function simulateRun(seed: number, policy: Policy, op: OperatorId): RunSt
 
 // ---------------------------------------------------------------- rapport
 
-const opOf = (s: number) => OPERATOR_IDS[s % OPERATOR_IDS.length];
+// OP=viper : un seul opérateur (pour enquêter sur un opérateur précis).
+declare const process: { argv: string[]; env: Record<string, string | undefined> };
+const ONLY = process.env.OP as OperatorId | undefined;
+const opOf = (s: number) => ONLY ?? OPERATOR_IDS[s % OPERATOR_IDS.length];
 
 function report(policy: Policy, n: number, all: RunStats[]) {
   const pct = (v: number) => `${Math.round(v * 100)} %`;

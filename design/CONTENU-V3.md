@@ -159,6 +159,15 @@ environ 200 générations (objets, Sapeur, zombies).
 
 À trancher par le concepteur au retour :
 1. Les chiffres des légendaires et de la Menace (tout est dans les tableaux ci-dessus).
-2. Le Top 1 simulé est passé de 25 % à 18 % (politique agressive) : rendre les bots du Top 1 un peu moins forts
-   (leur légendaire systématique) si le playtest humain le confirme.
-3. L'archétype de bot Drones réservé à Sentinelle et au Sapeur.
+2. L'archétype de bot Drones réservé à Sentinelle et au Sapeur.
+
+## 9. Reprise : ce qui restait ouvert
+
+- **Top 1** : le bot final ne porte plus un légendaire qu'une fois sur deux (`FINAL_LEGENDARY_CHANCE`). Mesure par
+  opérateur (`OP=<op> npx vite-node tests/runsim.ts 30 agressif`, nouvelle option) : Viper 30 %, Sentinelle 23 %,
+  Sapeur 30 % de Top 1. Le « Viper 0 % » des mesures mélangées venait de l'alternance des opérateurs (Viper avait
+  toujours les mêmes graines), pas du jeu.
+- **Mode Zombie, fusil à pompe** : 0 extraction sur 6 pour le bot de simulation. Huit plombs de 17, cadence 1,6,
+  portée 470, perce 2 : 3 sur 12 (fusil d'assaut : 5 sur 12, avec un bot qui fuit le contact).
+- **Mode Zombie, nom de code** : un champ de saisie posé sur le canevas (`src/ui/textInput.ts`) remplace la boîte
+  `prompt()` du navigateur ; Entrée ou toucher ailleurs valide, Échap annule.

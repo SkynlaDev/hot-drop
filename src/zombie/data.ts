@@ -116,8 +116,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     unlocks: order('viseur_holo', 'chg_etendu', 'poignee', 'perforantes', 'silencieux'),
   },
   pompe: {
-    id: 'pompe', name: 'Pompe Sanglier', wclass: 'Fusil à pompe', desc: 'Sept plombs qui traversent et repoussent tout. Dévastateur au contact.',
-    dmg: 13, rate: 1.4, pellets: 7, spread: 0.22, speed: 850, range: 360, pierce: 1, mag: 6, reload: 2.0, crit: 0.04, knock: 14, move: 1,
+    id: 'pompe', name: 'Pompe Sanglier', wclass: 'Fusil à pompe', desc: 'Huit plombs qui traversent et repoussent tout. Dévastateur au contact.',
+    dmg: 17, rate: 1.6, pellets: 8, spread: 0.17, speed: 950, range: 470, pierce: 2, mag: 6, reload: 1.8, crit: 0.04, knock: 16, move: 1.03,
     unlocks: order('chg_etendu', 'poignee', 'chg_incendiaire', 'silencieux', 'chg_tambour'),
   },
   precision: {
