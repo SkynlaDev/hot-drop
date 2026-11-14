@@ -222,7 +222,7 @@ par un anneau de 640 objets réutilisés.
 - **Animations PixelLab** (`animate_image` sur les sprites existants, 64 px × 8 images = 1 génération, 96 et
   128 px = 2) : marche de 8 images pour les 9 zombies (4 marcheurs, coureur, cracheur, gonflé, brute, Colosse)
   et les 8 personnages jouables ; chute de 9 images pour tous les zombies sauf le gonflé (il explose) et pour
-  les 8 soldats. Feuilles dans `public/art/zombie/anim/` (`<nom>-walk.png`, `<nom>-die.png`, ≈ 0,7 Mo en
+  les 8 soldats. Feuilles dans `public/art/zombie/anim/` (`<nom>-walk.png`, `<nom>-die.png`, ≈ 0,8 Mo en
   tout) ; planche : `design/zombie/anim-planche.png`. 37 générations en tout (marcheur 1 d'abord pour valider
   la méthode : bon du premier coup, aucune reprise).
 - **Marche pilotée par la distance**, pas par le temps : `GaitTracker` (pur, testé) lisse la vitesse réelle de
