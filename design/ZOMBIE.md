@@ -37,7 +37,7 @@ pour l'équilibrage), `node tools/zombie-shots.mjs <dossier> menu hub class arse
 - **PV** : 100 de base. Contact d'un zombie = un coup toutes les 0,8 s par zombie ; 0,12 s d'invulnérabilité
   après un coup. Crachats acides et explosions des gonflés font aussi mal.
 - **XP** : chaque zombie lâche une plaque (bleue 1, verte 2-4, orange 5-19, violette 20+). Rayon de ramassage
-  70 px, puis elles filent vers le soldat. Besoin pour passer au niveau suivant : `5 + 6k + 0,32k²` (k = niveau − 1).
+  90 px, puis elles filent vers le soldat. Besoin pour passer au niveau suivant : `5 + 6k + 0,32k²` (k = niveau − 1).
 - **Niveau** : la partie s'arrête, 3 cartes (4 avec Veinard), une relance par partie (2 avec Veinard).
 - **Objets au sol** : trousse (+30 PV, 0,6 % des kills), aimant (toute l'XP vient à soi, 0,25 %), frappe
   aérienne (tue tout à l'écran, 10 % des PV du boss, 0,12 %), caisse (lâchée par les élites et le boss :
@@ -54,7 +54,7 @@ pour l'équilibrage), `node tools/zombie-shots.mjs <dossier> menu hub class arse
 | Cracheur | 30 | 50 | 6 | 2 | dès 2:00 ; garde ses distances (220-320 px), crache de l'acide (9) toutes les 2,8 s |
 | Gonflé (kamikaze) | 26 | 88 | — | 2 | dès 4:30 ; explose au contact ou à sa mort (26, rayon 85, blesse aussi les zombies) |
 | Brute | 190 | 38 | 18 | 6 | dès 3:30 ; lourde (peu de recul) |
-| Le Colosse (boss) | 2 600 × rang^1,6 | 44+ | 30+ | 60 | 3:00, 6:00, 9:00 ; charge (préparation 0,8 s), invoque des marcheurs/coureurs |
+| Le Colosse (boss) | 2 000 × rang^1,7 | 44+ | 30+ | 60 | 3:00, 6:00, 9:00 ; charge (préparation 0,8 s, couloir rouge au sol), invoque 3 + 2 × rang marcheurs/coureurs toutes les 12 s |
 | Élite | ×7 PV, ×1,5 dégâts, plus gros, rouge | | | ×8 | toutes les 40 s dès 1:00 ; lâche une caisse |
 
 - PV × `1 + 0,1m + 0,03m²` (m = minutes) ; dégâts × `1 + 0,06m`.
@@ -68,12 +68,12 @@ pour l'équilibrage), `node tools/zombie-shots.mjs <dossier> menu hub class arse
 | Arme | Dégâts | Tirs/s | Plombs | Portée | Chargeur | Recharge | Particularité |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Pistolet Mamba | 16 | 2,6 | 1 | 480 | 12 | 0,9 s | précis, +5 % vitesse |
-| SMG Furet | 7 | 8 | 1 | 400 | 32 | 1,5 s | dispersion large |
+| SMG Furet | 8 | 8 | 1 | 420 | 32 | 1,5 s | dispersion large |
 | Fusil d'assaut KR-4 | 12 | 4,8 | 1 | 560 | 30 | 1,7 s | polyvalent |
-| Pompe Sanglier | 10 | 1,15 | 6 | 300 | 6 | 2,1 s | gros recul |
+| Pompe Sanglier | 13 | 1,4 | 7 | 360 | 6 | 2,0 s | plombs perforants (1), recul |
 | Précision Aigle | 68 | 0,85 | 1 | 900 | 5 | 2,0 s | perfore 3, 15 % critique |
 | Revolver Taureau | 36 | 1,6 | 1 | 520 | 6 | 1,8 s | perfore 1 — *objectif « Survivre 5 min »* |
-| KR-4 Mitrailleur | 10 | 9 | 1 | 520 | 100 | 3,2 s | −12 % vitesse — *objectif « Tenir 10 min »* |
+| KR-4 Mitrailleur | 9 | 9 | 1 | 520 | 100 | 3,4 s | −12 % vitesse — *objectif « Tenir 10 min »* |
 
 ## Progression des armes (entre les parties)
 
@@ -181,3 +181,27 @@ par un anneau de 640 objets réutilisés.
 - Accessoires communs à toutes les classes qui portent l'arme (on améliore *son* arme, pas une copie).
 - Bouton du menu principal : « Mode Zombie » partage la dernière rangée avec « Réglages » (ex-« Paramètres »)
   pour ne pas allonger le menu, qui est déjà au bord de l'écran quand une partie est en cours.
+
+### Étape 4 : équilibrage, lisibilité, effets
+
+- **Bug d'affichage contourné** : dans les scènes du mode, des sprites *tournés* perdaient parfois la moitié de
+  leur quad (zombies coupés en diagonale, soldat mort en lambeaux). Pas reproduit dans une page Phaser
+  minimale ; contourné en n'utilisant plus de rotation sur les personnages : démarche en écrasement /
+  étirement, mort en affaissement. (Les balles, grenades et machettes tournent encore : petites, ça ne se voit
+  pas.) À surveiller dans le jeu principal (l'écran de fin y tourne aussi le personnage de −82°).
+- Nombres de dégâts en chiffres-images (et pas en `Text`) : moins coûteux, et aucune texture qui change à
+  chaque coup.
+- Sol : tuiles Wang PixelLab (asphalte / gravats) assemblées en une texture de 512 px qui se raccorde sur
+  ses bords (grille de coins torique), ×2 à l'écran. Plus claire que le fond du jeu : les zombies sombres s'y
+  détachent.
+- Le boss, les brutes et les élites ne virent plus au blanc à chaque balle (simple voile clair) ; le boss
+  vire au rouge et trace un couloir au sol pendant sa préparation de charge. Flèches au bord de l'écran vers
+  le boss (rouge) et les élites (or). Bords rouges qui battent sous 30 % de PV.
+- Simulation (bot qui fuit la foule et ramasse l'XP proche, choix selon une préférence fixe ; 6 parties par
+  arme) : à arme niveau 1, 0 à 4 extractions sur 6 selon l'arme, morts typiques entre 3:30 et 6:00 ; à arme
+  niveau 8 avec accessoires, 4 extractions sur 6. C'est voulu : la première partie apprend, la progression
+  d'arme fait gagner. Retouches : rayon de ramassage 70 → 90, boss 2 600 → 2 000 PV (rang 1), invocations
+  plus rares, SMG et pompe renforcés, mitrailleuse un peu affaiblie. Le pompe reste faible pour le bot (qui
+  fuit au lieu d'aller au contact) : à vérifier en jouant.
+- Performances mesurées dans Chromium : à 250 zombies, simulation ≈ 0,07 ms et mise à jour des sprites
+  ≈ 0,25 ms par image.

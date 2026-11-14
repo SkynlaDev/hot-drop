@@ -256,6 +256,36 @@ export default class ZHudScene extends Phaser.Scene {
       this.bossT.setVisible(true).setText(`LE COLOSSE · RANG ${w.boss.tier}`);
       drawBar(g, 110, 160, W - 220, 16, w.boss.hp / w.boss.maxHp, P.danger, P.dangerSombre);
     } else this.bossT.setVisible(false);
+    // PV bas : les bords de l'écran battent en rouge.
+    if (hpf < 0.3 && !gs.ended) {
+      const k = (0.3 - hpf) / 0.3;
+      const beat = 0.5 + 0.5 * Math.sin(this.time.now / 140);
+      for (let i = 0; i < 6; i++) {
+        g.lineStyle(12, P.danger, (0.05 + 0.1 * k) * beat * (6 - i) / 6);
+        g.strokeRect(i * 10, i * 10, W - i * 20, H - i * 20);
+      }
+    }
+    // Flèches vers le boss et les élites hors de l'écran.
+    const cx = w.px;
+    const cy = w.py - 40;
+    for (const z of w.zombies) {
+      if (!z.active || !(z.type === 'boss' || z.elite)) continue;
+      const sx = z.x - cx + W / 2;
+      const sy = z.y - z.r - cy + H / 2;
+      const M = 46;
+      if (sx > -10 && sx < W + 10 && sy > 30 && sy < H + 10) continue;
+      const a = Math.atan2(sy - H / 2, sx - W / 2);
+      // Point du bord de l'écran dans cette direction.
+      const t = Math.min((W / 2 - M) / Math.abs(Math.cos(a) || 1e-6), (H / 2 - M - 60) / Math.abs(Math.sin(a) || 1e-6));
+      const ax = W / 2 + Math.cos(a) * t;
+      const ay = H / 2 + Math.sin(a) * t;
+      const col = z.type === 'boss' ? P.danger : P.or;
+      const s2 = z.type === 'boss' ? 22 : 15;
+      g.fillStyle(P.nuit, 0.8);
+      g.fillCircle(ax, ay, s2 + 6);
+      g.fillStyle(col, 0.9 + 0.1 * Math.sin(this.time.now / 100));
+      g.fillTriangle(ax + Math.cos(a) * s2, ay + Math.sin(a) * s2, ax + Math.cos(a + 2.4) * s2, ay + Math.sin(a + 2.4) * s2, ax + Math.cos(a - 2.4) * s2, ay + Math.sin(a - 2.4) * s2);
+    }
     // Munitions / rechargement (bas gauche)
     const s = w.stats;
     if (w.reloadT > 0) {

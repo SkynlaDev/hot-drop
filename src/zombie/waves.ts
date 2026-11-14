@@ -79,5 +79,5 @@ export function waveEvents(t0: number, t1: number): WaveEvent[] {
 
 /** PV du boss d'un rang donné (rang 1 à 3 en partie normale). */
 export function bossHp(tier: number): number {
-  return Math.round(2600 * tier ** 1.6);
+  return Math.round(2000 * tier ** 1.7);
 }

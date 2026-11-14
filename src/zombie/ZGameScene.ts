@@ -262,13 +262,16 @@ export default class ZGameScene extends Phaser.Scene {
         .setFlipX(z.face < 0)
         .setDepth(this.depth(z.y));
       // Teinte : éclat blanc au coup, orange en feu, rouge pour l'élite, rouge vif quand le boss charge.
-      const tint = z.hitT > 0 ? 0 : charging ? 1 : z.burnT > 0 ? 2 : z.elite ? 3 : 4;
+      // Les gros (boss, brutes, élites) ne virent pas au blanc à chaque balle : un simple voile clair.
+      const big = z.type === 'boss' || z.type === 'brute' || z.elite;
+      const tint = charging ? 1 : z.hitT > 0 ? (big ? 5 : 0) : z.burnT > 0 ? 2 : z.elite ? 3 : 4;
       if (tint !== this.zTint[i]) {
         this.zTint[i] = tint;
         if (tint === 0) im.setTintMode(Phaser.TintModes.FILL).setTint(P.blanc);
         else if (tint === 1) im.setTintMode(Phaser.TintModes.FILL).setTint(P.dangerClair);
         else if (tint === 2) im.setTintMode(Phaser.TintModes.MULTIPLY).setTint(0xffb070);
         else if (tint === 3) im.setTintMode(Phaser.TintModes.MULTIPLY).setTint(0xff8a80);
+        else if (tint === 5) im.setTintMode(Phaser.TintModes.ADD).setTint(0x503028);
         else im.setTintMode(Phaser.TintModes.MULTIPLY).clearTint();
       }
       sh.setVisible(true).setPosition(z.x, z.y).setScale((z.r / 18) * 0.95, z.r / 18);
@@ -280,6 +283,18 @@ export default class ZGameScene extends Phaser.Scene {
         hb.fillRect(z.x - bw / 2, top, bw, 6);
         hb.fillStyle(z.elite ? P.or : P.danger, 1);
         hb.fillRect(z.x - bw / 2 + 1, top + 1, (bw - 2) * (z.hp / z.maxHp), 4);
+      }
+      // Préparation de la charge du boss : couloir rouge vers le soldat.
+      if (z.type === 'boss' && z.windT > 0) {
+        const a = Math.atan2(w.py - z.y, w.px - z.x);
+        const L = 520;
+        const nx = -Math.sin(a) * z.r;
+        const ny = Math.cos(a) * z.r;
+        const ex = z.x + Math.cos(a) * L;
+        const ey = z.y + Math.sin(a) * L;
+        hb.fillStyle(P.danger, 0.18 + 0.12 * Math.abs(Math.sin(now * 20)));
+        hb.fillTriangle(z.x + nx, z.y + ny, ex + nx, ey + ny, ex - nx, ey - ny);
+        hb.fillTriangle(z.x + nx, z.y + ny, ex - nx, ey - ny, z.x - nx, z.y - ny);
       }
     }
     // Balles

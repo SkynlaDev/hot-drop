@@ -73,6 +73,9 @@ for (const st of steps) {
     await page.waitForTimeout(4000);
   }
   if (kind === 'wait') await page.waitForTimeout(Number(arg));
+  if (kind === 'click') { const [x, y] = arg.split(',').map(Number); await page.mouse.click(x, y); await page.waitForTimeout(400); }
+  if (kind === 'key') { await page.keyboard.press(arg); await page.waitForTimeout(400); }
+  if (kind === 'snap') await snap(arg);
 }
 console.log(errors.slice(0, 20).join('\n'));
 await browser.close();

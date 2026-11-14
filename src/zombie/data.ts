@@ -107,7 +107,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   },
   smg: {
     id: 'smg', name: 'SMG Furet', wclass: 'SMG', desc: 'Un mur de balles à courte portée. Vide son chargeur en un clin d’œil.',
-    dmg: 7, rate: 8, pellets: 1, spread: 0.14, speed: 850, range: 400, pierce: 0, mag: 32, reload: 1.5, crit: 0.05, knock: 3, move: 1.05,
+    dmg: 8, rate: 8, pellets: 1, spread: 0.12, speed: 850, range: 420, pierce: 0, mag: 32, reload: 1.5, crit: 0.05, knock: 3, move: 1.05,
     unlocks: order('poignee', 'chg_etendu', 'refroidisseur', 'viseur_holo', 'chg_tambour'),
   },
   fusil_assaut: {
@@ -116,8 +116,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     unlocks: order('viseur_holo', 'chg_etendu', 'poignee', 'perforantes', 'silencieux'),
   },
   pompe: {
-    id: 'pompe', name: 'Pompe Sanglier', wclass: 'Fusil à pompe', desc: 'Six plombs qui repoussent tout. Dévastateur au contact.',
-    dmg: 10, rate: 1.15, pellets: 6, spread: 0.32, speed: 800, range: 300, pierce: 0, mag: 6, reload: 2.1, crit: 0.04, knock: 22, move: 1,
+    id: 'pompe', name: 'Pompe Sanglier', wclass: 'Fusil à pompe', desc: 'Sept plombs qui traversent et repoussent tout. Dévastateur au contact.',
+    dmg: 13, rate: 1.4, pellets: 7, spread: 0.22, speed: 850, range: 360, pierce: 1, mag: 6, reload: 2.0, crit: 0.04, knock: 14, move: 1,
     unlocks: order('chg_etendu', 'poignee', 'chg_incendiaire', 'silencieux', 'chg_tambour'),
   },
   precision: {
@@ -132,7 +132,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   },
   kr4_mitrailleur: {
     id: 'kr4_mitrailleur', name: 'KR-4 Mitrailleur', wclass: 'Mitrailleuse', desc: 'Bande de 100 coups. Lourde : on avance moins vite.',
-    dmg: 10, rate: 9, pellets: 1, spread: 0.16, speed: 1000, range: 520, pierce: 0, mag: 100, reload: 3.2, crit: 0.05, knock: 5, move: 0.88,
+    dmg: 9, rate: 9, pellets: 1, spread: 0.16, speed: 1000, range: 520, pierce: 0, mag: 100, reload: 3.4, crit: 0.05, knock: 5, move: 0.88,
     unlocks: order('bipied', 'poignee', 'refroidisseur', 'perforantes', 'chg_tambour'),
   },
 };
@@ -274,7 +274,7 @@ export const ZOMBIES: Record<ZType, ZDef> = {
   cracheur: { type: 'cracheur', name: 'Cracheur', hp: 30, speed: 50, dmg: 6, r: 16, xp: 2, mass: 1, weaponXp: 2 },
   kamikaze: { type: 'kamikaze', name: 'Gonflé', hp: 26, speed: 88, dmg: 0, r: 17, xp: 2, mass: 1.2, weaponXp: 2 },
   brute: { type: 'brute', name: 'Brute', hp: 190, speed: 38, dmg: 18, r: 26, xp: 6, mass: 5, weaponXp: 4 },
-  boss: { type: 'boss', name: 'Le Colosse', hp: 2600, speed: 44, dmg: 30, r: 46, xp: 60, mass: 40, weaponXp: 60 },
+  boss: { type: 'boss', name: 'Le Colosse', hp: 2000, speed: 44, dmg: 30, r: 46, xp: 60, mass: 40, weaponXp: 60 },
 };
 
 /** Élite : un zombie normal, plus gros et rouge, qui lâche une caisse. */
@@ -295,7 +295,7 @@ export const BOSS_TIMES = [180, 360, 540];
 /** Plafond d'ennemis en vie. */
 export const MAX_ZOMBIES = 250;
 
-export const PLAYER = { hp: 100, speed: 210, r: 18, pickup: 70, invuln: 0.12 };
+export const PLAYER = { hp: 100, speed: 210, r: 18, pickup: 90, invuln: 0.12 };
 
 /** XP nécessaire pour passer du niveau `lvl` au suivant (niveau de personnage, en partie). */
 export function xpToNext(lvl: number): number {

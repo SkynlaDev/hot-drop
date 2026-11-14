@@ -918,9 +918,10 @@ export class World {
     }
     z.summonCd -= dt;
     if (z.summonCd <= 0) {
-      z.summonCd = 10;
-      for (let k = 0; k < 4 + 2 * z.tier; k++) {
-        const a = (k / (4 + 2 * z.tier)) * Math.PI * 2;
+      z.summonCd = 12;
+      const n = 3 + 2 * z.tier;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2;
         this.spawnAt(z.tier >= 2 ? 'coureur' : 'marcheur', z.x + Math.cos(a) * 90, z.y + Math.sin(a) * 90);
       }
     }
@@ -1143,7 +1144,7 @@ export class World {
       for (const z of this.zombies) {
         if (!z.active) continue;
         if ((z.x - this.px) ** 2 + (z.y - this.py) ** 2 > 900 * 900) continue;
-        this.damage(z, z.type === 'boss' ? z.maxHp * 0.1 : 99999, false, 0, 0, 0);
+        this.damage(z, z.type === 'boss' ? z.maxHp * 0.1 : z.hp, false, 0, 0, 0);
       }
     }
   }
