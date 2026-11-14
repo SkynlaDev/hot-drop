@@ -57,7 +57,7 @@ const HEAT_COLORS = ['#e9c46a', '#e8894a', '#c94a4a'];
 const GOLD_HEX = 0xe9c46a;
 /** Son de tir de chaque classe d'arme. */
 const SHOT_SFX: Record<string, SfxId> = {
-  Pistolet: 'shot_pistol', SMG: 'shot_smg', "Fusil d'assaut": 'shot_rifle', 'Fusil de précision': 'shot_sniper', 'Fusil à pompe': 'shot_shotgun',
+  Pistolet: 'shot_pistol', SMG: 'shot_smg', "Fusil d'assaut": 'shot_rifle', 'Fusil de précision': 'shot_sniper', 'Fusil à pompe': 'shot_shotgun', Drone: 'shot_smg',
 };
 const DUEL_SFX: SfxId[] = ['shot_pistol', 'shot_smg', 'shot_rifle', 'shot_sniper', 'shot_shotgun', 'miss', 'hit', 'hit_armor', 'crit', 'melee', 'reload', 'frag', 'death'];
 const ARMOR_STR = '#a9bccb';
@@ -651,6 +651,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const lines: [string, string][] = [];
     if (this.mode === 'shop') {
       lines.push([this.run.resupply ? 'Le cercle se resserre : achète et range avant la suite.' : 'Achète, range, puis termine l\'action.', C.text]);
+      if (this.run.resupply && this.run.lastIncome) lines.push([`Intendance : +${this.run.lastIncome} cr`, C.accentStr]);
       lines.push([`Relance : ${REROLL_COST} cr`, C.quiet]);
     } else if (this.mode === 'caisse') {
       const l = this.loot;
@@ -2465,6 +2466,16 @@ export default class LoadoutScene extends Phaser.Scene {
     this.tweens.add({ targets: g, scale: 1.2, alpha: 0, duration: 380 / this.speed, ease: 'Quad.Out', onComplete: () => g.destroy() });
   }
 
+  /** Texte au-dessus du lanceur d'une explosion : grenade, frappe d'artillerie ou détonateur. */
+  private fragLabel(side: Side, uid: number): string {
+    const items = side === 'a' ? this.run.items : this.bot?.items ?? [];
+    const d = ITEMS[items.find((i) => i.uid === uid)?.defId ?? ''];
+    if (d?.keystone?.reloadBlast) return 'DÉTONATEUR';
+    if (d?.active?.strike) return 'ARTILLERIE !';
+    if (d?.active?.burn) return 'INCENDIE !';
+    return 'FRAG !';
+  }
+
   /** Son de tir selon la classe de l'arme ; le camp adverse est un peu plus discret et à droite. */
   private shotSfx(side: Side, uid: number) {
     const items = side === 'a' ? this.run.items : this.bot?.items ?? [];
@@ -2632,7 +2643,7 @@ export default class LoadoutScene extends Phaser.Scene {
           this.boom(to, e.side === 'a' ? C.accent : C.danger);
           this.hitReact(to);
           this.floatText(to, `${e.amount}`, C.accentStr, 32);
-          this.floatText(this.actor(e.side), 'FRAG !', '#e9c46a', 18);
+          this.floatText(this.actor(e.side), this.fragLabel(e.side, e.uid), '#e9c46a', 18);
           if (e.armor > 0.5 && (e.absorbed ?? 0) < e.amount - 0.5) this.pierceHint(to);
           this.impact('medium');
           vibrate(20);

@@ -34,6 +34,11 @@ export const RECIPES: Recipe[] = [
   { id: 'rhinoceros', inputs: ['aigle_longuevue', 'perforantes'], output: 'rhinoceros' },
   { id: 'kr4_mitrailleur', inputs: ['kr4_tactique', 'chg_tambour'], output: 'kr4_mitrailleur' },
   { id: 'bombe_phosphore', inputs: ['thermite', 'sous_munitions'], output: 'bombe_phosphore' },
+  // Contenu v3 : drones, radio, économie.
+  { id: 'drone_assaut', inputs: ['drone', 'batterie'], output: 'drone_assaut' },
+  { id: 'appui_mortier', inputs: ['radio', 'frag'], output: 'appui_mortier' },
+  { id: 'designateur', inputs: ['radio', 'lunette'], output: 'designateur' },
+  { id: 'essaim', inputs: ['drone_assaut', 'appui_mortier'], output: 'essaim' },
   // Recettes de doublon (remplacent l'ancienne fusion de raretés). Après les autres : à ingrédients égaux,
   // la première recette de la liste l'emporte (frag + fumigène donne la thermite avant frag + frag).
   { id: 'mamba_akimbo', inputs: ['pistolet', 'pistolet'], output: 'mamba_akimbo' },
@@ -42,4 +47,6 @@ export const RECIPES: Recipe[] = [
   { id: 'sous_munitions', inputs: ['frag', 'frag'], output: 'sous_munitions' },
   { id: 'sac_medical', inputs: ['ifak', 'ifak'], output: 'sac_medical' },
   { id: 'machette', inputs: ['couteau', 'couteau'], output: 'machette' },
+  { id: 'bidon_napalm', inputs: ['molotov', 'molotov'], output: 'bidon_napalm' },
+  { id: 'coffre_fort', inputs: ['tirelire', 'tirelire'], output: 'coffre_fort' },
 ];

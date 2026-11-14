@@ -38,6 +38,8 @@ export interface WeaponStats {
   heatKeep?: boolean;
   /** Coût en Endurance multiplié (armes jumelées : deux armes à la fois). */
   endMult?: number;
+  /** Drone : tire seul, sans Endurance ; plus rapide avec le palier 4 de Tactique. */
+  drone?: boolean;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel, plus vite quand toutes les armes à feu sont à sec. */
@@ -70,10 +72,12 @@ export interface ActiveStats {
   heatReset?: boolean;
   /** Soin : retire tous les statuts (Brûlure, Choc, Saignement) au 1er soin (Poste de secours). */
   cleanse?: boolean;
+  /** Frappe d'artillerie (radio) : ne coûte pas d'Endurance ; plus rapide avec le palier 4 de Tactique. */
+  strike?: boolean;
 }
 
 export interface SynergyStats {
-  kind: 'mag' | 'scope' | 'silencer' | 'pierce' | 'grip' | 'extmag' | 'holo' | 'bipod' | 'drum' | 'cooler' | 'tracer';
+  kind: 'mag' | 'scope' | 'silencer' | 'pierce' | 'grip' | 'extmag' | 'holo' | 'bipod' | 'drum' | 'cooler' | 'tracer' | 'hollow';
   value: number;
   /** Chargeur spécial : alimente une arme de n'importe quel calibre et pose ce statut à chaque touche. */
   status?: 'burn' | 'shock';
@@ -161,6 +165,8 @@ export interface ItemDef {
   endCostMult?: number;
   /** Dégâts infligés à chaque décharge de Choc que l'on déclenche (Bobine Tesla), qui ignorent l'armure. */
   dischargeDmg?: number;
+  /** Crédits gagnés à chaque nouveau cercle si l'objet est posé dans le sac (+1 par cercle déjà passé). */
+  income?: number;
   /** Objet obtenu par une recette (assemblage automatique) : jamais dans le butin ni la boutique. */
   crafted?: boolean;
   /**
@@ -365,6 +371,34 @@ const DEFS: ItemDef[] = [
   { id: 'bombe_phosphore', name: 'Bombe au phosphore', short: 'Phosphore', shape: ['XX'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 24, crafted: true,
     active: { kind: 'frag', value: 30, cooldown: 6, charges: 3, pierce: true, burn: 8 },
     stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  // --- Contenu v3 : drones et radio (palier 4 de Tactique), Molotov, pointes creuses, économie
+  { id: 'drone', name: 'Drone de reconnaissance', short: 'Drone', wclass: 'Drone', shape: ['XX', 'XX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 1, price: 9,
+    weapon: { dmg: 4, interval: 0.7, mag: 30, reload: 2.5, selfFed: true, drone: true } },
+  { id: 'radio', name: 'Radio de campagne', short: 'Radio', shape: ['X', 'X'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 1, price: 7,
+    active: { kind: 'frag', value: 30, cooldown: 9, charges: 2, strike: true },
+    stars: [{ want: ['arme'], effect: { on: 'target', kind: 'dmg', value: 0.1 }, max: 1 }] },
+  { id: 'pointe_creuse', name: 'Balles à pointe creuse', short: 'Pointe cr.', shape: ['X'], category: 'munition', family: 'precision', tags: ['munition'], minRound: 1, price: 5,
+    synergy: { kind: 'hollow', value: 0.2 } },
+  { id: 'tirelire', name: "Caisse de l'intendant", short: 'Intendant', shape: ['XX'], category: 'composant', family: 'tactique', tags: ['composant'], minRound: 0, price: 6,
+    income: 2 },
+  { id: 'molotov', name: 'Cocktail Molotov', short: 'Molotov', shape: ['X'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 4,
+    active: { kind: 'frag', value: 8, cooldown: 6, charges: 2, burn: 5 },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'dmg', value: 0.2 }, max: 2 }] },
+  { id: 'drone_assaut', name: "Drone d'assaut", short: 'Drone A.', wclass: 'Drone', shape: ['XX', 'XX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 0, price: 20, crafted: true,
+    weapon: { dmg: 6, interval: 0.55, mag: 40, reload: 2.2, selfFed: true, drone: true, shock: 1 } },
+  { id: 'appui_mortier', name: 'Appui mortier', short: 'Mortier', shape: ['XX', 'XX'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 0, price: 18, crafted: true,
+    active: { kind: 'frag', value: 40, cooldown: 8, charges: 3, strike: true },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'charges', value: 1 }, max: 1 }] },
+  { id: 'designateur', name: 'Désignateur laser', short: 'Désign.', shape: ['XXX'], category: 'explosif', family: 'tactique', tags: ['explosif'], minRound: 0, price: 18, crafted: true,
+    active: { kind: 'frag', value: 55, cooldown: 10, charges: 2, strike: true, pierce: true },
+    stars: [{ want: ['arme'], effect: { on: 'target', kind: 'dmg', value: 0.15 }, max: 1 }] },
+  { id: 'bidon_napalm', name: 'Bidon de napalm', short: 'Napalm', shape: ['X', 'X'], category: 'explosif', family: 'demolition', tags: ['explosif'], minRound: 0, price: 12, crafted: true,
+    active: { kind: 'frag', value: 12, cooldown: 6, charges: 3, burn: 8 },
+    stars: [{ want: ['explosif'], effect: { on: 'self', kind: 'dmg', value: 0.2 }, max: 2 }] },
+  { id: 'essaim', name: 'Essaim de drones', short: 'Essaim', wclass: 'Drone', shape: ['XXX', 'XXX'], category: 'arme', family: 'tactique', tags: ['arme'], minRound: 0, price: 34, crafted: true,
+    weapon: { dmg: 5, interval: 0.3, mag: 60, reload: 2, selfFed: true, drone: true, shock: 1 } },
+  { id: 'coffre_fort', name: 'Coffre-fort', short: 'Coffre', shape: ['XX', 'XX'], category: 'composant', family: 'tactique', tags: ['composant'], minRound: 0, price: 14, crafted: true,
+    income: 6 },
   // --- Objets légendaires (design/CONTENU-V3.md) : uniques, dès le 2e cercle, chacun change une règle du duel
   { id: 'ange_gardien', name: "Médaille de l'ange gardien", short: 'Ange', shape: ['X'], category: 'medical', family: 'rempart', tags: ['medical'], minRound: 1, price: 18, legendary: true,
     keystone: { revive: 0.35 },
@@ -403,7 +437,7 @@ export const FAMILY_INFO: Record<Family, { name: string; color: number; hex: str
   precision: { name: 'Précision', color: 0x5fb3e0, hex: '#9ad3f2', tier2: '+10 % de critique pour toutes les armes', tier4: 'Critiques ×2,25 au lieu de ×2' },
   demolition: { name: 'Démolition', color: 0xc94a4a, hex: '#ef7b72', tier2: '+1 charge pour chaque explosif', tier4: "Explosions et fusils à pompe ignorent l'armure" },
   rempart: { name: 'Rempart', color: 0xa9bccb, hex: '#a9bccb', tier2: "+30 % d'armure", tier4: "L'armure se régénère de 3 par seconde" },
-  tactique: { name: 'Tactique', color: 0xb5d65a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Prévu avec la radio et le drone' },
+  tactique: { name: 'Tactique', color: 0xb5d65a, hex: '#b5d65a', tier2: 'Le fumigène dure 50 % plus longtemps', tier4: 'Drones et radios agissent 30 % plus vite' },
 };
 
 export const CATEGORY_COLORS: Record<Category, number> = {

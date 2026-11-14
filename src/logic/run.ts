@@ -124,6 +124,8 @@ export interface RunState {
   over?: 'win' | 'lose';
   /** Duels gagnés dans la partie (Goulag compris) : font grandir les Plaques du vétéran. */
   wins?: number;
+  /** Crédits rapportés par les objets de revenu au dernier ravitaillement (affichage). */
+  lastIncome?: number;
 }
 
 /** Paramètres d'un duel : l'UI génère le bot avec generateBot(seed, round, { danger }) et simule. */
@@ -483,7 +485,15 @@ export function endAction(run: RunState): { nextRound: boolean; final: boolean }
   run.cards = [];
   run.played = [];
   run.resupply = true;
+  // Économie : les objets de revenu posés dans le sac rapportent à chaque nouveau cercle.
+  run.lastIncome = roundIncome(run);
+  run.credits += run.lastIncome;
   return { nextRound: true, final: run.round >= FINAL_ROUND };
+}
+
+/** Crédits rapportés par les objets de revenu posés (Caisse de l'intendant…) au passage au cercle `run.round`. */
+export function roundIncome(run: RunState): number {
+  return run.items.filter((i) => i.placed && ITEMS[i.defId].income).reduce((t, i) => t + ITEMS[i.defId].income! + Math.max(0, run.round - 1), 0);
 }
 
 /** Lance le duel final « Top 1 » (après la 5e manche). */

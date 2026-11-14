@@ -438,7 +438,7 @@ export function simulateDuel(a: PlayerLoadout, b: PlayerLoadout, seed: number, o
       if (s.charges <= 0 || t < s.next) continue;
       const ac = s.a;
       // Lancer une grenade coûte de l'Endurance (pas les soins, le taser ni l'adrénaline).
-      const thrown = ac.kind === 'frag' || ac.kind === 'flash' || ac.kind === 'smoke';
+      const thrown = (ac.kind === 'frag' || ac.kind === 'flash' || ac.kind === 'smoke') && !ac.strike;
       const aCost = thrown && me.l.endMax !== undefined && t >= me.adrenalineUntil ? THROW_COST : 0;
       if (aCost > me.end) {
         s.next = t + TIRED_WAIT;

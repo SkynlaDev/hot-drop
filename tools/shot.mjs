@@ -14,5 +14,12 @@ await page.goto(`http://localhost:${port}/`);
 await page.waitForFunction(() => window.game?.scene?.isActive('menu'), null, { timeout: 30000 });
 const wait = await page.evaluate(`(async () => { const game = window.game; ${body} })()`);
 await page.waitForTimeout(typeof wait === 'number' ? wait : 800);
+// CLICKS="x,y,attente_ms;…" en coordonnées du jeu (720 × 1280) : touches successives, capture à la fin.
+for (const c of (process.env.CLICKS ?? '').split(';').filter(Boolean)) {
+  const [x, y, ms] = c.split(',').map(Number);
+  const box = await page.locator('canvas').boundingBox();
+  await page.mouse.click(box.x + (x / 720) * box.width, box.y + (y / 1280) * box.height);
+  await page.waitForTimeout(ms || 500);
+}
 await page.screenshot({ path: out });
 await browser.close();

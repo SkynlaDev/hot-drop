@@ -49,6 +49,8 @@ export interface WeaponRt {
   shock?: number;
   /** Le Feu continu ne retombe pas à la recharge. */
   heatKeep?: boolean;
+  /** Drone : tire seul (sans Endurance). */
+  drone?: boolean;
 }
 
 /** Arme de mêlée : frappe pendant tout le duel. */
@@ -80,6 +82,8 @@ export interface ActiveRt {
   shock?: number;
   heatReset?: boolean;
   cleanse?: boolean;
+  /** Frappe d'artillerie : pas d'Endurance. */
+  strike?: boolean;
 }
 
 export interface FamilyState {
@@ -143,6 +147,9 @@ export const FEU_RATE = 0.06;
 export const FEU_CAP = 0.35;
 /** Marque (Sentinelle) : la touche suivante d'une autre arme fait +40 %. */
 export const MARK_BONUS = 0.4;
+
+/** Famille Tactique, palier 4 : drones et radios agissent ce facteur plus vite. */
+export const TACTIQUE_SPEED = 1.3;
 
 /** Famille Rempart : armure ×REMPART_ARMOR au palier 2, régénération d'armure par seconde au palier 4. */
 export const REMPART_ARMOR = 1.3;
@@ -256,6 +263,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       let extMag = 0;
       let magBurn = 0;
       let magShock = 0;
+      let hollow = 0;
       for (const o of placed) {
         if (o === it) continue;
         const od = ITEMS[o.defId];
@@ -295,6 +303,9 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         } else if (od.synergy.kind === 'tracer') {
           markBoost = Math.max(markBoost, od.synergy.value);
           links.push({ a: o.uid, b: it.uid, label: `Marque +${pct(od.synergy.value)}`, edge });
+        } else if (od.synergy.kind === 'hollow') {
+          hollow = Math.max(hollow, od.synergy.value);
+          links.push({ a: o.uid, b: it.uid, label: `+${pct(od.synergy.value)} de dégâts`, edge });
         } else if (od.synergy.kind === 'pierce') {
           armorPierce = Math.max(armorPierce, Math.min(1, od.synergy.value));
           links.push({ a: o.uid, b: it.uid, label: `perce ${pct(Math.min(1, od.synergy.value))} d'armure`, edge });
@@ -305,7 +316,8 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
       reload *= fed ? Math.max(0.3, 1 - magBonus) : UNFED_RELOAD;
       if (drum > 0) reload *= 1 + DRUM_RELOAD;
       interval /= (1 + grip) * (1 + sb.cadence);
-      dmgMult *= 1 + sb.dmg;
+      if (d.weapon.drone && tier('tactique') >= 2) interval /= TACTIQUE_SPEED;
+      dmgMult *= (1 + sb.dmg) * (1 + hollow);
       weapons.push({
         uid: it.uid,
         name: d.name,
@@ -324,10 +336,11 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         heatRate: FEU_RATE * (1 + cooler),
         heatCap,
         markBoost,
-        endCost: (ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * d.weapon.interval * (d.weapon.endMult ?? 1) * (1 + endCostMult),
+        endCost: d.weapon.drone ? 0 : (ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * d.weapon.interval * (d.weapon.endMult ?? 1) * (1 + endCostMult),
         burn: ((d.weapon.burn ?? 0) + magBurn) * slowStacks(d.weapon.interval),
         shock: ((d.weapon.shock ?? 0) + magShock) * slowStacks(d.weapon.interval),
         heatKeep: d.weapon.heatKeep,
+        drone: d.weapon.drone,
       });
     }
 
@@ -345,7 +358,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
     if (own > 0) armorBy[it.uid] = own;
 
     if (d.active) {
-      const cd = d.active.cooldown;
+      const cd = d.active.cooldown / (d.active.strike && tier('tactique') >= 2 ? TACTIQUE_SPEED : 1);
       const kind = d.active.kind;
       let duration = d.active.duration ?? 0;
       if (kind === 'smoke' && tier('tactique') >= 1) duration *= 1.5;
@@ -364,6 +377,7 @@ export function computeLoadout(items: ItemInst[], operator: OperatorId, maxHp: n
         shock: d.active.shock,
         heatReset: d.active.heatReset,
         cleanse: d.active.cleanse,
+        strike: d.active.strike,
       });
     }
   }
@@ -468,7 +482,8 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (wp.burn) lines.push(`Chaque touche pose ${wp.burn * slowStacks(wp.interval)} Brûlure`);
     if (wp.shock) lines.push(`Chaque touche pose ${wp.shock * slowStacks(wp.interval)} Choc`);
     if (wp.heatKeep) lines.push('Viper : le Feu continu ne retombe pas à la recharge');
-    lines.push(`Endurance : ${r1((ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * wp.interval * (wp.endMult ?? 1))} par tir${wp.endMult ? ' (deux armes à la fois)' : ''}`);
+    if (wp.drone) lines.push("Drone : tire tout seul, sans dépenser d'Endurance");
+    else lines.push(`Endurance : ${r1((ENDURANCE_DRAIN[d.wclass ?? ''] ?? 0.6) * wp.interval * (wp.endMult ?? 1))} par tir${wp.endMult ? ' (deux armes à la fois)' : ''}`);
   }
   if (d.melee) {
     const ml = d.melee;
@@ -486,6 +501,7 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
   if (d.shockThreshold) lines.push(`Décharge du Choc à ${SHOCK_THRESHOLD + d.shockThreshold} cumuls au lieu de ${SHOCK_THRESHOLD}`);
   if (d.shockImmune) lines.push('Immunisé à la décharge du Choc');
   if (d.endRegen) lines.push(`Endurance +${r1(d.endRegen)} par seconde`);
+  if (d.income) lines.push(`Économie : à chaque nouveau cercle, posé dans le sac, +${d.income} crédits (+1 par cercle passé)`);
   if (d.endCostMult) lines.push(`Tirs : Endurance +${pct(d.endCostMult)}`);
   if (d.dischargeDmg) lines.push(`Chaque décharge de Choc que tu déclenches : +${d.dischargeDmg} dégâts qui ignorent l'armure`);
   if (d.active) {
@@ -503,8 +519,9 @@ export function describe(inst: Pick<ItemInst, 'defId'>): { title: string; subtit
     if (a.shock) lines.push(`Pose ${a.shock} Choc${a.shock >= SHOCK_THRESHOLD ? ' : décharge immédiate' : ''}`);
     if (a.heatReset) lines.push('Éteint le Feu continu adverse');
     if (a.cleanse) lines.push('Au 1er soin : retire Brûlure, Choc et Saignement');
+    if (a.strike) lines.push("Frappe d'artillerie : ne coûte pas d'Endurance");
     lines.push(`${ch} charge${ch > 1 ? 's' : ''} par combat · délai ${cd} s`);
-    if (a.kind === 'frag' || a.kind === 'flash' || a.kind === 'smoke') lines.push(`Endurance : ${THROW_COST} par lancer`);
+    if ((a.kind === 'frag' || a.kind === 'flash' || a.kind === 'smoke') && !a.strike) lines.push(`Endurance : ${THROW_COST} par lancer`);
   }
   // Étoiles : « ★ Ce qu'elle attend : ce qu'elle apporte ».
   for (const sp of starSpecs(d.id)) lines.push(`★ ${sp.wantLabel} adjacent${sp.at ? ' (cases marquées)' : ''} : ${sp.text}`);

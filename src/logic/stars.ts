@@ -56,6 +56,7 @@ function synergyText(d: ItemDef): string {
     case 'drum': return `chargeur +${v}, recharge +${pct(DRUM_RELOAD)} (nourrit le Feu continu)`;
     case 'cooler': return `son Feu continu monte ${v} plus vite (passif de Viper)`;
     case 'tracer': return `quand elle consomme la Marque, +${v} de dégâts en plus (passif de Sentinelle)`;
+    case 'hollow': return `+${v} de dégâts (ne l'alimente pas)`;
   }
 }
 

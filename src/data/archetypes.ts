@@ -2,7 +2,7 @@
 // affiché avant le duel pour que le joueur puisse s'y préparer.
 import type { OperatorId } from './operators';
 
-export type ArchetypeId = 'feu_continu' | 'akimbo' | 'marque' | 'tir_lourd' | 'demolition' | 'rempart' | 'lame';
+export type ArchetypeId = 'feu_continu' | 'akimbo' | 'marque' | 'tir_lourd' | 'demolition' | 'rempart' | 'lame' | 'drones';
 
 export interface ArchetypeDef {
   id: ArchetypeId;
@@ -52,7 +52,7 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     blurb: 'Une arme marque sur critique, l’autre achève la cible marquée.',
     weapons: ['dmr_faucon', 'revolver', 'colibri', 'precision'],
     crafted: ['faucon_traqueur', 'taureau_magnum'],
-    extras: ['tracantes', 'chg_762', 'chg_44', 'viseur_holo', 'silencieux', 'lunette'],
+    extras: ['tracantes', 'chg_762', 'chg_44', 'viseur_holo', 'silencieux', 'lunette', 'pointe_creuse'],
     twoGuns: true,
   },
   tir_lourd: {
@@ -60,14 +60,14 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     blurb: 'Fusils de précision : premier tir critique, critiques énormes.',
     weapons: ['precision', 'dmr_faucon'],
     crafted: ['aigle_longuevue', 'faucon_traqueur', 'rhinoceros'],
-    extras: ['lunette', 'bipied', 'silencieux', 'perforantes', 'chg_762', 'fumigene'],
+    extras: ['lunette', 'bipied', 'silencieux', 'perforantes', 'chg_762', 'fumigene', 'pointe_creuse'],
   },
   demolition: {
     id: 'demolition', legendaries: ['detonateur', 'cocktail'], name: 'Démolition',
     blurb: 'Fusils à pompe et grenades en chaîne : des explosions qui percent l’armure.',
     weapons: ['pompe', 'pompe_belier'],
-    crafted: ['pompe_dragon', 'thermite', 'sous_munitions', 'grenade_incendiaire', 'chg_incendiaire', 'souffle_dragon', 'bombe_phosphore'],
-    extras: ['frag', 'flash', 'fumigene', 'chg_12g', 'casque', 'ifak'],
+    crafted: ['pompe_dragon', 'thermite', 'sous_munitions', 'grenade_incendiaire', 'chg_incendiaire', 'souffle_dragon', 'bombe_phosphore', 'bidon_napalm'],
+    extras: ['frag', 'flash', 'fumigene', 'chg_12g', 'casque', 'ifak', 'molotov'],
   },
   rempart: {
     id: 'rempart', legendaries: ['bouclier_emeute', 'ange_gardien', 'poche_sang'], name: 'Rempart',
@@ -86,6 +86,14 @@ export const ARCHETYPES: Record<ArchetypeId, ArchetypeDef> = {
     weapons: [],
     crafted: ['machette', 'casque_lourd', 'lame_rouge'],
     extras: ['couteau', 'couteau_combat', 'masse', 'bandage', 'taser', 'casque', 'seringue'],
+  },
+  drones: {
+    id: 'drones', legendaries: ['condensateur', 'cocktail'], name: 'Drones',
+    blurb: 'Drones qui tirent sans s’essouffler et frappes d’artillerie à la radio.',
+    weapons: ['drone', 'smg', 'ar_vesta', 'smg_guepe'],
+    crafted: ['drone_assaut', 'appui_mortier', 'designateur', 'essaim'],
+    extras: ['radio', 'chg_9mm', 'chg_556', 'frag', 'lunette', 'casque', 'ration', 'poignee', 'fumigene', 'ifak', 'plaque'],
+    twoGuns: true,
   },
 };
 

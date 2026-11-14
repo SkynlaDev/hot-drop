@@ -94,6 +94,13 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
   for (const e of result.events as DuelEvent[]) {
     switch (e.kind) {
       case 'shot': {
+        // Touche bloquée (Bouclier anti-émeute) : comptée au bouclier ; un éclat bloqué n'est pas un tir.
+        if (e.blocked) {
+          const sh = L[other(e.from)].block;
+          if (sh) it(other(e.from), sh.uid).blocked++;
+          if (!e.double && L[e.from].weapons.some((w) => w.uid === e.uid)) it(e.from, e.uid).shots++;
+          break;
+        }
         const r = it(e.from, e.uid);
         // Un tir = une touche au plus, même s'il frappe deux fois (plombs, balle doublée).
         const key = `${e.from}:${e.uid}`;
@@ -104,11 +111,6 @@ export function duelReport(result: Pick<DuelResult, 'events'>, a: PlayerLoadout,
         if (!e.miss && !shotHit.get(key)) {
           r.hits++;
           shotHit.set(key, true);
-        }
-        if (e.blocked) {
-          const sh = L[other(e.from)].block;
-          if (sh) it(other(e.from), sh.uid).blocked++;
-          break;
         }
         if (e.miss) {
           const sm = smoke[other(e.from)];

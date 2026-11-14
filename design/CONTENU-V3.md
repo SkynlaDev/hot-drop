@@ -45,3 +45,29 @@ Moteur : nouveaux événements `revive` et `shot.blocked` ; l'éclat du détonat
 **Étape 1 (légendaires : fait)**. Décisions par défaut : chiffres ci-dessus ; légendaires revendus à moitié prix comme
 le reste ; la règle du légendaire est la première ligne de sa fiche (c'est elle qu'affiche l'offre de boutique).
 Sprites provisoires (icônes) en attendant l'étape 4.
+
+## 2. Vague d'objets : drones, radio, Molotov, pointes creuses, économie
+
+| Objet | Forme | Effet |
+|---|---|---|
+| Drone de reconnaissance (dès le 2e cercle, 9 cr) | 2×2 | Arme « Drone » : 4 dégâts / 0,7 s, chargeur 30, alimentation intégrée, **aucune Endurance** |
+| Radio de campagne (dès le 2e cercle, 7 cr) | 1×2 | Frappe d'artillerie 30, 2 charges, délai 9 s, **aucune Endurance** ; ★ arme : +10 % de dégâts |
+| Balles à pointe creuse (dès le 2e cercle, 5 cr) | 1 | Arme adjacente (tout calibre) +20 % de dégâts, sans l'alimenter |
+| Caisse de l'intendant (6 cr) | 2 | Économie : à chaque nouveau cercle, posée dans le sac, +2 crédits (+1 par cercle passé) |
+| Cocktail Molotov (4 cr) | 1 | 8 dégâts + 5 Brûlure, 2 charges : une source de Brûlure dès le 1er cercle |
+
+| Recette | Résultat |
+|---|---|
+| Drone + Batterie | **Drone d'assaut** : 6 / 0,55 s, chargeur 40, pose du Choc |
+| Radio + Frag | **Appui mortier** : frappe 40, 3 charges, délai 8 s |
+| Radio + Lunette | **Désignateur laser** : frappe 55 qui ignore l'armure, 2 charges ; ★ arme +15 % |
+| Molotov + Molotov | **Bidon de napalm** : 12 + 8 Brûlure, 3 charges |
+| Caisse + Caisse | **Coffre-fort** : +6 crédits par cercle (+1 par cercle passé) |
+| Drone d'assaut + Appui mortier (rang 2) | **Essaim de drones** : 5 / 0,3 s, chargeur 60, Choc, sans Endurance |
+
+**Palier 4 de Tactique** (enfin réel) : drones et radios agissent 30 % plus vite. Nouvel archétype de bot **Drones**
+(les deux opérateurs, deux armes) ; Molotov et napalm chez Démolition, pointes creuses chez Marque et Tir lourd.
+
+**Étape 2 (fait)**. Décisions par défaut : le drone profite du Feu continu de Viper comme toute arme (sans ça Viper
+tombait à 43 % contre Sentinelle au 5e cercle, Sentinelle profitant déjà de la Marque avec un drone en 2e arme) ;
+la Caisse de l'intendant rapporte au passage du cercle, avant la boutique du ravitaillement (ligne « Intendance »).

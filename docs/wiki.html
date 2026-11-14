@@ -439,6 +439,61 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <td>Explosif (tout autour)</td>
 <td>+1 charge (max 1)</td>
 </tr>
+<tr>
+<td>Radio de campagne</td>
+<td>Arme (tout autour)</td>
+<td>+10 % de dégâts à cet objet (max 1)</td>
+</tr>
+<tr>
+<td>Balles à pointe creuse</td>
+<td>Arme (tout autour)</td>
+<td>+20 % de dégâts (ne l'alimente pas)</td>
+</tr>
+<tr>
+<td>Cocktail Molotov</td>
+<td>Explosif (tout autour)</td>
+<td>+20 % de dégâts (max 2)</td>
+</tr>
+<tr>
+<td>Appui mortier</td>
+<td>Explosif (tout autour)</td>
+<td>+1 charge (max 1)</td>
+</tr>
+<tr>
+<td>Désignateur laser</td>
+<td>Arme (tout autour)</td>
+<td>+15 % de dégâts à cet objet (max 1)</td>
+</tr>
+<tr>
+<td>Bidon de napalm</td>
+<td>Explosif (tout autour)</td>
+<td>+20 % de dégâts (max 2)</td>
+</tr>
+<tr>
+<td>Médaille de l'ange gardien</td>
+<td>Protection (tout autour)</td>
+<td>+10 d'armure à cet objet (max 1)</td>
+</tr>
+<tr>
+<td>Détonateur de recharge</td>
+<td>Explosif (tout autour)</td>
+<td>+20 % de dégâts à cet objet (max 2)</td>
+</tr>
+<tr>
+<td>Poche de sang</td>
+<td>Soin (tout autour)</td>
+<td>soins +25 % à cet objet (max 2)</td>
+</tr>
+<tr>
+<td>Bouclier anti-émeute</td>
+<td>Arme de mêlée (tout autour)</td>
+<td>+25 % de dégâts à cet objet (max 1)</td>
+</tr>
+<tr>
+<td>Cocktail de combat</td>
+<td>Arme (tout autour)</td>
+<td>+8 % de cadence à cet objet (max 1)</td>
+</tr>
 </tbody>
 </table>
 <h2 id="familles">Familles</h2>
@@ -475,7 +530,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <tr>
 <td>Tactique</td>
 <td>Le fumigène dure 50 % plus longtemps</td>
-<td>Prévu avec la radio et le drone</td>
+<td>Drones et radios agissent 30 % plus vite</td>
 </tr>
 </tbody>
 </table>
@@ -633,6 +688,22 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <td><img src="../public/art/items/bombe_phosphore.png" height="24"> <strong>Bombe au phosphore</strong></td>
 </tr>
 <tr>
+<td>Drone de reconnaissance + <img src="../public/art/items/batterie.png" height="24"> Batterie</td>
+<td><strong>Drone d'assaut</strong></td>
+</tr>
+<tr>
+<td>Radio de campagne + <img src="../public/art/items/frag.png" height="24"> Grenade frag</td>
+<td><strong>Appui mortier</strong></td>
+</tr>
+<tr>
+<td>Radio de campagne + <img src="../public/art/items/lunette.png" height="24"> Lunette ×4</td>
+<td><strong>Désignateur laser</strong></td>
+</tr>
+<tr>
+<td>Drone d'assaut +  Appui mortier</td>
+<td><strong>Essaim de drones</strong></td>
+</tr>
+<tr>
 <td><img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba + <img src="../public/art/items/pistolet.png" height="24"> Pistolet Mamba</td>
 <td><img src="../public/art/items/mamba_akimbo.png" height="24"> <strong>Mamba Akimbo</strong></td>
 </tr>
@@ -655,6 +726,14 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <tr>
 <td><img src="../public/art/items/couteau.png" height="24"> Couteau + <img src="../public/art/items/couteau.png" height="24"> Couteau</td>
 <td><img src="../public/art/items/machette.png" height="24"> <strong>Machette</strong></td>
+</tr>
+<tr>
+<td>Cocktail Molotov +  Cocktail Molotov</td>
+<td><strong>Bidon de napalm</strong></td>
+</tr>
+<tr>
+<td>Caisse de l'intendant +  Caisse de l'intendant</td>
+<td><strong>Coffre-fort</strong></td>
 </tr>
 </tbody>
 </table>
@@ -911,6 +990,17 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>2 cases · revente 2 cr</li>
 </ul>
+<h4 id="drone-de-reconnaissance">Drone de reconnaissance</h4>
+<p><strong>Base · Drone</strong> · Forme <code>■■ / ■■</code> (4 cases) · Prix 9 · dès le cercle 2</p>
+<ul>
+<li>Dégâts 4 toutes les 0,7 s</li>
+<li>Chargeur 30 balles · recharge 2,5 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>Drone : tire tout seul, sans dépenser d'Endurance</li>
+<li>Recette : Drone + Batterie → Drone d'assaut (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>4 cases · revente 4 cr</li>
+</ul>
 <h3 id="armes-a-feu-assemblees">Armes à feu assemblées</h3>
 <h4 id="kr-4-tactique">KR-4 Tactique</h4>
 <p><img src="../public/art/items/kr4_tactique.png" height="48"></p>
@@ -1062,7 +1152,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance : 0,4 par tir</li>
 <li>Chaque décharge de Choc que tu déclenches : +30 dégâts qui ignorent l'armure</li>
 <li>Objet assemblé (recette)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>6 cases · revente 14 cr</li>
 </ul>
 <h4 id="fusil-anti-materiel-rhinoceros">Fusil anti-matériel Rhinocéros</h4>
@@ -1093,6 +1183,31 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Famille Rafale : 2 → +15 % de cadence des armes rafale · 4 → 1 balle sur 3 touche deux fois</li>
 <li>8 cases · revente 16 cr</li>
 </ul>
+<h4 id="drone-dassaut">Drone d'assaut</h4>
+<p><strong>Assemblé · Drone</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 6 toutes les 0,6 s</li>
+<li>Chargeur 40 balles · recharge 2,2 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>Chaque touche pose 1 Choc</li>
+<li>Drone : tire tout seul, sans dépenser d'Endurance</li>
+<li>Objet assemblé (recette)</li>
+<li>Recette : Drone A. + Mortier → Essaim de drones (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>4 cases · revente 10 cr</li>
+</ul>
+<h4 id="essaim-de-drones">Essaim de drones</h4>
+<p><strong>Assemblé · Drone</strong> · Forme <code>■■■ / ■■■</code> (6 cases) · Assemblé</p>
+<ul>
+<li>Dégâts 5 toutes les 0,3 s</li>
+<li>Chargeur 60 balles · recharge 2 s</li>
+<li>Alimentation intégrée : jamais besoin de chargeur</li>
+<li>Chaque touche pose 1 Choc</li>
+<li>Drone : tire tout seul, sans dépenser d'Endurance</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>6 cases · revente 17 cr</li>
+</ul>
 <h3 id="armes-de-melee">Armes de mêlée</h3>
 <h4 id="couteau">Couteau</h4>
 <p><img src="../public/art/items/couteau.png" height="48"></p>
@@ -1103,7 +1218,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance : 0,3 par coup</li>
 <li>★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup</li>
 <li>Recette : Couteau + Couteau → Machette (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>2 cases · revente 1 cr</li>
 </ul>
 <h4 id="couteau-de-combat">Couteau de combat</h4>
@@ -1116,7 +1231,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance : 0,3 par coup</li>
 <li>★ Arme de mêlée adjacent (cases marquées) : +2 de saignement par coup</li>
 <li>Recette : Machette + Couteau C. → Lame rouge (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>2 cases · revente 2 cr</li>
 </ul>
 <h4 id="masse">Masse</h4>
@@ -1128,7 +1243,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Frappe 1.5 fois plus vite dans un sac sans arme à feu</li>
 <li>Endurance : 0,5 par coup</li>
 <li>★ Protection adjacent : +25 % de dégâts</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>3 cases · revente 3 cr</li>
 </ul>
 <h4 id="machette">Machette</h4>
@@ -1141,7 +1256,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts</li>
 <li>Objet assemblé (recette)</li>
 <li>Recette : Machette + Couteau C. → Lame rouge (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>3 cases · revente 3 cr</li>
 </ul>
 <h4 id="lame-rouge">Lame rouge</h4>
@@ -1154,7 +1269,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance : 0,2 par coup</li>
 <li>★ Arme de mêlée adjacent (cases marquées) : +25 % de dégâts</li>
 <li>Objet assemblé (recette)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>4 cases · revente 8 cr</li>
 </ul>
 <h3 id="munitions">Munitions</h3>
@@ -1244,8 +1359,15 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>★ Arme adjacent : l'alimente (tout calibre), −25 % de recharge, chaque touche pose du Choc</li>
 <li>Objet assemblé (recette)</li>
 <li>Recette : Taser L. + Chg élec → Bobine Tesla (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>1 case · revente 3 cr</li>
+</ul>
+<h4 id="balles-a-pointe-creuse">Balles à pointe creuse</h4>
+<p><strong>Base · Munition</strong> · Forme <code>■</code> (1 case) · Prix 5 · dès le cercle 2</p>
+<ul>
+<li>★ Arme adjacent : +20 % de dégâts (ne l'alimente pas)</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>1 case · revente 2 cr</li>
 </ul>
 <h3 id="accessoires">Accessoires</h3>
 <h4 id="lunette-4">Lunette ×4</h4>
@@ -1254,6 +1376,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <ul>
 <li>★ Arme longue adjacent : +25 % de critique</li>
 <li>Recette : Aigle + Lunette + Bipied → Aigle Longue-vue (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Radio + Lunette → Désignateur laser (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
 <li>2 cases · revente 2 cr</li>
 </ul>
@@ -1327,7 +1450,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>1 charge par combat · délai 0 s</li>
 <li>★ Arme de mêlée adjacent : +1 charge</li>
 <li>Recette : Taser + Batterie → Taser lourd (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>2 cases · revente 2 cr</li>
 </ul>
 <h4 id="taser-lourd">Taser lourd</h4>
@@ -1340,8 +1463,32 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>★ Arme de mêlée adjacent : +1 charge</li>
 <li>Objet assemblé (recette)</li>
 <li>Recette : Taser L. + Chg élec → Bobine Tesla (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>2 cases · revente 4 cr</li>
+</ul>
+<h4 id="plaques-du-veteran">Plaques du vétéran</h4>
+<p><strong>Légendaire · Accessoire</strong> · Forme <code>■</code> (1 case) · Prix 16 · dès le cercle 2</p>
+<ul>
+<li>+1 dégât par touche (armes et mêlée) pour chaque duel gagné dans la partie, jusqu'à +10</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>1 case · revente 8 cr</li>
+</ul>
+<h4 id="lunette-thermique">Lunette thermique</h4>
+<p><strong>Légendaire · Accessoire</strong> · Forme <code>■■</code> (2 cases) · Prix 18 · dès le cercle 2</p>
+<ul>
+<li>Chaque critique pose 3 Brûlure</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>Famille Précision : 2 → +10 % de critique pour toutes les armes · 4 → critiques ×2,25 au lieu de ×2</li>
+<li>2 cases · revente 9 cr</li>
+</ul>
+<h4 id="insigne-des-lames">Insigne des Lames</h4>
+<p><strong>Légendaire · Accessoire</strong> · Forme <code>■</code> (1 case) · Prix 16 · dès le cercle 2</p>
+<ul>
+<li>Toute ta mêlée : +4 saignement par coup et +25 % de vitesse</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>1 case · revente 8 cr</li>
 </ul>
 <h3 id="protections">Protections</h3>
 <h4 id="plaque-ceramique">Plaque céramique</h4>
@@ -1422,6 +1569,16 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
 <li>9 cases · revente 17 cr</li>
 </ul>
+<h4 id="bouclier-anti-emeute">Bouclier anti-émeute</h4>
+<p><strong>Légendaire · Protection</strong> · Forme <code>■■ / ■■ / ■■</code> (6 cases) · Prix 20 · dès le cercle 2</p>
+<ul>
+<li>Bloque les 6 premières touches reçues (balles, coups, éclats)</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>Armure +25</li>
+<li>★ Arme de mêlée adjacent : +25 % de dégâts à cet objet</li>
+<li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
+<li>6 cases · revente 10 cr</li>
+</ul>
 <h3 id="explosifs">Explosifs</h3>
 <h4 id="grenade-frag">Grenade frag</h4>
 <p><img src="../public/art/items/frag.png" height="48"></p>
@@ -1433,6 +1590,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>★ Explosif adjacent : +20 % de dégâts</li>
 <li>Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)</li>
 <li>Recette : Frag + Briquet → Grenade incendiaire (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Radio + Frag → Appui mortier (ingrédients adjacents : assemblage automatique)</li>
 <li>Recette : Frag + Frag → Grenade à sous-munitions (ingrédients adjacents : assemblage automatique)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
 <li>1 case · revente 2 cr</li>
@@ -1446,7 +1604,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance : 0.5 par lancer</li>
 <li>★ Explosif adjacent : +1 charge</li>
 <li>Recette : Frag + Fumi → Grenade thermite (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>2 cases · revente 1 cr</li>
 </ul>
 <h4 id="grenade-flash">Grenade flash</h4>
@@ -1512,7 +1670,7 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance : 0.5 par lancer</li>
 <li>★ Explosif adjacent : +1 charge</li>
 <li>Objet assemblé (recette)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>1 case · revente 4 cr</li>
 </ul>
 <h4 id="bombe-au-phosphore">Bombe au phosphore</h4>
@@ -1527,6 +1685,74 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Objet assemblé (recette)</li>
 <li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
 <li>2 cases · revente 12 cr</li>
+</ul>
+<h4 id="radio-de-campagne">Radio de campagne</h4>
+<p><strong>Base · Explosif</strong> · Forme <code>■ / ■</code> (2 cases) · Prix 7 · dès le cercle 2</p>
+<ul>
+<li>30 dégâts à l'adversaire</li>
+<li>Frappe d'artillerie : ne coûte pas d'Endurance</li>
+<li>2 charges par combat · délai 9 s</li>
+<li>★ Arme adjacent : +10 % de dégâts à cet objet</li>
+<li>Recette : Radio + Frag → Appui mortier (ingrédients adjacents : assemblage automatique)</li>
+<li>Recette : Radio + Lunette → Désignateur laser (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>2 cases · revente 3 cr</li>
+</ul>
+<h4 id="cocktail-molotov">Cocktail Molotov</h4>
+<p><strong>Base · Explosif</strong> · Forme <code>■</code> (1 case) · Prix 4 · dès le cercle 1</p>
+<ul>
+<li>8 dégâts à l'adversaire</li>
+<li>Pose 5 Brûlure</li>
+<li>2 charges par combat · délai 6 s</li>
+<li>Endurance : 0.5 par lancer</li>
+<li>★ Explosif adjacent : +20 % de dégâts</li>
+<li>Recette : Molotov + Molotov → Bidon de napalm (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>1 case · revente 2 cr</li>
+</ul>
+<h4 id="appui-mortier">Appui mortier</h4>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>40 dégâts à l'adversaire</li>
+<li>Frappe d'artillerie : ne coûte pas d'Endurance</li>
+<li>3 charges par combat · délai 8 s</li>
+<li>★ Explosif adjacent : +1 charge</li>
+<li>Objet assemblé (recette)</li>
+<li>Recette : Drone A. + Mortier → Essaim de drones (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>4 cases · revente 9 cr</li>
+</ul>
+<h4 id="designateur-laser">Désignateur laser</h4>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■■■</code> (3 cases) · Assemblé</p>
+<ul>
+<li>55 dégâts à l'adversaire, ignore l'armure</li>
+<li>Frappe d'artillerie : ne coûte pas d'Endurance</li>
+<li>2 charges par combat · délai 10 s</li>
+<li>★ Arme adjacent : +15 % de dégâts à cet objet</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>3 cases · revente 9 cr</li>
+</ul>
+<h4 id="bidon-de-napalm">Bidon de napalm</h4>
+<p><strong>Assemblé · Explosif</strong> · Forme <code>■ / ■</code> (2 cases) · Assemblé</p>
+<ul>
+<li>12 dégâts à l'adversaire</li>
+<li>Pose 8 Brûlure</li>
+<li>3 charges par combat · délai 6 s</li>
+<li>Endurance : 0.5 par lancer</li>
+<li>★ Explosif adjacent : +20 % de dégâts</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>2 cases · revente 6 cr</li>
+</ul>
+<h4 id="detonateur-de-recharge">Détonateur de recharge</h4>
+<p><strong>Légendaire · Explosif</strong> · Forme <code>■■</code> (2 cases) · Prix 18 · dès le cercle 2</p>
+<ul>
+<li>Chaque recharge d'une de tes armes : éclat de 14 dégâts (la moitié ignore l'armure)</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>★ Explosif adjacent : +20 % de dégâts à cet objet</li>
+<li>Famille Démolition : 2 → +1 charge pour chaque explosif · 4 → explosions et fusils à pompe ignorent l'armure</li>
+<li>2 cases · revente 9 cr</li>
 </ul>
 <h3 id="medical">Médical</h3>
 <h4 id="trousse-ifak">Trousse IFAK</h4>
@@ -1598,6 +1824,34 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
 <li>6 cases · revente 13 cr</li>
 </ul>
+<h4 id="medaille-de-lange-gardien">Médaille de l'ange gardien</h4>
+<p><strong>Légendaire · Médical</strong> · Forme <code>■</code> (1 case) · Prix 18 · dès le cercle 2</p>
+<ul>
+<li>Une fois par duel, à 0 PV : revient à 35 % des PV</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>★ Protection adjacent : +10 d'armure à cet objet</li>
+<li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
+<li>1 case · revente 9 cr</li>
+</ul>
+<h4 id="poche-de-sang">Poche de sang</h4>
+<p><strong>Légendaire · Médical</strong> · Forme <code>■ / ■</code> (2 cases) · Prix 18 · dès le cercle 2</p>
+<ul>
+<li>Vol de vie : 10 % des dégâts infligés rendus en PV</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>★ Soin adjacent : soins +25 % à cet objet</li>
+<li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
+<li>2 cases · revente 9 cr</li>
+</ul>
+<h4 id="cocktail-de-combat">Cocktail de combat</h4>
+<p><strong>Légendaire · Médical</strong> · Forme <code>■</code> (1 case) · Prix 16 · dès le cercle 2</p>
+<ul>
+<li>Endurance max +6</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>Endurance +0,4 par seconde</li>
+<li>★ Arme adjacent : +8 % de cadence à cet objet</li>
+<li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
+<li>1 case · revente 8 cr</li>
+</ul>
 <h3 id="composants">Composants</h3>
 <h4 id="briquet">Briquet</h4>
 <p><img src="../public/art/items/briquet.png" height="48"></p>
@@ -1625,7 +1879,8 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Recette : Cart. 12G + Batterie → Chargeur électrique (ingrédients adjacents : assemblage automatique)</li>
 <li>Recette : Flash + Batterie → Grenade IEM (ingrédients adjacents : assemblage automatique)</li>
 <li>Recette : Taser + Batterie → Taser lourd (ingrédients adjacents : assemblage automatique)</li>
-<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → prévu avec la radio et le drone</li>
+<li>Recette : Drone + Batterie → Drone d'assaut (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
 <li>1 case · revente 1 cr</li>
 </ul>
 <h4 id="ration-de-combat">Ration de combat</h4>
@@ -1635,4 +1890,28 @@ img{image-rendering:pixelated;vertical-align:middle;background:#3a414b;border-ra
 <li>Endurance +0,3 par seconde</li>
 <li>Famille Rempart : 2 → +30 % d'armure · 4 → l'armure se régénère de 3 par seconde</li>
 <li>1 case · revente 1 cr</li>
+</ul>
+<h4 id="caisse-de-lintendant">Caisse de l'intendant</h4>
+<p><strong>Base · Composant</strong> · Forme <code>■■</code> (2 cases) · Prix 6 · dès le cercle 1</p>
+<ul>
+<li>Économie : à chaque nouveau cercle, posé dans le sac, +2 crédits (+1 par cercle passé)</li>
+<li>Recette : Intendant + Intendant → Coffre-fort (ingrédients adjacents : assemblage automatique)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>2 cases · revente 3 cr</li>
+</ul>
+<h4 id="coffre-fort">Coffre-fort</h4>
+<p><strong>Assemblé · Composant</strong> · Forme <code>■■ / ■■</code> (4 cases) · Assemblé</p>
+<ul>
+<li>Économie : à chaque nouveau cercle, posé dans le sac, +6 crédits (+1 par cercle passé)</li>
+<li>Objet assemblé (recette)</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>4 cases · revente 7 cr</li>
+</ul>
+<h4 id="condensateur">Condensateur</h4>
+<p><strong>Légendaire · Composant</strong> · Forme <code>■■</code> (2 cases) · Prix 18 · dès le cercle 2</p>
+<ul>
+<li>Toutes les 8 touches d'arme à feu : 5 Choc (décharge)</li>
+<li>Légendaire : un seul exemplaire par partie</li>
+<li>Famille Tactique : 2 → le fumigène dure 50 % plus longtemps · 4 → drones et radios agissent 30 % plus vite</li>
+<li>2 cases · revente 9 cr</li>
 </ul>
