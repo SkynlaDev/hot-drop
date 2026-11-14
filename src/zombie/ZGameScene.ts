@@ -624,8 +624,8 @@ export default class ZGameScene extends Phaser.Scene {
     vibrate([100, 60, 200]);
     this.shake(400, 0.015);
     this.player.setTintMode(Phaser.TintModes.MULTIPLY).setTint(0x6b6370);
-    // Le soldat s'affaisse (pas de rotation : voir la démarche des zombies).
-    this.tweens.add({ targets: this.player, scaleY: PLAYER_SCALE * 0.55, scaleX: PLAYER_SCALE * 1.15, alpha: 0.7, duration: 500, ease: 'Bounce.Out' });
+    // Le soldat tombe : chute animée ; repli, affaissement (pas de rotation : voir la démarche des zombies).
+    if (!this.anim.playerDeath(this.player, this.cls.fig)) this.tweens.add({ targets: this.player, scaleY: PLAYER_SCALE * 0.55, scaleX: PLAYER_SCALE * 1.15, alpha: 0.7, duration: 500, ease: 'Bounce.Out' });
     // Ralenti, puis rapport.
     this.slowmo = 0.25;
     this.ui.banner('TOMBÉ AU COMBAT', C.dangerStr, H * 0.36);

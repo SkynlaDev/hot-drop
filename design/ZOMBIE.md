@@ -18,6 +18,8 @@ Tout le code est dans `src/zombie/` ; seules retouches ailleurs : `src/main.ts` 
 | `world.ts` | Simulation pure (sans Phaser) : réserves fixes, grille spatiale, événements pour l'affichage |
 | `progress.ts` | Sauvegarde locale : classes, XP et accessoires d'armes, records, objectifs |
 | `assets.ts` | Sprites PixelLab + textures dessinées en code (et sprites de repli) |
+| `anim.ts`, `gait.ts` | Marches et chutes animées (feuilles `public/art/zombie/anim/`), cadence liée à la distance parcourue |
+| `audio.ts` | Sons et musique du mode (Web Audio) ; `music.ts` (boucles calculées), `zsynth.ts` (bruitages calculés), `mix.ts` (intensité, limiteur de voix) |
 | `ZHubScene` | QG : 3 classes, records, objectifs, accès arsenal |
 | `ZClassScene` | Créateur de classe |
 | `ZArsenalScene` | Niveau des armes, accessoires à équiper |
@@ -214,3 +216,49 @@ par un anneau de 640 objets réutilisés.
 - Rappel des commandes au début de chaque partie ; titre « Increvable » au QG après 15 minutes en sans fin.
 - Explosions moins aveuglantes (lueur plus petite, traces de brûlé légères et courtes) : avec Bombardement,
   l'écran restait lisible.
+
+### Ressenti : animations, musique, sons
+
+- **Animations PixelLab** (`animate_image` sur les sprites existants, 64 px × 8 images = 1 génération, 96 et
+  128 px = 2) : marche de 8 images pour les 9 zombies (4 marcheurs, coureur, cracheur, gonflé, brute, Colosse)
+  et les 8 personnages jouables ; chute de 9 images pour tous les zombies sauf le gonflé (il explose) et pour
+  les 8 soldats. Feuilles dans `public/art/zombie/anim/` (`<nom>-walk.png`, `<nom>-die.png`, ≈ 0,7 Mo en
+  tout) ; planche : `design/zombie/anim-planche.png`. 37 générations en tout (marcheur 1 d'abord pour valider
+  la méthode : bon du premier coup, aucune reprise).
+- **Marche pilotée par la distance**, pas par le temps : `GaitTracker` (pur, testé) lisse la vitesse réelle de
+  chaque case de réserve et avance l'image d'une case tous les 5 px × taille × échelle (bornée 5-18 images/s).
+  Les zombies arrêtés (cracheur à distance, foule bloquée) ne pédalent pas ; reculs et téléportations
+  (zombie replacé, case réutilisée) n'emballent pas les jambes ; chaque zombie démarre à une phase différente.
+  Décision : pas de `Sprite` + lecteur d'animations Phaser pour les 250 zombies (une mise à jour par objet et
+  par image) : les images restent des `Image`, et `setFrame` n'est appelé que quand l'image change. Les chutes
+  (rares) sont de vraies animations Phaser sur une réserve de 24 corps, qui restent au sol ~1 s puis s'effacent
+  (seulement à l'écran). Le soldat tombe avec sa propre chute (repli : l'ancien affaissement).
+- Le dandinement en écrasement / étirement reste, réduit (3,5 % → 1,2 %) et sans le petit saut vertical (la
+  marche a déjà son balancement). Toujours aucune rotation de personnage. Repli : une feuille absente →
+  l'image fixe et le dandinement d'origine.
+- **Coût** (Chromium, 250 zombies, mesure A/B dans la même partie) : `render()` ≈ 0,2-0,3 ms par image avec
+  ou sans animations (l'écart est sous le bruit de mesure).
+- **Musique et bruitages calculés en code** : l'abonnement PixelLab (palier 1) refuse `create_music` et
+  `create_sound_effect` (palier 2 requis). Décision : synthèse dans le style de `src/audio/synth.ts`, donc
+  **aucun fichier audio** (0 octet à télécharger) et tout est déterministe et testé. Trois boucles mono à
+  22 050 Hz : « calme » (QG, 70 bpm, 27 s : nappes ré mineur, arpège, vent), « tension » (partie, 92 bpm,
+  21 s : basse pulsée, battement de cœur, cloches en seconde mineure), « menace » (même tempo et longueur :
+  tambours, cuivres saturés, cordes en trémolo, montée de bruit). Les notes qui dépassent la fin repartent au
+  début : boucles sans couture. Calcul ≈ 0,1 s par boucle, fait par lots de 6 ms entre deux images.
+- **Intensité** (`mix.ts`) : « tension » joue toujours, « menace » se superpose en fondu (constante 1,2 s)
+  selon la menace : la foule seule fait à peine monter, une horde la pousse au maximum 18 s puis elle redescend
+  en 14 s, le Colosse la tient au maximum tant qu'il vit ; +0,15 sous 30 % de PV.
+- **Bruitages** : 4 grognements (voix à formants, râle, souffle), rugissement du Colosse à son arrivée et cri
+  court avant chaque charge, éclatement mouillé du gonflé, montée de niveau (arpège), choix d'une amélioration,
+  plaque d'XP (« blip » qui monte avec la barre). Grognements : cadence en racine de la foule plafonnée à
+  1,1/s, voix d'un zombie au hasard près de l'écran (volume selon la distance, panoramique, hauteur selon le
+  type). Limiteur (`VoiceLimiter`, testé) : 8 voix pour ces sons, 2 grognements à la fois (0,3 s d'écart),
+  1 rugissement, 3 éclatements ; le limiteur des sons du jeu (14 voix) reste en place.
+- **Réglage « Musique »** ajouté à `src/logic/settings.ts` (défaut : activée) ; paramètres du menu : « Son »
+  devient « Bruitages » + « Musique » côte à côte ; bouton « Musique : oui / non » dans la pause. La musique ne
+  joue que dans les scènes du mode (branchée dans `zBackdrop` et au lancement de la partie) et s'arrête quand on
+  en sort.
+- À vérifier à l'oreille sur téléphone (rien n'a pu être écouté ici) : niveaux relatifs musique / bruitages
+  (`MUSIC_VOL` 0,34, « calme » à 0,6), timbre des grognements, et si la couche « menace » n'est pas trop
+  présente avec Bombardement.
+

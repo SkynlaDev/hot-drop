@@ -38,7 +38,10 @@ export function preloadZombieAnims(load: Phaser.Loader.LoaderPlugin) {
   };
   for (const k of WALKERS) sheet(walkKey(k), `${fileOf(k)}-walk`, Z_ART[k].size);
   for (const k of FALLERS) sheet(dieKey(k), `${fileOf(k)}-die`, Z_ART[k].size);
-  for (const id of Object.keys(PX_FIGS) as PxFigId[]) sheet(walkKey(pxKey(id)), `${id}-walk`, PLAYER_SIZE);
+  for (const id of Object.keys(PX_FIGS) as PxFigId[]) {
+    sheet(walkKey(pxKey(id)), `${id}-walk`, PLAYER_SIZE);
+    sheet(dieKey(pxKey(id)), `${id}-die`, PLAYER_SIZE);
+  }
   load.once(Phaser.Loader.Events.COMPLETE, () => {
     for (const key of tex.getTextureKeys()) if (key.endsWith('-walk') || key.endsWith('-die')) tex.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
   });
@@ -70,7 +73,7 @@ export class ZAnimator {
     this.base = new Array(n).fill('');
     this.frame = new Int16Array(n).fill(-2);
     for (const k of WALKERS) this.walk.set(k, usable(scene, walkKey(k), WALK_FRAMES));
-    for (const k of FALLERS) {
+    for (const k of [...FALLERS, ...(Object.keys(PX_FIGS) as PxFigId[]).map(pxKey)]) {
       const key = dieKey(k);
       if (usable(scene, key, DIE_FRAMES) && !scene.anims.exists(key)) {
         scene.anims.create({ key, frames: scene.anims.generateFrameNumbers(key, { start: 0, end: DIE_FRAMES - 1 }), frameRate: DIE_FPS, repeat: 0 });
@@ -150,6 +153,26 @@ export class ZAnimator {
         else c.im.setAlpha(k);
       }
     }
+  }
+
+  /**
+   * Le soldat tombe : sa chute à la place de l'image (qui est cachée). Faux s'il n'a pas de chute (repli :
+   * affaissement en code).
+   */
+  playerDeath(im: Phaser.GameObjects.Image, fig: PxFigId): boolean {
+    const key = dieKey(pxKey(fig));
+    if (!this.scene.anims.exists(key)) return false;
+    const s = this.scene.add
+      .sprite(im.x, im.y, key, 0)
+      .setOrigin(im.originX, im.originY)
+      .setScale(Math.abs(im.scaleX), Math.abs(im.scaleY))
+      .setFlipX(im.flipX)
+      .setDepth(im.depth)
+      .setTint(0xb8b0bc);
+    s.anims.timeScale = 0.7;
+    s.play(key);
+    im.setVisible(false);
+    return true;
   }
 
   /**
