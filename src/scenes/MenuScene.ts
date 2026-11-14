@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { C, W } from '../config';
 import { ROUNDS } from '../logic/zone';
-import { clearRun, loadRun } from '../logic/run';
+import { clearRun, loadRun, newRun, saveRun } from '../logic/run';
+import { dailyChallenge, loadProfile, today } from '../logic/profile';
+import { OPERATORS } from '../data/operators';
 import { button, fadeIn, plate, txt } from '../ui/widgets';
 import { P } from '../ui/palette';
 import { openSettings } from '../ui/settings';
@@ -88,7 +90,26 @@ export default class MenuScene extends Phaser.Scene {
       this.scene.start('operator');
     }, { primary: !saved, size: saved ? 26 : 30, icon: saved ? 'ic-compass' : 'ic-play' }).root, 1);
     y += saved ? 98 : 120;
-    this.enter(button(this, bx, y, BW, saved ? 70 : 76, 'Paramètres', () => openSettings(this), { size: 22, icon: 'ic-menu' }).root, 2);
+    // Défi du jour (même graine pour tous ce jour-là) et Carnet (collection, records, Menace).
+    const day = today();
+    const done = loadProfile().daily[day];
+    const dc = dailyChallenge(day);
+    const half = (BW - 12) / 2;
+    const dailyLabel = done ? (done.result === 'win' ? 'Défi ✓ Top 1' : `Défi ✓ C${done.round + 1}`) : 'Défi du jour';
+    this.enter(button(this, bx, y, half, saved ? 70 : 76, dailyLabel, () => {
+      clearRun();
+      const run = newRun(dc.operator, dc.seed, { menace: dc.menace, daily: day });
+      saveRun(run);
+      this.registry.set('run', run);
+      this.registry.remove('mapSeen');
+      this.scene.start('map');
+    }, { size: 20, icon: 'ic-compass' }).root, 2);
+    this.enter(button(this, bx + half + 12, y, half, saved ? 70 : 76, 'Carnet', () => this.scene.start('carnet'), { size: 20, icon: 'ic-menu' }).root, 2);
+    txt(this, W / 2, y + (saved ? 84 : 92), `Défi : ${OPERATORS[dc.operator].name} · Menace ${dc.menace} · une graine pour tous`, 15, C.quiet).setOrigin(0.5);
+
+    // Paramètres : roue dentée en haut à droite.
+    const gear = txt(this, W - 36, 40, '⚙', 40, C.text).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
+    gear.on('pointerup', () => openSettings(this));
 
     // Plaque de version, au pochoir.
     const v = plate(this, W / 2, H - 34, 'Prototype · saison 0', P.braise, 15).setAlpha(0.85);

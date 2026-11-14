@@ -4,6 +4,7 @@ import '@fontsource/oswald/700.css';
 import '@fontsource/black-ops-one/400.css';
 import { C, H, W } from './config';
 import BootScene from './scenes/BootScene';
+import CarnetScene from './scenes/CarnetScene';
 import EndScene from './scenes/EndScene';
 import LoadoutScene from './scenes/LoadoutScene';
 import MapScene from './scenes/MapScene';
@@ -24,7 +25,7 @@ async function start() {
     backgroundColor: C.bg,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     input: { activePointers: 1 },
-    scene: [BootScene, MenuScene, OperatorScene, MapScene, ZoneScene, LoadoutScene, EndScene],
+    scene: [BootScene, MenuScene, OperatorScene, MapScene, ZoneScene, LoadoutScene, EndScene, CarnetScene],
   });
   // Accès de débogage depuis la console.
   (window as unknown as { game: Phaser.Game }).game = game;

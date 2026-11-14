@@ -8,6 +8,7 @@ import { RECIPES } from '../data/recipes';
 import { BagInst, ItemInst, canPlace, dims, findSpot, sharedEdge, canPlaceBag, canRemoveBag, usableCells, bagCells, cellKey, connectedBags, BASE_CELLS, COLS, ROWS } from './grid';
 import { Rng, hashParts, pick, rngFor } from './rng';
 import { itemPrice, maxHpFor } from './stats';
+import { noteItems } from './profile';
 import { ACTIONS_PER_ZONE, Card, DANGER_BY_SIZE, GameMap, MapZone, ROUNDS, THEME_BIAS, ZoneTheme, drawCards, genMap, isGassed, themeFits, zonesInCircle } from './zone';
 
 export const RESERVE_MAX = 12;
@@ -126,6 +127,10 @@ export interface RunState {
   wins?: number;
   /** Crédits rapportés par les objets de revenu au dernier ravitaillement (affichage). */
   lastIncome?: number;
+  /** Niveau de Menace (0 à 5, profile.ts) : difficulté choisie au départ. */
+  menace?: number;
+  /** Défi du jour : date AAAA-MM-JJ (graine et opérateur imposés). */
+  daily?: string;
 }
 
 /** Paramètres d'un duel : l'UI génère le bot avec generateBot(seed, round, { danger }) et simule. */
@@ -154,7 +159,24 @@ export type PlayResult = { kind: 'shop' } | { kind: 'caisse'; crate: CrateKind; 
 
 // ---------- Création ----------
 
-export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1e9)): RunState {
+/** Danger ajouté à tous les bots par la Menace (1 : +0,5 ; 4 : +1 en tout). */
+export function menaceDanger(run: Pick<RunState, 'menace'>): number {
+  const m = run.menace ?? 0;
+  return (m >= 1 ? 0.5 : 0) + (m >= 4 ? 0.5 : 0);
+}
+
+/** PV max du joueur à une manche (Menace 5 : −15 %). */
+export function playerMaxHp(run: Pick<RunState, 'menace'>, round: number): number {
+  return Math.round(roundMaxHp(round) * ((run.menace ?? 0) >= 5 ? 0.85 : 1));
+}
+
+/** Prix d'une relance de la boutique (Menace 2 : 3 cr). */
+export function rerollCost(run: Pick<RunState, 'menace'>): number {
+  return (run.menace ?? 0) >= 2 ? REROLL_COST + 1 : REROLL_COST;
+}
+
+export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1e9), opts: { menace?: number; daily?: string } = {}): RunState {
+  const menace = Math.max(0, Math.min(5, opts.menace ?? 0));
   const run: RunState = {
     version: 7,
     seed,
@@ -165,11 +187,13 @@ export function newRun(operator: OperatorId, seed = Math.floor(Math.random() * 1
     cards: [],
     played: [],
     actionsLeft: 0,
-    goulagUsed: false,
-    credits: START_CREDITS,
+    goulagUsed: menace >= 3,
+    credits: START_CREDITS - (menace >= 2 ? 3 : 0),
     items: [],
     bags: [],
     nextUid: 1,
+    ...(menace ? { menace } : {}),
+    ...(opts.daily ? { daily: opts.daily } : {}),
   };
   // Kit de départ sans arme ni chargeur : l'arme se choisit au largage.
   for (const [id, x, y] of OPERATORS[operator].start) {
@@ -289,7 +313,7 @@ export function playCard(run: RunState, index: number): PlayResult | null {
     run.pendingLoot = { items: offers, usable: [], crate, maxPicks: Math.min(def.picks, offers.length), picked: 0 };
     return { kind: 'caisse', crate, loot: { items: [], bags: bags.taken, credits: cash + bags.credits } };
   }
-  run.fight = { kind: card.type, cardIndex: index, hp: roundMaxHp(run.round) };
+  run.fight = { kind: card.type, cardIndex: index, hp: playerMaxHp(run, run.round) };
   return { kind: 'duel', ...currentDuel(run)! };
 }
 
@@ -298,11 +322,11 @@ export function currentDuel(run: RunState): DuelParams | null {
   const f = run.fight;
   if (!f) return null;
   if (f.kind === 'final') {
-    return { type: 'final', seed: hashParts(run.seed, 'final'), round: FINAL_ROUND, danger: FINAL_DANGER, hp: f.hp, maxHp: roundMaxHp(FINAL_ROUND) };
+    return { type: 'final', seed: hashParts(run.seed, 'final'), round: FINAL_ROUND, danger: FINAL_DANGER + menaceDanger(run), hp: f.hp, maxHp: playerMaxHp(run, FINAL_ROUND) };
   }
   return {
-    type: f.kind, seed: duelSeed(run, f.cardIndex), round: run.round, danger: zoneDanger(run), theme: zoneTheme(run),
-    hp: f.hp, maxHp: roundMaxHp(run.round),
+    type: f.kind, seed: duelSeed(run, f.cardIndex), round: run.round, danger: zoneDanger(run) + menaceDanger(run), theme: zoneTheme(run),
+    hp: f.hp, maxHp: playerMaxHp(run, run.round),
   };
 }
 
@@ -459,7 +483,7 @@ export function finishLoot(run: RunState): void {
 export function goulagParams(run: RunState): DuelParams | null {
   if (!run.pendingGoulag) return null;
   const round = Math.min(run.round, FINAL_ROUND);
-  return { type: 'goulag', seed: hashParts(run.seed, 'goulag'), round, danger: GOULAG_DANGER, hp: roundMaxHp(round), maxHp: roundMaxHp(round) };
+  return { type: 'goulag', seed: hashParts(run.seed, 'goulag'), round, danger: GOULAG_DANGER, hp: playerMaxHp(run, round), maxHp: playerMaxHp(run, round) };
 }
 
 /** Résultat du Goulag. Victoire : retour en jeu, l'action est consommée (l'UI appelle endAction). Défaite : fin de run. */
@@ -499,7 +523,7 @@ export function roundIncome(run: RunState): number {
 /** Lance le duel final « Top 1 » (après la 5e manche). */
 export function finalDuelParams(run: RunState): DuelParams | null {
   if (run.over || run.round < FINAL_ROUND || run.pendingGoulag || run.resupply) return null;
-  if (!run.fight) run.fight = { kind: 'final', cardIndex: -1, hp: roundMaxHp(FINAL_ROUND) };
+  if (!run.fight) run.fight = { kind: 'final', cardIndex: -1, hp: playerMaxHp(run, FINAL_ROUND) };
   return currentDuel(run);
 }
 
@@ -800,10 +824,11 @@ export function toggleLock(run: RunState, index: number): boolean {
   return true;
 }
 
-/** Relance la boutique (REROLL_COST crédits). */
+/** Relance la boutique (rerollCost crédits). */
 export function rerollShop(run: RunState): boolean {
-  if (!run.shop || run.credits < REROLL_COST) return false;
-  run.credits -= REROLL_COST;
+  const cost = rerollCost(run);
+  if (!run.shop || run.credits < cost) return false;
+  run.credits -= cost;
   run.shop.rerolls++;
   rollShop(run);
   return true;
@@ -835,6 +860,7 @@ export function buyOffer(run: RunState, index: number): ItemInst | BagInst | nul
 // ---------- Sauvegarde ----------
 
 export function saveRun(run: RunState): void {
+  noteItems(run.items.map((i) => i.defId));
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(run));
   } catch {

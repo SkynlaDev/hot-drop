@@ -21,8 +21,8 @@ import { getSettings, nextSpeed, setSettings } from '../logic/settings';
 import { TIER_COLORS, TIER_HEX, TIER_NAMES, tierOf } from '../logic/tier';
 import { Craftable, autoCraft } from '../logic/recipes';
 import {
-  BAG_RESERVE_MAX, CrateKind, DuelParams, FINAL_ROUND, Loot, REROLL_COST, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
-  finalDuelParams, goulagParams, placeBag, rerollShop, toggleLock, reserve, reserveBags, resolveDuel, resolveGoulag, roundMaxHp, saveRun, sellBag,
+  BAG_RESERVE_MAX, CrateKind, DuelParams, FINAL_ROUND, Loot, RESERVE_MAX, RunState, bagSellValue, buyOffer, currentDuel, endAction,
+  finalDuelParams, goulagParams, placeBag, playerMaxHp, rerollCost, rerollShop, toggleLock, reserve, reserveBags, resolveDuel, resolveGoulag, saveRun, sellBag,
   closeResupply, finishLoot, itemSellValue, lootItem, sellItem, shopOffers, swapLoot, unplaceBag, usable,
 } from '../logic/run';
 import { ENDURANCE_MAX, PlayerLoadout, SynergyLink, computeLoadout, describe, estimateDps } from '../logic/stats';
@@ -416,7 +416,7 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   private loadout() {
-    return computeLoadout(this.run.items, this.run.operator, this.params?.maxHp ?? roundMaxHp(Math.min(this.run.round, FINAL_ROUND)), { wins: this.run.wins });
+    return computeLoadout(this.run.items, this.run.operator, this.params?.maxHp ?? playerMaxHp(this.run, Math.min(this.run.round, FINAL_ROUND)), { wins: this.run.wins });
   }
 
   private refresh() {
@@ -652,7 +652,7 @@ export default class LoadoutScene extends Phaser.Scene {
     if (this.mode === 'shop') {
       lines.push([this.run.resupply ? 'Le cercle se resserre : achète et range avant la suite.' : 'Achète, range, puis termine l\'action.', C.text]);
       if (this.run.resupply && this.run.lastIncome) lines.push([`Intendance : +${this.run.lastIncome} cr`, C.accentStr]);
-      lines.push([`Relance : ${REROLL_COST} cr`, C.quiet]);
+      lines.push([`Relance : ${rerollCost(this.run)} cr`, C.quiet]);
     } else if (this.mode === 'caisse') {
       const l = this.loot;
       if (l?.credits) lines.push([`Cash ramassé : +${l.credits} cr`, C.accentStr]);
@@ -1491,7 +1491,7 @@ export default class LoadoutScene extends Phaser.Scene {
       });
     });
     const by = 220 + 3 * (ch + 16) + 8;
-    m.add(button(this, 30, by, 320, 88, `Relancer · ${REROLL_COST} cr`, () => {
+    m.add(button(this, 30, by, 320, 88, `Relancer · ${rerollCost(this.run)} cr`, () => {
       if (!rerollShop(this.run)) return this.shopError('Pas assez de crédits');
       vibrate(12);
       this.reopenShop(false);

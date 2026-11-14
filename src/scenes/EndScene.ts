@@ -9,6 +9,7 @@ import { bagView, button, fadeIn, itemView, panel, plate, txt } from '../ui/widg
 import { P } from '../ui/palette';
 import { usableCells } from '../logic/grid';
 import { opFig, pxFigure } from '../art';
+import { MENACE_INFO, RunOutcome, loadProfile, recordRun, saveProfile } from '../logic/profile';
 
 export default class EndScene extends Phaser.Scene {
   constructor() {
@@ -24,6 +25,14 @@ export default class EndScene extends Phaser.Scene {
     }
     const win = run.over === 'win';
     clearRun();
+    // Profil : la run n'est enregistrée qu'une fois, même si l'écran est rouvert.
+    let outcome: RunOutcome | null = null;
+    if (this.registry.get('recorded') !== run.seed) {
+      const prof = loadProfile();
+      outcome = recordRun(prof, run);
+      saveProfile(prof);
+      this.registry.set('recorded', run.seed);
+    }
     this.registry.remove('mapSeen');
     this.registry.remove('zoneSeen');
 
@@ -72,7 +81,8 @@ export default class EndScene extends Phaser.Scene {
       ['Cercles', `${reached}/${ROUNDS}${run.round >= ROUNDS && !win ? ' · Top 1' : ''}`],
       ['Goulag', run.goulagUsed ? 'utilisé' : 'intact'],
       ['Objets', `${run.items.filter((i) => i.placed).length}`],
-      ['Crédits', `${run.credits}`],
+      ['Duels gagnés', `${run.wins ?? 0}`],
+      [run.daily ? 'Défi du jour' : 'Menace', run.daily ? run.daily.split('-').reverse().join('/') : `${run.menace ?? 0}${run.menace ? ' · ' + MENACE_INFO[run.menace].name : ''}`],
     ];
     lines.forEach(([k, v], i) => {
       const y = PY + 50 + i * 38;
@@ -94,8 +104,15 @@ export default class EndScene extends Phaser.Scene {
     // Ambiance : étincelles d'or (victoire) ou cendres qui tombent (défaite).
     for (let i = 0; i < 24; i++) this.particle(win, true);
 
-    button(this, 60, 1090, 380, 96, 'Nouvelle run', () => this.scene.start('operator'), { primary: true, size: 28, icon: 'ic-reroll' });
-    button(this, 460, 1090, 200, 96, 'Menu', () => this.scene.start('menu'), { size: 24, icon: 'ic-menu' });
+    // Ce que la run débloque : niveau de Menace, record, meilleur résultat du défi du jour.
+    const news = outcome?.unlocked ? `MENACE ${outcome.unlocked} DÉBLOQUÉE` : outcome?.dailyBest && run.daily ? 'DÉFI DU JOUR : MEILLEUR RÉSULTAT' : outcome?.record ? 'NOUVEAU RECORD' : '';
+    if (news) {
+      const pl = plate(this, W / 2, 1092, news, outcome?.unlocked ? P.or : P.orange, 20).setAlpha(0).setScale(1.6);
+      this.tweens.add({ targets: pl, alpha: 1, scale: 1, duration: 300, delay: 1500, ease: 'Back.Out', onComplete: () => sfx('mark', { vol: 0.7 }) });
+    }
+
+    button(this, 60, 1130, 380, 96, 'Nouvelle run', () => this.scene.start('operator'), { primary: true, size: 28, icon: 'ic-reroll' });
+    button(this, 460, 1130, 200, 96, 'Menu', () => this.scene.start('menu'), { size: 24, icon: 'ic-menu' });
   }
 
   /** Sac final en miniature, centré dans la boîte (x, y, w, h). */

@@ -71,3 +71,25 @@ Sprites provisoires (icônes) en attendant l'étape 4.
 **Étape 2 (fait)**. Décisions par défaut : le drone profite du Feu continu de Viper comme toute arme (sans ça Viper
 tombait à 43 % contre Sentinelle au 5e cercle, Sentinelle profitant déjà de la Marque avec un drone en 2e arme) ;
 la Caisse de l'intendant rapporte au passage du cercle, avant la boutique du ravitaillement (ligne « Intendance »).
+
+## 3. Envie de rejouer (profil local, sans serveur)
+
+| Système | Règle |
+|---|---|
+| **Profil** (`src/logic/profile.ts`, `localStorage`) | Parties, Top 1, record par opérateur, 12 dernières parties (objets marquants du sac final) |
+| **Carnet** (menu → Carnet) | Tous les objets : en couleur une fois obtenus (notés à chaque sauvegarde de la run), « ? » sinon. Compteurs objets / recettes découvertes / légendaires |
+| **Menace** (choix de l'opérateur) | 0 à 5 par opérateur ; gagner le Top 1 au plus haut niveau débloque le suivant. Cumulatif : 1 bots +0,5 de danger ; 2 −3 crédits au départ, relance 3 cr ; 3 pas de Goulag ; 4 bots +1 de danger en tout (Top 1 compris) ; 5 PV max −15 % |
+| **Défi du jour** (menu) | Graine et opérateur tirés de la date, Menace 1, même partie pour tout le monde ce jour-là ; meilleur résultat gardé (le bouton affiche « Défi ✓ ») ; ne débloque pas de Menace |
+| Fin de partie | « MENACE N DÉBLOQUÉE », « NOUVEAU RECORD » ou « DÉFI DU JOUR : MEILLEUR RÉSULTAT » |
+
+Paramètres : déplacés dans une roue dentée en haut à droite du menu (place pour Défi du jour et Carnet).
+
+**Étape 3 (fait)**. Décisions par défaut : le Goulag n'ajoute pas la Menace au danger (il reste un duel équitable) ;
+le défi du jour est en Menace 1 ; les objets vus au cours d'une partie (même revendus) comptent dans le carnet.
+
+## 4. Sprites
+
+20 sprites PixelLab (`create_image_pro`, image de style des armes, masque de forme, `fit-place.py`) : planche
+`design/da/contenu-v3-objets.png`. 70 générations : un appel par taille de canevas avec plusieurs objets dans la
+description (un appel coûte au moins 10 générations). Faibles : les ailes de la médaille de l'ange gardien se voient
+peu ; l'essaim est dense mais lisible.

@@ -6,16 +6,24 @@ import { opFig, pxFigure } from '../art';
 import { OPERATORS, OPERATOR_IDS, OperatorId } from '../data/operators';
 import { BASE_X0, BASE_X1, BASE_Y0, BASE_Y1 } from '../logic/grid';
 import { clearRun, newRun, saveRun } from '../logic/run';
+import { MENACE_INFO, loadProfile } from '../logic/profile';
+import { P, hex } from '../ui/palette';
 import { Button, button, chamferPoints, fadeIn, itemView, pop, txt, vibrate, FADE_RGB } from '../ui/widgets';
 
-const CARD = { x: 20, w: 680, h: 452 };
-const CARD_Y = [168, 640];
+const CARD = { x: 20, w: 680, h: 420 };
+const CARD_Y = [150, 590];
+/** Bandeau de la Menace, sous les cartes. */
+const MENACE_Y = 1028;
 const PCELL = 50;
 
 export default class OperatorScene extends Phaser.Scene {
   private chosen: OperatorId | null = null;
   private cards: { id: OperatorId; root: Phaser.GameObjects.Container; sel: Phaser.GameObjects.Graphics }[] = [];
   private go!: Button;
+  /** Niveau de Menace choisi, et le plus haut débloqué pour l'opérateur choisi. */
+  private menace = 0;
+  private menaceMax = 0;
+  private menaceRow!: Phaser.GameObjects.Container;
 
   constructor() {
     super('operator');
@@ -32,13 +40,53 @@ export default class OperatorScene extends Phaser.Scene {
 
     const back = txt(this, 28, 44, '‹ MENU', 22, C.quiet, { fontStyle: 'bold' }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
     back.on('pointerup', () => this.scene.start('menu'));
-    txt(this, W / 2, 96, 'CHOISIS TON OPÉRATEUR', 38, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
-    txt(this, W / 2, 140, 'Il fixe les objets que tu trouveras pendant la run', 20, C.quiet).setOrigin(0.5);
+    txt(this, W / 2, 84, 'CHOISIS TON OPÉRATEUR', 38, C.text, { fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5);
+    txt(this, W / 2, 124, 'Il fixe les objets que tu trouveras pendant la run', 20, C.quiet).setOrigin(0.5);
 
     OPERATOR_IDS.forEach((id, i) => this.card(id, CARD_Y[i], i));
 
+    this.menaceRow = this.add.container(0, MENACE_Y);
+    this.drawMenace();
+
     this.go = button(this, 20, H - 128, W - 40, 100, 'Choisis un opérateur', () => this.deploy(), { primary: true, size: 30 });
     this.go.setEnabled(false);
+  }
+
+  /** Bandeau de la Menace : niveau choisi (flèches), son nom, ce qu'il ajoute ; verrouillé tant qu'on n'a pas gagné. */
+  private drawMenace() {
+    const r = this.menaceRow;
+    r.removeAll(true);
+    const g = this.add.graphics();
+    g.fillStyle(0x000000, 0.35);
+    g.fillPoints(chamferPoints(20, 0, W - 40, 112, 14), true);
+    g.lineStyle(2, this.menace > 0 ? P.braise : C.panelLine, 1);
+    g.strokePoints(chamferPoints(20, 0, W - 40, 112, 14), false, true);
+    r.add(g);
+    if (!this.chosen) {
+      r.add(txt(this, W / 2, 56, 'MENACE : gagne un Top 1 pour débloquer le niveau suivant', 19, C.quiet).setOrigin(0.5));
+      return;
+    }
+    const m = this.menace;
+    const col = m === 0 ? C.text : hex(m >= 4 ? P.dangerClair : P.orange);
+    r.add(txt(this, W / 2, 30, `MENACE ${m}${m ? ' · ' + MENACE_INFO[m].name.toUpperCase() : ''}`, 26, col, { fontFamily: TITLE_FONT }).setOrigin(0.5));
+    const desc = m === 0 ? (this.menaceMax ? `Débloqué jusqu'à la Menace ${this.menaceMax}` : 'Gagne un Top 1 pour débloquer la Menace 1') : MENACE_INFO.slice(1, m + 1).map((x) => x.text).join(' ');
+    const d = txt(this, W / 2, 70, desc, 16, C.quiet, { align: 'center', wordWrap: { width: W - 200 } }).setOrigin(0.5);
+    if (d.height > 64) d.setScale(64 / d.height);
+    r.add(d);
+    const arrow = (x: number, dir: -1 | 1) => {
+      const on = dir < 0 ? m > 0 : m < this.menaceMax;
+      const t = txt(this, x, 56, dir < 0 ? '◀' : '▶', 40, on ? C.accentStr : hex(P.trait2)).setOrigin(0.5);
+      if (on) {
+        t.setInteractive({ useHandCursor: true }).on('pointerup', () => {
+          this.menace = Math.max(0, Math.min(this.menaceMax, m + dir));
+          vibrate(6);
+          this.drawMenace();
+        });
+      }
+      r.add(t);
+    };
+    arrow(62, -1);
+    arrow(W - 62, 1);
   }
 
   private card(id: OperatorId, y: number, index: number) {
@@ -115,7 +163,7 @@ export default class OperatorScene extends Phaser.Scene {
       root.add([chip, t]);
       cx += w + 8;
     }
-    const gr = txt(this, cx, cy + 15, '+ ses objets de signature, et tout le reste', 17, C.quiet).setOrigin(0, 0.5);
+    const gr = txt(this, cx, cy + 15, '+ signatures et tronc commun', 17, C.quiet).setOrigin(0, 0.5);
     if (cx + gr.width > tx + tw) gr.setPosition(tx, cy + 38 + 15);
     root.add(gr);
 
@@ -183,6 +231,9 @@ export default class OperatorScene extends Phaser.Scene {
       this.tweens.add({ targets: c.root, alpha: on ? 1 : 0.55, duration: 160 });
       if (on) pop(this, c.root, 1.03, 220);
     }
+    this.menaceMax = loadProfile().menace[id];
+    this.menace = this.menaceMax;
+    this.drawMenace();
     this.go.setLabel(`Jouer ${OPERATORS[id].name} ▸`);
     this.go.setEnabled(true);
     pop(this, this.go.root, 1.06, 200);
@@ -192,7 +243,7 @@ export default class OperatorScene extends Phaser.Scene {
     if (!this.chosen) return;
     vibrate(15);
     clearRun();
-    const run = newRun(this.chosen);
+    const run = newRun(this.chosen, undefined, { menace: this.menace });
     saveRun(run);
     this.registry.set('run', run);
     this.registry.remove('mapSeen');
