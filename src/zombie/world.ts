@@ -8,6 +8,8 @@ import { Choice, applyChoice, drawChoices } from './powerups';
 import { Levels, Loadout, Stats, computeStats } from './stats';
 import { bossHp, dmgMul, hpMul, pickType, spawnRate, targetCount, waveEvents } from './waves';
 import type { RunResult } from './progress';
+import { FlowField, GameMap, MAX_OBSTACLE_R } from './map';
+import { LZ, Landing, newLanding, openLanding, placeLanding, stepLanding } from './extraction';
 
 export interface Zombie {
   id: number;
@@ -122,7 +124,8 @@ export interface Turret {
 
 export type EvKind =
   | 'shot' | 'hit' | 'kill' | 'boom' | 'hurt' | 'gem' | 'pickup' | 'reload' | 'reloaded' | 'boss' | 'elite' | 'horde'
-  | 'shock' | 'spit' | 'heal' | 'revive' | 'frappe' | 'levelup' | 'extract' | 'charge' | 'blade' | 'drone' | 'turret' | 'mine' | 'throw' | 'dead';
+  | 'shock' | 'spit' | 'heal' | 'revive' | 'frappe' | 'levelup' | 'extract' | 'charge' | 'blade' | 'drone' | 'turret' | 'mine' | 'throw' | 'dead'
+  | 'lz' | 'wall';
 
 export interface Ev {
   k: EvKind;
@@ -184,6 +187,10 @@ export class World {
   alive = 0;
   boss: Zombie | null = null;
   damageDealt = 0;
+  /** Zone d'extraction (à partir de 10:00). */
+  readonly lz: Landing = newLanding();
+  /** Champ de flux vers le soldat (null sans carte). */
+  readonly flow: FlowField | null;
 
   readonly levels: Levels = {};
   readonly evos = new Set<EvoId>();
@@ -205,7 +212,8 @@ export class World {
   private gy0 = 0;
   private qbuf = new Int32Array(MAX_ZOMBIES);
 
-  constructor(readonly loadout: Loadout, readonly rng: () => number) {
+  constructor(readonly loadout: Loadout, readonly rng: () => number, readonly map: GameMap | null = null) {
+    this.flow = map ? new FlowField(map) : null;
     for (let i = 0; i < MAX_ZOMBIES; i++) this.zombies.push(blankZombie());
     for (let i = 0; i < POOL.bullets; i++) this.bullets.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, dist: 0, pierce: 0, bounces: 0, crit: false, last: 0, src: 0 });
     for (let i = 0; i < POOL.gems; i++) this.gems.push({ active: false, x: 0, y: 0, v: 0, pull: false, sp: 0 });
@@ -232,9 +240,12 @@ export class World {
     dt = Math.min(dt, 0.05);
     const t0 = this.time;
     this.time += dt;
-    if (!this.endless && t0 < RUN_TIME && this.time >= RUN_TIME) {
-      this.extracted = true;
-      this.ev('extract', this.px, this.py);
+    // 10:00 : la zone d'extraction apparaît ; la partie continue (sans fin) tant qu'on ne l'a pas rejointe.
+    if (!this.lz.active && !this.extracted && t0 < RUN_TIME && this.time >= RUN_TIME) {
+      this.endless = true;
+      const [x, y] = placeLanding(this.map, this.px, this.py, this.rng);
+      openLanding(this.lz, x, y);
+      this.ev('lz', x, y);
     }
     for (const e of waveEvents(t0, this.time)) {
       if (e.kind === 'boss') this.spawnBoss(e.tier);
@@ -243,6 +254,13 @@ export class World {
     }
     this.spawn(dt);
     this.updatePlayer(dt);
+    if (this.lz.active && !this.extracted && stepLanding(this.lz, this.px, this.py, dt)) {
+      this.extracted = true;
+      this.lz.active = false;
+      this.invuln = 99;
+      this.ev('extract', this.px, this.py);
+    }
+    this.flow?.update(this.px, this.py);
     this.buildGrid();
     this.updateWeapon(dt);
     this.updateSupports(dt);
@@ -272,7 +290,7 @@ export class World {
   }
 
   result(): RunResult {
-    return { weapon: this.loadout.weapon, time: Math.floor(this.time), level: this.level, kills: { ...this.kills }, elites: this.elites, won: this.time >= RUN_TIME };
+    return { weapon: this.loadout.weapon, time: Math.floor(this.time), level: this.level, kills: { ...this.kills }, elites: this.elites, won: this.extracted };
   }
 
   powerLevel(p: PowerId) {
@@ -342,16 +360,19 @@ export class World {
   private ringPoint(spread = Math.PI * 2, center = this.rng() * Math.PI * 2, r = SPAWN_R): [number, number] {
     const a = center + (this.rng() - 0.5) * spread;
     const rr = r + this.rng() * 80;
-    return [this.px + Math.cos(a) * rr, this.py + Math.sin(a) * rr];
+    const x = this.px + Math.cos(a) * rr;
+    const y = this.py + Math.sin(a) * rr;
+    return this.map ? this.map.freeSpot(x, y) : [x, y];
   }
 
   private spawn(dt: number) {
-    const target = targetCount(this.time) + (this.endless ? Math.min(60, (this.time - RUN_TIME) / 6) : 0);
+    const hold = this.lz.inside;
+    const target = targetCount(this.time) + (this.endless ? Math.min(60, (this.time - RUN_TIME) / 6) : 0) + (hold ? LZ.extraTarget : 0);
     if (this.alive >= Math.min(MAX_ZOMBIES, target)) {
       this.spawnAcc = 0;
       return;
     }
-    this.spawnAcc += spawnRate(this.time) * dt * (this.alive < target * 0.5 ? 2 : 1);
+    this.spawnAcc += spawnRate(this.time) * dt * (this.alive < target * 0.5 ? 2 : 1) * (hold ? LZ.spawnMul : 1);
     while (this.spawnAcc >= 1) {
       this.spawnAcc--;
       // Un peu plus d'apparitions devant le soldat quand il bouge (on ne fuit pas les zombies indéfiniment).
@@ -371,7 +392,10 @@ export class World {
     this.ev('horde', this.px, this.py, count);
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2;
-      this.spawnAt(type, this.px + Math.cos(a) * (SPAWN_R - 40), this.py + Math.sin(a) * (SPAWN_R - 40));
+      const x = this.px + Math.cos(a) * (SPAWN_R - 40);
+      const y = this.py + Math.sin(a) * (SPAWN_R - 40);
+      const [fx, fy] = this.map ? this.map.freeSpot(x, y) : [x, y];
+      this.spawnAt(type, fx, fy);
     }
   }
 
@@ -418,6 +442,10 @@ export class World {
     if (this.moving) {
       this.px += mx * s.move * dt;
       this.py += my * s.move * dt;
+      if (this.map?.resolve(this.px, this.py, PLAYER.r)) {
+        this.px = this.map.rx;
+        this.py = this.map.ry;
+      }
       if (Math.abs(mx) > 0.15) this.face = mx > 0 ? 1 : -1;
     }
     if (this.invuln > 0) this.invuln -= dt;
@@ -466,6 +494,37 @@ export class World {
     return best;
   }
 
+  private visBuf = new Int32Array(8);
+  private visD = new Float64Array(8);
+
+  /** Le zombie le plus proche qu'on voit (les obstacles cachent ; sans carte : nearest). */
+  nearestVisible(x: number, y: number, range: number): Zombie | null {
+    if (!this.map) return this.nearest(x, y, range);
+    // Les 8 plus proches dans le rayon, puis le premier dont la ligne de tir est dégagée.
+    const K = 8;
+    let n = 0;
+    const r2 = range * range;
+    for (let i = 0; i < MAX_ZOMBIES; i++) {
+      const z = this.zombies[i];
+      if (!z.active) continue;
+      const d = (z.x - x) ** 2 + (z.y - y) ** 2 - z.r * z.r;
+      if (d >= r2 || (n === K && d >= this.visD[K - 1])) continue;
+      let k = n < K ? n++ : K - 1;
+      while (k > 0 && this.visD[k - 1] > d) {
+        this.visD[k] = this.visD[k - 1];
+        this.visBuf[k] = this.visBuf[k - 1];
+        k--;
+      }
+      this.visD[k] = d;
+      this.visBuf[k] = i;
+    }
+    for (let k = 0; k < n; k++) {
+      const z = this.zombies[this.visBuf[k]];
+      if (this.map.clearLine(x, y, z.x, z.y)) return z;
+    }
+    return null;
+  }
+
   private updateWeapon(dt: number) {
     const s = this.stats;
     if (this.reloadT > 0) {
@@ -478,7 +537,7 @@ export class World {
     }
     if (this.fireCd > 0) this.fireCd -= dt;
     if (this.fireCd > 0) return;
-    const target = this.nearest(this.px, this.py, s.range);
+    const target = this.nearestVisible(this.px, this.py, s.range);
     if (!target) return;
     const a = Math.atan2(target.y - this.py, target.x - this.px);
     this.aim = a;
@@ -672,7 +731,7 @@ export class World {
         }
         t.cd -= dt;
         if (t.cd > 0) continue;
-        const z = this.nearest(t.x, t.y - 20, 400);
+        const z = this.nearestVisible(t.x, t.y, 400);
         if (!z) continue;
         t.cd = 1 / (4 + s.tourelle);
         t.ang = Math.atan2(z.y - (t.y - 20), z.x - t.x);
@@ -836,6 +895,14 @@ export class World {
       const d = Math.sqrt(d2) || 1;
       dx /= d;
       dy /= d;
+      // Obstacles : hors de vue du soldat, le zombie suit le champ de flux (contourne).
+      if (this.flow && d > 60 && this.flow.steer(z.x, z.y) && !this.flow.visible) {
+        const tx = this.flow.tx - z.x;
+        const ty = this.flow.ty - z.y;
+        const tl = Math.hypot(tx, ty) || 1;
+        dx = tx / tl;
+        dy = ty / tl;
+      }
       let sp = z.speed;
       // Comportements particuliers
       if (z.type === 'cracheur') {
@@ -892,6 +959,12 @@ export class World {
         // Ne traverse pas le soldat
         z.x = px - dx * cr;
         z.y = py - dy * cr;
+      }
+      // Obstacles : on ressort le zombie (glissement le long du bord) ; la charge du boss s'y brise.
+      if (this.map && this.map.resolve(z.x, z.y, Math.min(z.r, MAX_OBSTACLE_R))) {
+        z.x = this.map.rx;
+        z.y = this.map.ry;
+        if (z.chargeT > 0) z.chargeT = 0;
       }
     }
   }
@@ -987,6 +1060,12 @@ export class World {
         b.dist -= step / sub;
         if (b.dist <= 0) {
           b.active = false;
+          break;
+        }
+        // Les obstacles arrêtent les balles (pas celles des drones, qui tirent d'en haut).
+        if (this.map && b.src !== 1 && this.map.blocked(b.x, b.y + 20)) {
+          b.active = false;
+          this.ev('wall', b.x, b.y);
           break;
         }
         if (b.src === 3) {
