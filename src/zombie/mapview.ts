@@ -126,9 +126,14 @@ export class MapView {
       const a = ART[o.def.id] ?? { w: o.def.cw * CELL, foot: 0 };
       if (im.texture.key !== k) im.setTexture(k);
       const bottom = (o.gy + o.def.ch) * CELL - a.foot;
+      const x = (o.gx + o.def.cw / 2) * CELL;
+      const sc = a.w / im.width;
+      // Devant le soldat et sur lui : à demi transparent (on ne perd jamais son soldat derrière un arbre).
+      const hides = bottom > w.py && bottom - im.height * sc < w.py - 20 && Math.abs(x - w.px) < a.w / 2 + 14;
       im.setVisible(true)
-        .setPosition((o.gx + o.def.cw / 2) * CELL, bottom)
-        .setScale(a.w / im.width)
+        .setPosition(x, bottom)
+        .setScale(sc)
+        .setAlpha(hides ? 0.45 : 1)
         .setDepth(this.depth(bottom - 6));
     }
     for (; i < this.pool.length; i++) if (this.pool[i].visible) this.pool[i].setVisible(false);
@@ -162,23 +167,24 @@ export class MapView {
         g.strokePath();
       }
     }
-    const wantAlt = this.leaving ? 3 : lz.inside || w.extracted ? 0.15 + 0.85 * (1 - lz.t / LZ.hold) : 1;
+    const wantAlt = this.leaving ? 3 : lz.inside || lz.t > 0 ? 0.9 * (1 - lz.t / LZ.hold) : 1;
     this.alt += (wantAlt - this.alt) * Math.min(1, (this.leaving ? 0.9 : 1.6) * (1 / 60));
     if (show) {
       const hx = lz.x;
-      const hy = lz.y - 40 - this.alt * 260;
+      const hy = lz.y - 30 - this.alt * 260;
       this.heli.setVisible(true).setPosition(hx, hy + Math.sin(now * 3) * 4).setScale(1.5).setDepth(5000);
       this.heliShadow.setVisible(true).setPosition(lz.x, lz.y).setScale(5 - this.alt, 2.2 - this.alt * 0.4).setAlpha(0.45);
       const rg = this.rotor;
       rg.clear().setVisible(true).setDepth(5001);
       const rr = 150;
       const ry = hy - 10;
-      rg.fillStyle(P.blanc, 0.06);
-      rg.fillEllipse(hx, ry, rr * 2, rr * 1.2);
+      // Rotor : un disque flou et deux pales claires qui tournent (en dessin, pas de sprite tourné).
+      rg.fillStyle(P.blanc, 0.07);
+      rg.fillEllipse(hx, ry, rr * 2, rr * 1.4);
       for (let k = 0; k < 2; k++) {
-        const a = now * 22 + k * Math.PI;
-        rg.lineStyle(5, P.nuit, 0.55);
-        rg.lineBetween(hx - Math.cos(a) * rr, ry - Math.sin(a) * rr * 0.6, hx + Math.cos(a) * rr, ry + Math.sin(a) * rr * 0.6);
+        const a = now * 19 + k * Math.PI;
+        rg.lineStyle(3, P.blanc, 0.18);
+        rg.lineBetween(hx - Math.cos(a) * rr, ry - Math.sin(a) * rr * 0.7, hx + Math.cos(a) * rr, ry + Math.sin(a) * rr * 0.7);
       }
     } else {
       this.heli.setVisible(false);
@@ -220,7 +226,8 @@ export class LzHud {
     const a = Math.atan2(sy - H / 2, sx - W / 2);
     const t = Math.min((W / 2 - M) / Math.abs(Math.cos(a) || 1e-6), (H / 2 - M - 60) / Math.abs(Math.sin(a) || 1e-6));
     const ax = W / 2 + Math.cos(a) * t;
-    const ay = H / 2 + Math.sin(a) * t;
+    // Pas sur les plaques du HUD (en haut) ni sur la barre d'armes (en bas).
+    const ay = Math.max(270, Math.min(H - 170, H / 2 + Math.sin(a) * t));
     const s2 = 26;
     g.fillStyle(P.nuit, 0.85);
     g.fillCircle(ax, ay, s2 + 8);

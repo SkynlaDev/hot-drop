@@ -74,15 +74,23 @@ export function botMove(w: World): [number, number] {
   const n = Math.hypot(fx, fy) || 1;
   fx /= n;
   fy /= n;
-  // Obstacles : si le pas devant est bloqué, on tourne jusqu'à trouver un passage.
+  // Obstacles : parmi 16 caps, celui qui suit le mieux l'envie du moment tout en gardant de l'espace devant soi
+  // (un cap qui finit contre un mur 40 px plus loin vaut moins qu'une rue dégagée) : le bot ne se coince pas.
   if (w.map) {
-    for (const da of [0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2.2, -2.2]) {
-      const c = Math.cos(da);
-      const s = Math.sin(da);
-      const ax = fx * c - fy * s;
-      const ay = fx * s + fy * c;
-      if (!w.map.resolve(w.px + ax * 40, w.py + ay * 40, PLAYER.r + 2)) return [ax, ay];
+    let best = -Infinity;
+    let bx = fx;
+    let by = fy;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const ax = Math.cos(a);
+      const ay = Math.sin(a);
+      let free = 0;
+      while (free < 180 && !w.map.resolve(w.px + ax * (free + 20), w.py + ay * (free + 20), PLAYER.r + 2)) free += 20;
+      if (free === 0) continue;
+      const sc = ax * fx + ay * fy + (free / 180) * 0.7;
+      if (sc > best) [best, bx, by] = [sc, ax, ay];
     }
+    return [bx, by];
   }
   return [fx, fy];
 }

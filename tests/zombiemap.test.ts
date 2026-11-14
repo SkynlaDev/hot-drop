@@ -242,4 +242,24 @@ describe('mode zombie, carte : la partie', () => {
     void CELL;
     void CHUNK;
   });
+
+  it('une balle perforante traverse un obstacle (une perforation en moins), une balle simple s’y arrête', () => {
+    const m = new GameMap('ville', 5);
+    const o = someRect(m);
+    const shoot = (pierce: number) => {
+      const w = new World(LO, mulberry32(3), m);
+      for (const z of w.zombies) z.active = false;
+      w.alive = 0;
+      const b = w.bullets[0];
+      Object.assign(b, { active: true, x: (o.x0 + o.x1) / 2, y: o.y1 + 40 - 20, vx: 0, vy: -900, dmg: 10, dist: 600, pierce, bounces: 0, crit: false, last: -1, src: 0, wall: null });
+      for (let i = 0; i < 20; i++) w.update(0.016);
+      return b;
+    };
+    const plain = shoot(0);
+    expect(plain.active).toBe(false);
+    expect(plain.y).toBeGreaterThan(o.y0 - 20);
+    const pierced = shoot(2);
+    expect(pierced.y).toBeLessThan(o.y0 - 40);
+    expect(pierced.pierce).toBe(1);
+  });
 });

@@ -16,6 +16,8 @@ export const CHUNK = CELL * CHUNK_CELLS;
 export const START_CLEAR = 380;
 /** Rayon de collision maximal contre les obstacles (les gros zombies se faufilent : rues de 64 px). */
 export const MAX_OBSTACLE_R = 24;
+/** Part des zombies visés sur une carte (équilibrage : les obstacles rendent la partie plus dure). */
+export const MAP_CROWD = 0.85;
 
 export type ThemeId = 'ville' | 'foret' | 'port';
 export const THEME_IDS: ThemeId[] = ['ville', 'foret', 'port'];
@@ -312,8 +314,13 @@ export class GameMap {
 
   /** Le point est-il dans un collisionneur ? */
   blocked(x: number, y: number): boolean {
+    return this.hitAt(x, y) !== null;
+  }
+
+  /** Obstacle dont le collisionneur contient le point, ou null. */
+  hitAt(x: number, y: number): Obstacle | null {
     const o = this.at(Math.floor(x / CELL), Math.floor(y / CELL));
-    return !!o && inside(o, x, y, 0);
+    return o && inside(o, x, y, 0) ? o : null;
   }
 
   /**
@@ -526,7 +533,9 @@ export class FlowField {
             if (dx && dy && (solid[cy * N + x] || solid[y * N + cx])) continue;
             // Une diagonale fait gagner 2 cases de 4-voisinage : à gain égal, elle passe devant.
             const v = dist[o] * 2 - (dx && dy ? 1 : 0);
-            if (v < bestV) {
+            // À égalité, le côté dépend de la case (et pas de l'ordre de parcours) : la foule se partage
+            // des deux côtés d'un obstacle au lieu de tout passer par la gauche.
+            if (v < bestV || (v === bestV && best >= 0 && ((cx * 7 + cy * 13 + (dx > 0 ? 1 : 0) + (dy > 0 ? 1 : 0)) & 2))) {
               best = o;
               bestV = v;
             }

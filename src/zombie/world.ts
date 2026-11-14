@@ -8,7 +8,7 @@ import { Choice, applyChoice, drawChoices } from './powerups';
 import { Levels, Loadout, Stats, computeStats } from './stats';
 import { bossHp, dmgMul, hpMul, pickType, spawnRate, targetCount, waveEvents } from './waves';
 import type { RunResult } from './progress';
-import { FlowField, GameMap, MAX_OBSTACLE_R } from './map';
+import { FlowField, GameMap, MAP_CROWD, MAX_OBSTACLE_R } from './map';
 import { LZ, Landing, newLanding, openLanding, placeLanding, stepLanding } from './extraction';
 
 export interface Zombie {
@@ -60,6 +60,8 @@ export interface Bullet {
   last: number;
   /** 0 arme, 1 drone, 2 tourelle, 3 crachat ennemi. */
   src: number;
+  /** Dernier obstacle traversé (perforation). */
+  wall: unknown;
 }
 
 export interface Gem {
@@ -215,7 +217,7 @@ export class World {
   constructor(readonly loadout: Loadout, readonly rng: () => number, readonly map: GameMap | null = null) {
     this.flow = map ? new FlowField(map) : null;
     for (let i = 0; i < MAX_ZOMBIES; i++) this.zombies.push(blankZombie());
-    for (let i = 0; i < POOL.bullets; i++) this.bullets.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, dist: 0, pierce: 0, bounces: 0, crit: false, last: 0, src: 0 });
+    for (let i = 0; i < POOL.bullets; i++) this.bullets.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, dmg: 0, dist: 0, pierce: 0, bounces: 0, crit: false, last: 0, src: 0, wall: null });
     for (let i = 0; i < POOL.gems; i++) this.gems.push({ active: false, x: 0, y: 0, v: 0, pull: false, sp: 0 });
     for (let i = 0; i < POOL.pickups; i++) this.pickups.push({ active: false, x: 0, y: 0, kind: 'medkit', t: 0 });
     for (let i = 0; i < POOL.mines; i++) this.mines.push({ active: false, x: 0, y: 0, arm: 0 });
@@ -367,7 +369,8 @@ export class World {
 
   private spawn(dt: number) {
     const hold = this.lz.inside;
-    const target = targetCount(this.time) + (this.endless ? Math.min(60, (this.time - RUN_TIME) / 6) : 0) + (hold ? LZ.extraTarget : 0);
+    // Sur une carte, un peu moins de zombies visés : les obstacles coincent le soldat et arrêtent ses balles.
+    const target = targetCount(this.time) * (this.map ? MAP_CROWD : 1) + (this.endless ? Math.min(60, (this.time - RUN_TIME) / 6) : 0) + (hold ? LZ.extraTarget : 0);
     if (this.alive >= Math.min(MAX_ZOMBIES, target)) {
       this.spawnAcc = 0;
       return;
@@ -537,7 +540,8 @@ export class World {
     }
     if (this.fireCd > 0) this.fireCd -= dt;
     if (this.fireCd > 0) return;
-    const target = this.nearestVisible(this.px, this.py, s.range);
+    // Avec 2 perforations ou plus, on tire aussi à travers les obstacles.
+    const target = s.pierce >= 2 ? this.nearest(this.px, this.py, s.range) : this.nearestVisible(this.px, this.py, s.range);
     if (!target) return;
     const a = Math.atan2(target.y - this.py, target.x - this.px);
     this.aim = a;
@@ -576,6 +580,7 @@ export class World {
       b.crit = crit;
       b.last = -1;
       b.src = src;
+      b.wall = null;
       return b;
     }
     return null;
@@ -1062,11 +1067,21 @@ export class World {
           b.active = false;
           break;
         }
-        // Les obstacles arrêtent les balles (pas celles des drones, qui tirent d'en haut).
-        if (this.map && b.src !== 1 && this.map.blocked(b.x, b.y + 20)) {
-          b.active = false;
-          this.ev('wall', b.x, b.y);
-          break;
+        // Les obstacles arrêtent les balles (pas celles des drones, qui tirent d'en haut). Une balle perforante
+        // traverse l'obstacle en y laissant une perforation.
+        if (this.map && b.src !== 1) {
+          const o = this.map.hitAt(b.x, b.y + 20);
+          if (o && o !== b.wall) {
+            this.ev('wall', b.x, b.y);
+            if (b.src === 0 && b.pierce > 0) {
+              b.pierce--;
+              b.dmg *= 0.85;
+              b.wall = o;
+            } else {
+              b.active = false;
+              break;
+            }
+          }
         }
         if (b.src === 3) {
           // Crachat : touche le soldat
