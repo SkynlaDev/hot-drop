@@ -46,15 +46,22 @@ export function openSettings(scene: Phaser.Scene, onClose?: () => void): void {
     }, { primary: s.vibration, size: 28 });
     m.add(vb.root);
 
-    // Son
+    // Son et musique (la musique n'existe que dans le mode Zombie)
     y += 150;
-    m.add(txt(scene, 72, y, 'Son', 26, C.text, { fontStyle: 'bold' }));
-    const sb = button(scene, 72, y + 50, W - 144, 84, s.sound ? 'Activé' : 'Coupé', () => {
+    const hw = (W - 144 - 16) / 2;
+    m.add(txt(scene, 72, y, 'Bruitages', 26, C.text, { fontStyle: 'bold' }));
+    m.add(txt(scene, 72 + hw + 16, y, 'Musique', 26, C.text, { fontStyle: 'bold' }));
+    const sb = button(scene, 72, y + 50, hw, 84, s.sound ? 'Activés' : 'Coupés', () => {
       setSettings({ sound: !getSettings().sound });
       sfx('coin');
       draw();
     }, { primary: s.sound, size: 28 });
     m.add(sb.root);
+    const mb = button(scene, 72 + hw + 16, y + 50, hw, 84, s.music ? 'Activée' : 'Coupée', () => {
+      setSettings({ music: !getSettings().music });
+      draw();
+    }, { primary: s.music, size: 28 });
+    m.add(mb.root);
 
     const ok = button(scene, 72, top + PH - 120, W - 144, 90, 'Fermer', close, { size: 28 });
     m.add(ok.root);

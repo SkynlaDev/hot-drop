@@ -89,3 +89,9 @@ export function warmSfx(ids: SfxId[]): void {
   if (!c) return;
   for (const id of ids) buffer(c, id);
 }
+
+/** Contexte audio et bus des effets (pour les sons et la musique du mode Zombie) ; null sans Web Audio. */
+export function audioOut(): { ctx: AudioContext; bus: GainNode } | null {
+  const c = audio();
+  return c && master ? { ctx: c, bus: master } : null;
+}

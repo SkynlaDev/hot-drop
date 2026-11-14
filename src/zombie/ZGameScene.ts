@@ -10,9 +10,11 @@ import { PX_FIGS, pxKey } from '../art';
 import { MAX_ZOMBIES, xpToNext } from './data';
 import { applyRun, equippedAccessories, loadSave, storeSave, weaponLevel, weaponProgress, ZClass } from './progress';
 import { POOL, World } from './world';
-import { DIGIT_H, DIGIT_W, GROUND, Z_ART, Z_SCALE, makeDigitTextures, makeZombieTextures, preloadZombieArt, zTexture } from './assets';
+import { DIGIT_H, DIGIT_W, GROUND, Z_SCALE, makeDigitTextures, makeZombieTextures, preloadZombieArt, zTexture } from './assets';
 import { mulberry32 } from '../logic/rng';
 import type ZHudScene from './ZHudScene';
+import { ZAnimator, preloadZombieAnims } from './anim';
+import { ZSound } from './audio';
 
 type Img = Phaser.GameObjects.Image;
 
@@ -45,7 +47,6 @@ export default class ZGameScene extends Phaser.Scene {
   private playerShadow!: Img;
   private zs: Img[] = [];
   private zsh: Img[] = [];
-  private zKey: string[] = [];
   private zTint: number[] = [];
   private bullets: Img[] = [];
   private gems: Img[] = [];
@@ -74,6 +75,8 @@ export default class ZGameScene extends Phaser.Scene {
   private hpBarG!: Phaser.GameObjects.Graphics;
   private lastHurt = 0;
   private finished = false;
+  private anim!: ZAnimator;
+  private zsound!: ZSound;
 
   constructor() {
     super('zgame');
@@ -85,11 +88,11 @@ export default class ZGameScene extends Phaser.Scene {
 
   preload() {
     preloadZombieArt(this.load);
+    preloadZombieAnims(this.load);
   }
 
   create() {
     // Réinitialise l'état (la scène est relancée à chaque partie).
-    this.zKey = [];
     this.zTint = [];
     this.nums = [];
     this.zaps = [];
@@ -128,7 +131,7 @@ export default class ZGameScene extends Phaser.Scene {
     this.gems = pool(POOL.gems, 'zb-gem1', -1);
     this.pickups = pool(POOL.pickups, 'zb-medkit', ENT);
     this.zs = pool(MAX_ZOMBIES, 'z-marcheur1', ENT);
-    this.zKey = this.zs.map(() => '');
+    this.anim = new ZAnimator(this, MAX_ZOMBIES);
     this.zTint = this.zs.map(() => -1);
     this.turrets = pool(POOL.turrets, 'zb-turret', ENT);
     this.drones = pool(4, 'zb-drone', FX - 10);
@@ -166,6 +169,7 @@ export default class ZGameScene extends Phaser.Scene {
       this.nums.push({ root, digits, life: 0, vy: 0 });
     }
 
+    this.zsound = new ZSound(this);
     this.syncCamera();
     this.scene.launch('zhud');
     this.ui = this.scene.get('zhud') as ZHudScene;
@@ -181,6 +185,7 @@ export default class ZGameScene extends Phaser.Scene {
       [w.mx, w.my] = ui.readMove();
       w.update(dt);
       this.handleEvents();
+      this.zsound.frame(dt, w);
       if (w.dead) this.onDeath();
       else if (w.extracted && !w.endless) ui.openExtraction();
       else if (w.pendingLevels > 0) ui.openLevelUp();
@@ -205,9 +210,13 @@ export default class ZGameScene extends Phaser.Scene {
     const w = this.world;
     const now = this.time.now / 1000;
     // Soldat
-    const bob = w.moving ? Math.abs(Math.sin(now * 12)) * 3 : 0;
+    // Marche animée (repli : image fixe qui sautille et se dandine).
+    const walking = w.moving && !this.ended;
+    const pAnim = this.anim.player(this.player, this.cls.fig, walking, w.stats.move, PLAYER_SCALE, dt);
+    const bob = walking ? Math.abs(Math.sin(now * 12)) * (pAnim ? 0 : 3) : 0;
+    const sq = walking ? Math.sin(now * 24) * (pAnim ? 0.012 : 0.03) : 0;
     this.player.setPosition(w.px, w.py - bob).setFlipX(w.face < 0).setDepth(this.depth(w.py));
-    this.player.setScale(PLAYER_SCALE * (1 + (w.moving ? Math.sin(now * 24) * 0.03 : 0)), PLAYER_SCALE * (1 - (w.moving ? Math.sin(now * 24) * 0.03 : 0)));
+    if (!this.ended) this.player.setScale(PLAYER_SCALE * (1 + sq), PLAYER_SCALE * (1 - sq));
     const blink = w.invuln > 0 && Math.floor(now * 30) % 2 === 0;
     if (w.invuln > 0.05 && this.time.now - this.lastHurt < 150) this.player.setTintMode(Phaser.TintModes.FILL).setTint(P.danger);
     else this.player.setTintMode(Phaser.TintModes.MULTIPLY).clearTint();
@@ -240,25 +249,25 @@ export default class ZGameScene extends Phaser.Scene {
       const sh = this.zsh[i];
       if (!z.active) {
         if (im.visible) {
+          // Abattu : sa chute (s'il en a une), et l'éclatement du gonflé.
+          this.zsound.gone(this.anim.zombieGone(i, im, z.elite), im.x, w.px);
           im.setVisible(false);
           sh.setVisible(false);
         }
         continue;
       }
       const key = zTexture(z.type, z.id);
-      if (this.zKey[i] !== key) {
-        this.zKey[i] = key;
-        const a = Z_ART[key];
-        im.setTexture(key).setOrigin(a.feetX / a.size, a.feetY / a.size);
-      }
       const sc = Z_SCALE[z.type] * (z.elite ? 1.3 : 1);
+      // Marche animée : l'image suit la distance parcourue ; le dandinement reste, plus léger.
+      const walk = this.anim.zombie(im, i, z.id, key, z.x, z.y, sc, dt);
+      const sway = walk ? 0.012 : 0.035;
       const ph = now * (z.speed / 9) + z.phase;
       const charging = z.type === 'boss' && (z.windT > 0 || z.chargeT > 0);
       im.setVisible(true)
-        .setPosition(z.x + (z.windT > 0 ? Math.sin(now * 60) * 3 : 0), z.y - Math.abs(Math.sin(ph)) * 3)
+        .setPosition(z.x + (z.windT > 0 ? Math.sin(now * 60) * 3 : 0), z.y - Math.abs(Math.sin(ph)) * (walk ? 0 : 3))
         // Démarche en dandinant : écrasement/étirement plutôt qu'une rotation (sous Phaser 4, des sprites
         // tournés perdaient parfois la moitié de leur quad dans cette scène chargée).
-        .setScale(sc * (1 + Math.sin(ph * 2) * 0.035) * (z.chargeT > 0 ? 1.12 : 1), sc * (1 - Math.sin(ph * 2) * 0.035) * (z.chargeT > 0 ? 0.92 : 1))
+        .setScale(sc * (1 + Math.sin(ph * 2) * sway) * (z.chargeT > 0 ? 1.12 : 1), sc * (1 - Math.sin(ph * 2) * sway) * (z.chargeT > 0 ? 0.92 : 1))
         .setFlipX(z.face < 0)
         .setDepth(this.depth(z.y));
       // Teinte : éclat blanc au coup, orange en feu, rouge pour l'élite, rouge vif quand le boss charge.
@@ -297,6 +306,7 @@ export default class ZGameScene extends Phaser.Scene {
         hb.fillTriangle(z.x + nx, z.y + ny, ex - nx, ey - ny, z.x - nx, z.y - ny);
       }
     }
+    this.anim.update(dt);
     // Balles
     for (let i = 0; i < POOL.bullets; i++) {
       const b = w.bullets[i];
@@ -485,6 +495,7 @@ export default class ZGameScene extends Phaser.Scene {
     let gemSfx = false;
     for (let i = 0; i < w.evCount; i++) {
       const e = w.events[i];
+      this.zsound.event(e.k, e.x, w.px);
       switch (e.k) {
         case 'shot': {
           shots++;
@@ -598,7 +609,7 @@ export default class ZGameScene extends Phaser.Scene {
       }
     }
     if (shots) sfx(SHOT_SFX[this.cls.weapon], { vol: this.cls.weapon === 'pompe' || this.cls.weapon === 'precision' ? 0.55 : 0.32 });
-    if (gemSfx) sfx('coin', { vol: 0.22, pitch: 1.3 + Math.min(0.6, (w.xp / xpToNext(w.level)) * 0.6) });
+    if (gemSfx) this.zsound.gems(Math.min(1, w.xp / xpToNext(w.level)));
   }
 
   /* -------------------------------------------------------------- */
