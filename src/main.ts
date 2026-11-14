@@ -11,6 +11,7 @@ import MenuScene from './scenes/MenuScene';
 import OperatorScene from './scenes/OperatorScene';
 import ZoneScene from './scenes/ZoneScene';
 import { initSfx } from './audio/sfx';
+import { ZOMBIE_SCENES } from './zombie/scenes';
 
 async function start() {
   initSfx();
@@ -24,7 +25,7 @@ async function start() {
     backgroundColor: C.bg,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     input: { activePointers: 1 },
-    scene: [BootScene, MenuScene, OperatorScene, MapScene, ZoneScene, LoadoutScene, EndScene],
+    scene: [BootScene, MenuScene, OperatorScene, MapScene, ZoneScene, LoadoutScene, EndScene, ...ZOMBIE_SCENES],
   });
   // Accès de débogage depuis la console.
   (window as unknown as { game: Phaser.Game }).game = game;

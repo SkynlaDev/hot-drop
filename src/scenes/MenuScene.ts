@@ -88,7 +88,11 @@ export default class MenuScene extends Phaser.Scene {
       this.scene.start('operator');
     }, { primary: !saved, size: saved ? 26 : 30, icon: saved ? 'ic-compass' : 'ic-play' }).root, 1);
     y += saved ? 98 : 120;
-    this.enter(button(this, bx, y, BW, saved ? 70 : 76, 'Paramètres', () => openSettings(this), { size: 22, icon: 'ic-menu' }).root, 2);
+    // Dernière rangée : Mode Zombie (plus large) et Paramètres côte à côte, pour garder la hauteur du menu.
+    const ZW = 270;
+    const rowH = saved ? 70 : 76;
+    this.enter(button(this, bx, y, ZW, rowH, 'Mode Zombie', () => this.scene.start('zhub'), { size: 22, icon: 'ic-gas' }).root, 2);
+    this.enter(button(this, bx + ZW + 12, y, BW - ZW - 12, rowH, 'Réglages', () => openSettings(this), { size: 22 }).root, 2);
 
     // Plaque de version, au pochoir.
     const v = plate(this, W / 2, H - 34, 'Prototype · saison 0', P.braise, 15).setAlpha(0.85);
