@@ -10,9 +10,11 @@ export interface Settings {
   vibration: boolean;
   /** Effets sonores. */
   sound: boolean;
+  /** Musique (mode Zombie). */
+  music: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { speed: 1, vibration: true, sound: true };
+export const DEFAULT_SETTINGS: Settings = { speed: 1, vibration: true, sound: true, music: true };
 const KEY = 'hotdrop.settings.v1';
 
 let cache: Settings | null = null;
@@ -31,6 +33,7 @@ export function getSettings(): Settings {
     speed: (SPEEDS as readonly number[]).includes(s.speed ?? -1) ? s.speed! : DEFAULT_SETTINGS.speed,
     vibration: typeof s.vibration === 'boolean' ? s.vibration : DEFAULT_SETTINGS.vibration,
     sound: typeof s.sound === 'boolean' ? s.sound : DEFAULT_SETTINGS.sound,
+    music: typeof s.music === 'boolean' ? s.music : DEFAULT_SETTINGS.music,
   };
   return cache;
 }

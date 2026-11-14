@@ -1,5 +1,6 @@
 // Mode Zombie : QG (hors partie). Trois emplacements de classe, records, objectifs, accès à l'arsenal.
 import Phaser from 'phaser';
+import { zMusic } from './audio';
 import { C, H, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { button, fadeIn, modalBase, panel, plate, txt } from '../ui/widgets';
@@ -12,6 +13,7 @@ import { drawBar, fitImage, fmtTime } from './ui';
 
 /** Décor commun des écrans du mode : asphalte assombri, horde en silhouette à l'horizon, lueur du couchant. */
 export function zBackdrop(scene: Phaser.Scene, hordeY = 250) {
+  zMusic(scene, 'calme');
   scene.add.rectangle(0, 0, W, H, P.fond).setOrigin(0);
   scene.add.tileSprite(0, 0, W, H, GROUND).setOrigin(0).setTileScale(2).setAlpha(0.35);
   const glow = scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
