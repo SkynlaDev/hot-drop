@@ -90,22 +90,26 @@ export default class MenuScene extends Phaser.Scene {
       this.scene.start('operator');
     }, { primary: !saved, size: saved ? 26 : 30, icon: saved ? 'ic-compass' : 'ic-play' }).root, 1);
     y += saved ? 98 : 120;
-    // Défi du jour (même graine pour tous ce jour-là) et Carnet (collection, records, Menace).
+    // Rangée de trois : Défi du jour (même graine pour tous ce jour-là), Carnet (collection, records, Menace), Mode Zombie.
     const day = today();
     const done = loadProfile().daily[day];
     const dc = dailyChallenge(day);
-    const half = (BW - 12) / 2;
-    const dailyLabel = done ? (done.result === 'win' ? 'Défi ✓ Top 1' : `Défi ✓ C${done.round + 1}`) : 'Défi du jour';
-    this.enter(button(this, bx, y, half, saved ? 70 : 76, dailyLabel, () => {
+    const RW = 620;
+    const rx = (W - RW) / 2;
+    const third = (RW - 24) / 3;
+    const rowH = saved ? 70 : 76;
+    const dailyLabel = done ? (done.result === 'win' ? 'Défi ✓' : `Défi ✓ C${done.round + 1}`) : 'Défi du jour';
+    this.enter(button(this, rx, y, third, rowH, dailyLabel, () => {
       clearRun();
       const run = newRun(dc.operator, dc.seed, { menace: dc.menace, daily: day });
       saveRun(run);
       this.registry.set('run', run);
       this.registry.remove('mapSeen');
       this.scene.start('map');
-    }, { size: 20, icon: 'ic-compass' }).root, 2);
-    this.enter(button(this, bx + half + 12, y, half, saved ? 70 : 76, 'Carnet', () => this.scene.start('carnet'), { size: 20, icon: 'ic-menu' }).root, 2);
-    txt(this, W / 2, y + (saved ? 84 : 92), `Défi : ${OPERATORS[dc.operator].name} · Menace ${dc.menace} · une graine pour tous`, 15, C.quiet).setOrigin(0.5);
+    }, { size: 19, icon: 'ic-compass' }).root, 2);
+    this.enter(button(this, rx + third + 12, y, third, rowH, 'Carnet', () => this.scene.start('carnet'), { size: 19, icon: 'ic-menu' }).root, 2);
+    this.enter(button(this, rx + 2 * (third + 12), y, third, rowH, 'Zombies', () => this.scene.start('zhub'), { size: 19, icon: 'ic-gas' }).root, 2);
+    txt(this, W / 2, y + rowH + 14, `Défi : ${OPERATORS[dc.operator].name} · Menace ${dc.menace} · une graine pour tous`, 15, C.quiet).setOrigin(0.5);
 
     // Paramètres : roue dentée en haut à droite.
     const gear = txt(this, W - 36, 40, '⚙', 40, C.text).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
