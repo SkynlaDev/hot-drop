@@ -85,7 +85,7 @@ export default class EndScene extends Phaser.Scene {
       [run.daily ? 'Défi du jour' : 'Menace', run.daily ? run.daily.split('-').reverse().join('/') : `${run.menace ?? 0}${run.menace ? ' · ' + MENACE_INFO[run.menace].name : ''}`],
     ];
     lines.forEach(([k, v], i) => {
-      const y = PY + 50 + i * 38;
+      const y = PY + 46 + i * 34;
       const a = txt(this, PX + 30, y, k, 20, C.quiet).setOrigin(0, 0.5).setAlpha(0);
       const b = txt(this, PX + 300, y, v, 21, C.text, { fontStyle: 'bold' }).setOrigin(1, 0.5).setAlpha(0);
       this.tweens.add({ targets: [a, b], alpha: 1, duration: 220, delay: 500 + i * 90 });
