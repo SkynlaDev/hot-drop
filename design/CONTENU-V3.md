@@ -121,3 +121,13 @@ peu ; l'essaim est dense mais lisible.
 
 Simulation de runs (`runsim 40`, avant ces corrections) : agressif 18 % de Top 1 (Viper 0 %, Sentinelle 35 %),
 d'où la chasse ci-dessus. À remesurer.
+
+**Mesure après l'étape 5** (`runsim 45`) : agressif 18 % de Top 1 (Viper 7 %, Sentinelle 20 %, Sapeur 27 %, 15 runs
+chacun : très bruité), prudent 4 %. Un peu sous l'avant-journée (25 %) : le simulateur n'achète ni légendaires ni
+objets v3 de façon réfléchie, alors que le bot du Top 1 porte désormais toujours un légendaire. À surveiller au
+prochain playtest humain (cible : 30 à 45 % de Top 1).
+
+## 6. Promotions en boutique
+
+Une fois sur trois (`SHOP_SALE_CHANCE`), une offre d'objet est à −50 % (arrondi au supérieur) : pastille rouge et
+ancien prix barré. Comme dans Backpack Battles, ça pousse à acheter un objet hors de son plan… ou à relancer.

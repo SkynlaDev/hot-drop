@@ -63,6 +63,8 @@ export interface ShopOffer {
   sold: boolean;
   /** Verrouillée : survit aux relances et passe à la boutique suivante (une seule à la fois). */
   locked?: boolean;
+  /** En promotion : prix divisé par deux (arrondi au supérieur). */
+  sale?: boolean;
 }
 
 export type FightKind = 'solo' | 'elite' | 'final';
@@ -612,6 +614,8 @@ export function ownsItem(run: RunState, defId: string): boolean {
 /** Chance qu'une caisse épique propose un objet légendaire ; chance qu'une boutique en propose un. */
 export const EPIC_LEGENDARY_CHANCE = 0.6;
 export const SHOP_LEGENDARY_CHANCE = 0.18;
+/** Chance qu'une offre de la boutique soit en promotion (−50 %). */
+export const SHOP_SALE_CHANCE = 0.35;
 
 /** Légendaires encore trouvables : déjà apparus à cette manche, pas encore possédés, utilisables par l'opérateur. */
 export function legendaryPool(run: RunState): string[] {
@@ -807,6 +811,12 @@ export function rollShop(run: RunState): void {
     items[items.length - 1] = drop(pick(rng, legs));
   }
   const fresh: ShopOffer[] = items.map((item) => ({ item, price: itemPrice(item.defId), sold: false }));
+  // Promotion : une fois sur trois, une offre d'objet est à moitié prix.
+  if (fresh.length && rng() < SHOP_SALE_CHANCE) {
+    const o = fresh[Math.floor(rng() * fresh.length)];
+    o.sale = true;
+    o.price = Math.ceil(o.price / 2);
+  }
   if (hasBag) {
     const bag = rollBag(rng, run.round);
     fresh.push({ bag, price: BAGS[bag].price, sold: false });

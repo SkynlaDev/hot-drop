@@ -1389,7 +1389,7 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   /** Carte d'offre (boutique) : objet ou sacoche. */
-  private offerCard(m: Container, x0: number, y0: number, w: number, h: number, o: { item?: ItemInst; bag?: BagId; price: number; sold: boolean; locked?: boolean }, onTap: () => void, delay: number, onLock?: () => void) {
+  private offerCard(m: Container, x0: number, y0: number, w: number, h: number, o: { item?: ItemInst; bag?: BagId; price: number; sold: boolean; locked?: boolean; sale?: boolean }, onTap: () => void, delay: number, onLock?: () => void) {
     const cc = this.add.container(x0, y0);
     m.add(cc);
     if (delay >= 0) {
@@ -1434,6 +1434,18 @@ export default class LoadoutScene extends Phaser.Scene {
     pill.fillRoundedRect(w / 2 - 56, h - 42, 112, 32, 16);
     cc.add(pill);
     cc.add(txt(this, w / 2, h - 26, o.sold ? 'VENDU' : `◆ ${o.price} cr`, 18, o.sold ? C.quiet : afford ? '#17141c' : C.dangerStr, { fontStyle: 'bold' }).setOrigin(0.5));
+    if (o.sale && !o.sold) {
+      // Promotion : pastille en biais et ancien prix barré.
+      const pr = this.add.container(w - 52, 88).setAngle(-10);
+      const pg = this.add.graphics();
+      pg.fillStyle(P.danger, 1);
+      pg.fillRoundedRect(-38, -14, 76, 28, 6);
+      pr.add([pg, txt(this, 0, 0, '−50 %', 17, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5)]);
+      cc.add(pr);
+      const old = txt(this, w / 2 - 80, h - 26, `${o.price * 2}`, 15, C.quiet).setOrigin(0.5);
+      const strike = this.add.rectangle(old.x, old.y, old.width + 6, 2, 0xa39a8c);
+      cc.add([old, strike]);
+    }
     if (o.sold) v.setAlpha(0.3);
     if (o.item && !o.sold) this.affinityBadges(cc, 10, 10, w - 10, o.item.defId);
     const z = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
