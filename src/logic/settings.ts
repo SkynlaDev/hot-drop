@@ -59,3 +59,8 @@ export function nextSpeed(speed: number): number {
 export function resetSettingsCache(): void {
   cache = null;
 }
+
+/** Musique et bruitages propres au mode Zombie (calculés en code, src/zombie/audio.ts) : coupés, jugés pas assez bons à l'écoute
+ *  (14/11/2026). Le code reste prêt ; repasser à true pour les réentendre. Les tirs et impacts, partagés avec le
+ *  jeu principal (audio/sfx.ts), ne sont pas concernés. */
+export const ZOMBIE_AUDIO = false;

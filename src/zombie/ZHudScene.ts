@@ -5,7 +5,7 @@ import { C, FONT, H, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { banner, button, fadeIn, modalBase, panel, plate, toast, txt, vibrate } from '../ui/widgets';
 import { sfx } from '../audio/sfx';
-import { getSettings, setSettings } from '../logic/settings';
+import { ZOMBIE_AUDIO, getSettings, setSettings } from '../logic/settings';
 import { zMusicRefresh, zsfx } from './audio';
 import { EVOLUTIONS, POWERS, POWER_IDS, RUN_TIME, WEAPONS, xpToNext } from './data';
 import { choiceInfo } from './world';
@@ -434,12 +434,14 @@ export default class ZHudScene extends Phaser.Scene {
     root.add(txt(this, W / 2, 380, lines.join('\n'), 22, C.quiet, { align: 'center', lineSpacing: 10 }).setOrigin(0.5, 0));
     root.add(button(this, W / 2 - 220, 580, 440, 96, 'Reprendre', () => this.togglePause(), { primary: true, icon: 'ic-play' }).root);
     root.add(button(this, W / 2 - 220, 700, 440, 84, 'Abandonner', () => gs.finish(false), { size: 26, icon: 'ic-close' }).root);
-    const mus = () => `Musique : ${getSettings().music ? 'oui' : 'non'}`;
-    const mb = button(this, W / 2 - 220, 810, 440, 76, mus(), () => {
-      setSettings({ music: !getSettings().music });
-      zMusicRefresh();
-      mb.setLabel(mus());
-    }, { size: 24 });
-    root.add(mb.root);
+    if (ZOMBIE_AUDIO) {
+      const mus = () => `Musique : ${getSettings().music ? 'oui' : 'non'}`;
+      const mb = button(this, W / 2 - 220, 810, 440, 76, mus(), () => {
+        setSettings({ music: !getSettings().music });
+        zMusicRefresh();
+        mb.setLabel(mus());
+      }, { size: 24 });
+      root.add(mb.root);
+    }
   }
 }

@@ -355,3 +355,10 @@ par un anneau de 640 objets réutilisés.
   zombies cachés derrière les obstacles, et ses plombs dispersés s'y écrasaient. Il ne vise plus que ce qu'il
   voit (le tir à travers les obstacles reste aux armes à balle unique avec 2 perforations ou plus) : 5 sur 12
   (fusil d'assaut : 6 sur 12, décors alternés).
+
+### Sons coupés (14/11/2026)
+
+À l'écoute, la musique et les bruitages calculés du mode (grognements, rugissements, éclatement, niveau, XP) ne
+sont pas assez bons : ils sont coupés par `ZOMBIE_AUDIO = false` (src/logic/settings.ts). Le code reste en place ;
+les réglages « Musique » (paramètres et pause) sont masqués tant que l'interrupteur est à false. Les tirs, impacts
+et sons d'interface, partagés avec le jeu principal, restent actifs.

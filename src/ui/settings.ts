@@ -1,7 +1,7 @@
 // Écran des paramètres : réglages du joueur gardés d'une partie à l'autre (logic/settings.ts).
 import Phaser from 'phaser';
 import { C, TITLE_FONT, W } from '../config';
-import { SPEEDS, getSettings, setSettings } from '../logic/settings';
+import { SPEEDS, ZOMBIE_AUDIO, getSettings, setSettings } from '../logic/settings';
 import { button, modalBase, panel, txt, vibrate } from './widgets';
 import { sfx } from '../audio/sfx';
 
@@ -46,22 +46,24 @@ export function openSettings(scene: Phaser.Scene, onClose?: () => void): void {
     }, { primary: s.vibration, size: 28 });
     m.add(vb.root);
 
-    // Son et musique (la musique n'existe que dans le mode Zombie)
+    // Son (la musique du mode Zombie est coupée pour l'instant : voir ZOMBIE_AUDIO)
     y += 150;
-    const hw = (W - 144 - 16) / 2;
-    m.add(txt(scene, 72, y, 'Bruitages', 26, C.text, { fontStyle: 'bold' }));
-    m.add(txt(scene, 72 + hw + 16, y, 'Musique', 26, C.text, { fontStyle: 'bold' }));
-    const sb = button(scene, 72, y + 50, hw, 84, s.sound ? 'Activés' : 'Coupés', () => {
+    const hw = ZOMBIE_AUDIO ? (W - 144 - 16) / 2 : W - 144;
+    m.add(txt(scene, 72, y, ZOMBIE_AUDIO ? 'Bruitages' : 'Son', 26, C.text, { fontStyle: 'bold' }));
+    const sb = button(scene, 72, y + 50, hw, 84, s.sound ? (ZOMBIE_AUDIO ? 'Activés' : 'Activé') : (ZOMBIE_AUDIO ? 'Coupés' : 'Coupé'), () => {
       setSettings({ sound: !getSettings().sound });
       sfx('coin');
       draw();
     }, { primary: s.sound, size: 28 });
     m.add(sb.root);
-    const mb = button(scene, 72 + hw + 16, y + 50, hw, 84, s.music ? 'Activée' : 'Coupée', () => {
-      setSettings({ music: !getSettings().music });
-      draw();
-    }, { primary: s.music, size: 28 });
-    m.add(mb.root);
+    if (ZOMBIE_AUDIO) {
+      m.add(txt(scene, 72 + hw + 16, y, 'Musique', 26, C.text, { fontStyle: 'bold' }));
+      const mb = button(scene, 72 + hw + 16, y + 50, hw, 84, s.music ? 'Activée' : 'Coupée', () => {
+        setSettings({ music: !getSettings().music });
+        draw();
+      }, { primary: s.music, size: 28 });
+      m.add(mb.root);
+    }
 
     const ok = button(scene, 72, top + PH - 120, W - 144, 90, 'Fermer', close, { size: 28 });
     m.add(ok.root);

@@ -5,7 +5,7 @@
 // longueur, lancées au même instant) ; le volume de « menace » suit la menace (foule, horde, Colosse) avec un
 // fondu. Les boucles sont calculées par petits lots entre deux images (pas d'à-coup au lancement).
 import Phaser from 'phaser';
-import { getSettings } from '../logic/settings';
+import { ZOMBIE_AUDIO, getSettings } from '../logic/settings';
 import { audioOut } from '../audio/sfx';
 import { MUSIC_RATE, Track, finishTrack, trackScore } from './music';
 import { GROANS, ZSFX_RATE, ZSfxId, zsynth } from './zsynth';
@@ -43,7 +43,7 @@ function sfxBuffer(ctx: AudioContext, id: ZSfxId): AudioBuffer {
 
 /** Joue un bruitage du mode, s'il reste une voix libre dans sa catégorie. */
 export function zsfx(id: ZSfxId, o: { kind?: string; vol?: number; pitch?: number; pan?: number } = {}): void {
-  if (!getSettings().sound) return;
+  if (!ZOMBIE_AUDIO || !getSettings().sound) return;
   const out = audioOut();
   if (!out || out.ctx.state !== 'running') return;
   const { ctx, bus } = out;
@@ -67,6 +67,7 @@ export function zsfx(id: ZSfxId, o: { kind?: string; vol?: number; pitch?: numbe
 
 /** Calcule les bruitages à l'avance (évite un à-coup au premier grognement). */
 export function warmZSfx(): void {
+  if (!ZOMBIE_AUDIO) return;
   const out = audioOut();
   if (!out) return;
   for (const id of ['groan1', 'groan2', 'groan3', 'groan4', 'roar', 'roar_short', 'burst', 'zlevel', 'zpick', 'zgem'] as ZSfxId[]) sfxBuffer(out.ctx, id);
@@ -161,7 +162,7 @@ function startLayer(track: Track, buf: AudioBuffer, vol: number) {
 function apply() {
   const out = audioOut();
   if (!out) return;
-  const on = getSettings().music && mode !== null;
+  const on = ZOMBIE_AUDIO && getSettings().music && mode !== null;
   const b = bus(out.ctx);
   const now = out.ctx.currentTime;
   b.gain.cancelScheduledValues(now);
