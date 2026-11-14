@@ -15,6 +15,8 @@ import { mulberry32 } from '../logic/rng';
 import type ZHudScene from './ZHudScene';
 import { ZAnimator, preloadZombieAnims } from './anim';
 import { ZSound } from './audio';
+import { GameMap } from './map';
+import { MapView, mapGround, pickTheme, preloadMapArt } from './mapview';
 
 type Img = Phaser.GameObjects.Image;
 
@@ -77,6 +79,7 @@ export default class ZGameScene extends Phaser.Scene {
   private finished = false;
   private anim!: ZAnimator;
   private zsound!: ZSound;
+  private mapView!: MapView;
 
   constructor() {
     super('zgame');
@@ -89,6 +92,7 @@ export default class ZGameScene extends Phaser.Scene {
   preload() {
     preloadZombieArt(this.load);
     preloadZombieAnims(this.load);
+    preloadMapArt(this.load);
   }
 
   create() {
@@ -104,14 +108,17 @@ export default class ZGameScene extends Phaser.Scene {
     const save = loadSave();
     this.cls = save.classes[this.slot] ?? save.classes.find((c) => c) ?? { name: 'Viper', fig: 'viper', weapon: 'fusil_assaut', perk: 'eclaireur' };
     const wp = weaponProgress(save, this.cls.weapon);
+    // Carte : décor au hasard (ou ?carte=…), disposition tirée d'une graine.
+    const map = new GameMap(pickTheme(Math.random), (Math.random() * 2 ** 31) >>> 0);
     this.world = new World(
       { weapon: this.cls.weapon, weaponLevel: weaponLevel(wp.xp).level, accessories: equippedAccessories(save, this.cls.weapon), perk: this.cls.perk },
       mulberry32((Date.now() ^ 0x5eed) >>> 0),
+      map,
     );
     warmSfx([SHOT_SFX[this.cls.weapon], 'hit', 'frag', 'coin', 'reload', 'pickup', 'death', 'hit_armor']);
 
     this.cameras.main.setBackgroundColor(P.fond);
-    this.ground = this.add.tileSprite(0, 0, W, H, GROUND).setOrigin(0).setScrollFactor(0).setDepth(-10);
+    this.ground = this.add.tileSprite(0, 0, W, H, mapGround(this, map) || GROUND).setOrigin(0).setScrollFactor(0).setDepth(-10);
     this.ground.setTileScale(2);
 
     const pool = (n: number, key: string, depth: number, blend?: Phaser.BlendModes) => {
@@ -170,7 +177,9 @@ export default class ZGameScene extends Phaser.Scene {
     }
 
     this.zsound = new ZSound(this);
+    this.mapView = new MapView(this, map, (y) => this.depth(y));
     this.syncCamera();
+    this.time.delayedCall(2600, () => this.ui?.toast(`Secteur : ${map.theme.name}`, C.text, 230));
     this.scene.launch('zhud');
     this.ui = this.scene.get('zhud') as ZHudScene;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scene.stop('zhud'));
@@ -187,12 +196,13 @@ export default class ZGameScene extends Phaser.Scene {
       this.handleEvents();
       this.zsound.frame(dt, w);
       if (w.dead) this.onDeath();
-      else if (w.extracted && !w.endless) ui.openExtraction();
+      else if (w.extracted) this.onExtract();
       else if (w.pendingLevels > 0) ui.openLevelUp();
     } else if (this.ended && this.slowmo < 1) {
       w.update(dt * this.slowmo);
     }
     this.syncCamera();
+    this.mapView.update(w, this.cameras.main.scrollX, this.cameras.main.scrollY);
     this.render(dt);
   }
 
@@ -597,6 +607,16 @@ export default class ZGameScene extends Phaser.Scene {
         case 'mine':
           sfx('place', { vol: 0.4 });
           break;
+        case 'wall':
+          if (hits < 6) this.sparks.explode(2, e.x, e.y);
+          hits++;
+          break;
+        case 'lz':
+          this.ui.banner('L’HÉLICO ARRIVE', C.goodStr, H * 0.36);
+          this.time.delayedCall(1800, () => this.ui.toast('Rejoins la zone verte et tiens 10 s · ou ignore-la (sans fin)', C.goodStr, 260));
+          sfx('win', { vary: 0, vol: 0.6 });
+          vibrate([60, 40, 60]);
+          break;
         case 'turret':
           sfx('link', { vol: 0.5 });
           break;
@@ -615,6 +635,20 @@ export default class ZGameScene extends Phaser.Scene {
   /* -------------------------------------------------------------- */
   /* Modales : niveau, pause, extraction, mort                       */
   /* -------------------------------------------------------------- */
+
+  /** Extraction réussie : le soldat monte à bord, l'hélico décolle, puis le rapport. */
+  private onExtract() {
+    if (this.ended) return;
+    this.ended = true;
+    this.ui.closeAll();
+    this.slowmo = 0.3;
+    this.mapView.leaving = true;
+    sfx('win', { vary: 0 });
+    vibrate([60, 40, 120]);
+    this.ui.banner('EXTRACTION !', C.goodStr, H * 0.36);
+    this.tweens.add({ targets: [this.player, this.playerShadow], alpha: 0, duration: 500, delay: 300 });
+    this.time.delayedCall(2200, () => this.finish(true));
+  }
 
   private onDeath() {
     if (this.ended) return;

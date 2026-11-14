@@ -1,8 +1,9 @@
 # Mode Zombie
 
 Un survivor à la Vampire Survivors / Brotato dans l'univers de HOT DROP : un soldat, une ville en ruine au
-crépuscule, des hordes qui arrivent de partout. On se déplace, le soldat tire tout seul. Tenir 10 minutes =
-extraction (victoire), puis on peut rester en mode sans fin.
+crépuscule, des hordes qui arrivent de partout. On se déplace, le soldat tire tout seul. Tenir 10 minutes, puis
+rejoindre l'hélico = extraction (victoire) ; on peut aussi l'ignorer et rester en mode sans fin. Trois décors
+(ville en ruine, forêt, port industriel) avec des obstacles qui font des couloirs et des goulots.
 
 Tout le code est dans `src/zombie/` ; seules retouches ailleurs : `src/main.ts` (enregistrement des scènes) et
 `src/scenes/MenuScene.ts` (bouton « Mode Zombie »).
@@ -16,6 +17,9 @@ Tout le code est dans `src/zombie/` ; seules retouches ailleurs : `src/main.ts` 
 | `powerups.ts` | Tirage des 3 choix, empilement, évolutions |
 | `waves.ts` | Directeur : nombre cible de zombies, types selon le temps, élites, hordes, boss |
 | `world.ts` | Simulation pure (sans Phaser) : réserves fixes, grille spatiale, événements pour l'affichage |
+| `map.ts` | Carte, pure : décors, génération des obstacles par morceaux (graine), collisions, ligne de tir, champ de flux |
+| `extraction.ts` | Zone d'atterrissage à 10:00 : placement, attente, réussite (pur) |
+| `mapview.ts` | Affichage des obstacles, du sol du décor, de la zone et de l'hélico ; flèche et jauge du HUD |
 | `progress.ts` | Sauvegarde locale : classes, XP et accessoires d'armes, records, objectifs |
 | `assets.ts` | Sprites PixelLab + textures dessinées en code (et sprites de repli) |
 | `anim.ts`, `gait.ts` | Marches et chutes animées (feuilles `public/art/zombie/anim/`), cadence liée à la distance parcourue |
@@ -28,7 +32,8 @@ Tout le code est dans `src/zombie/` ; seules retouches ailleurs : `src/main.ts` 
 | `ZEndScene` | Rapport de fin |
 
 Outils : `npx vite-node tests/zombiesim.ts [parties] [arme] [niveau d'arme]` (simulation rapide avec un bot,
-pour l'équilibrage), `node tools/zombie-shots.mjs <dossier> menu hub class arsenal game:20 skip:120 …`
+pour l'équilibrage ; 5ᵉ argument : décor `ville`, `foret`, `port`, `aucun` ou `tous`), `?carte=foret` dans
+l'adresse pour forcer un décor, `node tools/zombie-shots.mjs <dossier> menu hub class arsenal game:20 skip:120 …`
 (captures playwright, serveur vite sur le port 5199).
 
 ## Règles
@@ -44,8 +49,15 @@ pour l'équilibrage), `node tools/zombie-shots.mjs <dossier> menu hub class arse
 - **Objets au sol** : trousse (+30 PV, 0,6 % des kills), aimant (toute l'XP vient à soi, 0,25 %), frappe
   aérienne (tue tout à l'écran, 10 % des PV du boss, 0,12 %), caisse (lâchée par les élites et le boss :
   un passage de niveau gratuit).
-- **Fin** : mort → rapport. À 10:00, fenêtre d'extraction : partir (victoire) ou continuer en sans fin
-  (zombies de plus en plus coriaces, boss toutes les 2 min 30, élites toutes les 20 s).
+- **Fin** : mort → rapport. À 10:00, une zone d'atterrissage apparaît à 950-1 350 px (flèche verte au bord de
+  l'écran, distance en mètres) ; y tenir 10 s (la jauge redescend de 0,5 s par seconde hors de la zone) pendant
+  que la horde redouble (apparitions ×3, +70 zombies visés) = extraction (victoire). Sinon la partie continue en
+  sans fin (zombies de plus en plus coriaces, boss toutes les 2 min 30, élites toutes les 20 s) et l'hélico
+  attend toujours.
+- **Carte** : obstacles (voitures, bus, murets, barricades, gravats ; sapins, arbres morts, rochers, troncs ;
+  conteneurs, caisses, fûts) qui bloquent le soldat, les zombies et les balles (sauf celles des drones, qui
+  tirent d'en haut ; grenades et obus passent par-dessus ; les balles perforantes traversent en y perdant une
+  perforation). Le soldat ne tire que sur ce qu'il voit (sauf avec 2 perforations ou plus).
 
 ## Zombies
 
@@ -152,6 +164,33 @@ Records : meilleur temps, plus de zombies en une partie, plus haut niveau ; tota
 extractions, Colosses). Objectifs (QG → Objectifs) : Survivre 5 min (Revolver), Abattre un Colosse
 (Artificier), 1 500 zombies au total (Colosse), Niveau 20 (Veinard), Tenir 10 min (KR-4 Mitrailleur),
 Tenir 15 min en sans fin (titre).
+
+## Carte
+
+- Monde infini découpé en morceaux de 16 × 16 cases de 64 px, générés à la demande depuis la graine de la
+  partie, le décor et leurs coordonnées. Chaque obstacle occupe une empreinte de cases entières (pas de
+  chevauchement) ; son collisionneur (rectangle ou cercle) est un peu plus petit que l'empreinte.
+- La couronne de chaque morceau reste libre : une « rue » de 128 px tous les 1 024 px. Chaque obstacle posé est
+  annulé s'il coupe une case libre de la couronne (remplissage) : pas d'enclos, tout l'espace libre est relié.
+  Zone de départ : disque de 380 px dégagé.
+- Génération par structures, selon le décor : obstacle seul, ligne (murets, barricades, voitures, conteneurs)
+  avec une brèche dans les lignes de 3 et plus (un goulot), bosquet (arbres, caisses et fûts).
+- Collisions : le cercle est repoussé hors du collisionneur (glissement le long des bords). Rayon contre les
+  obstacles plafonné à 24 px : brutes, élites et Colosse passent dans les rues de 64 px (leur sprite déborde un
+  peu). La charge du Colosse se brise sur un obstacle.
+- Pilotage des zombies : champ de flux (distances en 4-voisinage sur 48 × 48 cases autour du soldat, recalculé
+  quand il change de case, ~2 300 cases). Un zombie qui voit le soldat (ligne libre de la case au soldat,
+  calculée à la demande et mise en cache) va tout droit ; sinon il vise le centre de la case suivante du champ
+  (deux cases plus loin si la ligne est libre : trajectoire plus souple). À égalité, le côté choisi dépend de la
+  case : une foule se partage des deux côtés d'un obstacle.
+- Les balles s'arrêtent sur les obstacles, sauf les balles perforantes de l'arme : traverser un obstacle coûte
+  une perforation (et 15 % de dégâts, comme un zombie). Le choix de cible ne retient que les zombies en vue (les
+  8 plus proches, puis le premier en ligne libre) ; avec 2 perforations ou plus (Précision Aigle, ou des
+  power-ups), le soldat tire aussi à travers les obstacles. Balles des drones, grenades et obus passent
+  par-dessus. Sans cela, le Précision et le Revolver (cadence lente) s'effondraient en simulation.
+- Obstacles devant le soldat qui le recouvriraient : à demi transparents.
+- Décor tiré au hasard à chaque partie (annoncé par un toast « Secteur : … ») ; pas de choix au QG pour
+  l'instant (`?carte=` pour les essais).
 
 ## Performances
 
@@ -261,4 +300,48 @@ par un anneau de 640 objets réutilisés.
 - À vérifier à l'oreille sur téléphone (rien n'a pu être écouté ici) : niveaux relatifs musique / bruitages
   (`MUSIC_VOL` 0,34, « calme » à 0,6), timbre des grognements, et si la couche « menace » n'est pas trop
   présente avec Bombardement.
+
+### Carte : obstacles, décors, extraction
+
+- **Monde** : resté infini (cohérent avec les apparitions en anneau et le recyclage des zombies lointains),
+  découpé en morceaux de 1 024 px générés à la demande depuis une graine. Couronne libre autour de chaque
+  morceau (« rues ») et connexité vérifiée obstacle par obstacle : pas d'enclos, et la vérification ne coûte
+  rien (256 cases par essai). Revers assumé : la trame de rues se devine tous les 1 024 px.
+- **Décors** (`?carte=` pour forcer) : ville en ruine (voitures, bus, murets, barricades, gravats ; sol
+  d'origine), forêt (sapins, arbres morts, rochers, troncs couchés ; sol terre et mousse), port industriel
+  (conteneurs, caisses, fûts ; sol de dalles et gravier). Tiré au hasard à chaque partie : un choix au QG
+  demanderait de retoucher le QG, laissé pour plus tard.
+- **Sprites** : PixelLab `create_map_object` (vue « high top-down », 1 génération chacun, fond transparent),
+  rognés et affichés à la largeur de leur empreinte ; sols : `create_topdown_tileset` standard (32 px, 1
+  génération), assemblés en textures de 512 px raccordées (grille de coins torique), assombris un peu. Les
+  personnages restant vus de côté, les obstacles sont en 3/4 : la profondeur (pieds) les trie avec les
+  zombies. L'hélico : un sprite, rotor dessiné en code (pas de sprite tourné, voir l'étape 4).
+- **Pilotage** : champ de flux plutôt que simple glissement (un zombie qui glisse le long d'un mur droit vers
+  le soldat reste collé au mur quand le soldat est juste derrière). Un zombie qui voit le soldat va tout droit :
+  pas de démarche en escalier en terrain dégagé.
+- **Extraction** : la fenêtre « Partir / Continuer » de 10:00 est remplacée par la zone d'atterrissage. À 10:00
+  la partie passe d'office en sans fin (minuterie « +0:00 » rouge, boss toutes les 2 min 30…) et l'hélico
+  attend jusqu'à ce qu'on le rejoigne. Victoire = extraction seulement : mourir après 10:00 sans l'avoir
+  rejoint est une défaite (l'objectif « Tenir 10 min » reste acquis au temps). Rapport de fin : « Dix minutes
+  tenues. L'hélico décolle sous les griffes. », ou « Extrait après …, dont … en sans fin ».
+- **Équilibrage** (bot, 12 parties par arme, 3 décors en alternance, jusqu'à 13:00) : la carte rendait le bot
+  nettement plus fragile (extractions à arme niveau 1 : 7/84 contre 21/84 sans carte). Compensations : 15 %
+  de zombies visés en moins sur une carte (`MAP_CROWD`), balles perforantes qui traversent les obstacles,
+  tir à travers les obstacles à 2 perforations ou plus, et le bot choisit son cap parmi 16 en gardant de
+  l'espace devant lui. Résultat : niveau 1 : pistolet 0/12, SMG 2, fusil d'assaut 6, pompe 0, précision 1,
+  revolver 2, mitrailleuse 6 (sans carte : 1, 3, 5, 4, 1, 2, 5) ; niveau 8 : 8, 10, 10, 6, 6, 8, 11 (sans
+  carte : 8, 7, 11, 5, 8, 11, 12). Le bot qui atteint 10:00 réussit presque toujours l'extraction (10 s dans
+  la zone, apparitions ×3) ; un joueur de niveau plus bas y souffre davantage (capture `carte-extraction-*`).
+  Le pompe reste le plus faible pour le bot sur carte (perforation 1 perdue sur les obstacles) : à vérifier
+  en jouant.
+- **Performances** : simulation à ~240 zombies, en Node : 0,063 ms par image sans carte, 0,11 ms avec
+  (champ de flux recalculé quand le soldat change de case, vues en cache, collisions sur 1 à 4 cases par
+  zombie). Dans Chromium (sans GPU) : simulation 0,18-0,20 ms, sprites 0,30-0,53 ms, carte (obstacles
+  visibles, zone) 0,05-0,09 ms par image.
+- **Captures** : `design/zombie/carte-ville.png`, `carte-foret.png`, `carte-port.png`, `carte-contournement.png`
+  (la foule se partage des deux côtés d'un bus et d'un muret), `carte-extraction-appel.png` (flèche verte,
+  distance), `carte-extraction-attente.png`, `carte-extraction-decollage.png`, `carte-extraction-fin.png`.
+- **Reste / fragile** : la trame régulière des rues ; brutes, élites et Colosse débordent visuellement sur les
+  obstacles (rayon de collision plafonné à 24 px) ; le champ de flux couvre 3 072 px autour du soldat (au-delà,
+  les zombies vont tout droit, mais ils sont recyclés à 1 350 px) ; pas de choix du décor au QG.
 

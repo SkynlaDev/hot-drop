@@ -52,7 +52,7 @@ export default class ZEndScene extends Phaser.Scene {
       sfx(win ? 'win' : 'lose', { vary: 0 });
     } });
     const sub = win
-      ? r.time > 600 ? `Tenu ${fmtTime(r.time)}, dont ${fmtTime(r.time - 600)} en sans fin.` : 'Dix minutes. L’hélico décolle sous les griffes.'
+      ? r.time > 690 ? `Extrait après ${fmtTime(r.time)}, dont ${fmtTime(r.time - 600)} en sans fin.` : 'Dix minutes tenues. L’hélico décolle sous les griffes.'
       : d.dead ? `${cls.name} est tombé après ${fmtTime(r.time)}.` : `${cls.name} a décroché après ${fmtTime(r.time)}.`;
     txt(this, W / 2, 470, sub, 24, C.text).setOrigin(0.5);
 

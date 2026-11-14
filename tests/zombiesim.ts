@@ -1,10 +1,17 @@
-// Simulation rapide du mode zombie, pour l'équilibrage : un bot qui fuit les zombies et ramasse l'XP.
-// npx vite-node tests/zombiesim.ts [parties] [arme] [niveau d'arme]
+// Simulation rapide du mode zombie, pour l'équilibrage : un bot qui fuit les zombies, ramasse l'XP, contourne
+// les obstacles et, à 10:00, rejoint la zone d'extraction.
+// npx vite-node tests/zombiesim.ts [parties] [arme] [niveau d'arme] [décor : ville|foret|port|aucun|tous]
 import { ACCESSORIES, AccId, WEAPON_IDS, WeaponId } from '../src/zombie/data';
 import { unlockedAccessories } from '../src/zombie/progress';
 import { World } from '../src/zombie/world';
 import type { Choice } from '../src/zombie/powerups';
 import { mulberry32 } from '../src/logic/rng';
+import { FlowField, GameMap, THEME_IDS, ThemeId } from '../src/zombie/map';
+import { LZ } from '../src/zombie/extraction';
+import { PLAYER } from '../src/zombie/data';
+
+/** Champ de flux du bot vers la zone d'extraction (un par partie). */
+const lzFlow = new WeakMap<World, FlowField>();
 
 /** Déplacement du bot : fuit la foule (pondérée par la proximité), va vers l'XP proche si c'est calme. */
 export function botMove(w: World): [number, number] {
@@ -42,8 +49,50 @@ export function botMove(w: World): [number, number] {
     fx += Math.cos(w.time * 0.4) * 0.4;
     fy += Math.sin(w.time * 0.4) * 0.4;
   }
+  // Extraction : la zone attire (chemin du champ de flux), plus fort que tout ; une fois dedans, on y reste.
+  if (w.lz.active) {
+    let gx = w.lz.x - w.px;
+    let gy = w.lz.y - w.py;
+    const gd = Math.hypot(gx, gy) || 1;
+    if (w.map && gd > LZ.radius * 0.5) {
+      let f = lzFlow.get(w);
+      if (!f) {
+        f = new FlowField(w.map);
+        lzFlow.set(w, f);
+      }
+      f.update(w.lz.x, w.lz.y);
+      if (f.steer(w.px, w.py) && !f.visible) {
+        gx = f.tx - w.px;
+        gy = f.ty - w.py;
+      }
+    }
+    const gl = Math.hypot(gx, gy) || 1;
+    const k = gd < LZ.radius * 0.6 ? 0.3 : 2.2;
+    fx = fx * 0.6 + (gx / gl) * k;
+    fy = fy * 0.6 + (gy / gl) * k;
+  }
   const n = Math.hypot(fx, fy) || 1;
-  return [fx / n, fy / n];
+  fx /= n;
+  fy /= n;
+  // Obstacles : parmi 16 caps, celui qui suit le mieux l'envie du moment tout en gardant de l'espace devant soi
+  // (un cap qui finit contre un mur 40 px plus loin vaut moins qu'une rue dégagée) : le bot ne se coince pas.
+  if (w.map) {
+    let best = -Infinity;
+    let bx = fx;
+    let by = fy;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const ax = Math.cos(a);
+      const ay = Math.sin(a);
+      let free = 0;
+      while (free < 180 && !w.map.resolve(w.px + ax * (free + 20), w.py + ay * (free + 20), PLAYER.r + 2)) free += 20;
+      if (free === 0) continue;
+      const sc = ax * fx + ay * fy + (free / 180) * 0.7;
+      if (sc > best) [best, bx, by] = [sc, ax, ay];
+    }
+    return [bx, by];
+  }
+  return [fx, fy];
 }
 
 /** Choix du bot : évolution, sinon selon une préférence fixe (dégâts et soutiens d'abord). */
@@ -55,13 +104,13 @@ export function botPick(cs: Choice[]): Choice {
   return [...cs].sort((a, b) => rank(a) - rank(b))[0];
 }
 
-export function simulate(weapon: WeaponId, weaponLevel: number, seed: number, maxTime = 600) {
+export function simulate(weapon: WeaponId, weaponLevel: number, seed: number, maxTime = 600, theme: ThemeId | null = THEME_IDS[seed % 3]) {
   // Accessoires débloqués à ce niveau : le premier de chaque emplacement.
   const acc: AccId[] = [];
   for (const a of unlockedAccessories(weapon, weaponLevel)) if (!acc.some((b) => ACCESSORIES[b].slot === ACCESSORIES[a].slot)) acc.push(a);
-  const w = new World({ weapon, weaponLevel, accessories: acc, perk: 'eclaireur' }, mulberry32(seed));
+  const w = new World({ weapon, weaponLevel, accessories: acc, perk: 'eclaireur' }, mulberry32(seed), theme ? new GameMap(theme, seed) : null);
   const dt = 1 / 30;
-  while (!w.dead && w.time < maxTime) {
+  while (!w.dead && !w.extracted && w.time < maxTime) {
     [w.mx, w.my] = botMove(w);
     w.update(dt);
     while (w.pendingLevels > 0) w.choose(botPick(w.drawChoices()));
@@ -74,15 +123,20 @@ if (argv[1]?.includes('vite-node')) {
   const runs = Number(argv[2] ?? 4);
   const only = argv[3] as WeaponId | undefined;
   const wl = Number(argv[4] ?? 1);
-  for (const weapon of only ? [only] : WEAPON_IDS) {
+  const th = argv[5] ?? 'tous';
+  const themeOf = (i: number): ThemeId | null => (th === 'aucun' ? null : th === 'tous' ? THEME_IDS[i % 3] : (th as ThemeId));
+  for (const weapon of only && only !== ('tous' as string) ? [only] : WEAPON_IDS) {
     const rows: string[] = [];
     let wins = 0;
+    let ten = 0;
     const t0 = performance.now();
     for (let i = 0; i < runs; i++) {
-      const w = simulate(weapon, wl, 1000 + i);
-      if (!w.dead) wins++;
-      rows.push(`${Math.floor(w.time / 60)}:${String(Math.floor(w.time % 60)).padStart(2, '0')} n${w.level} k${w.killCount}${w.boss ? ' B' : ''}`);
+      // Jusqu'à 13:00 : 10 minutes, puis le temps de rejoindre l'hélico.
+      const w = simulate(weapon, wl, 1000 + i, 780, themeOf(i));
+      if (w.extracted) wins++;
+      if (w.time >= 600) ten++;
+      rows.push(`${Math.floor(w.time / 60)}:${String(Math.floor(w.time % 60)).padStart(2, '0')}${w.extracted ? ' X' : ''} n${w.level} k${w.killCount}${w.boss ? ' B' : ''}`);
     }
-    console.log(`${weapon.padEnd(16)} victoires ${wins}/${runs}  (${Math.round(performance.now() - t0)} ms)  ${rows.join(' | ')}`);
+    console.log(`${weapon.padEnd(16)} 10 min ${ten}/${runs}, extractions ${wins}/${runs}  (${Math.round(performance.now() - t0)} ms)  ${rows.join(' | ')}`);
   }
 }

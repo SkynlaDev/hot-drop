@@ -1,5 +1,5 @@
 // Mode Zombie : HUD de la partie, lancé par-dessus ZGameScene (caméra fixe). Joystick virtuel, clavier,
-// barres, minuterie, power-ups possédés, et les fenêtres : passage de niveau, pause, extraction.
+// barres, minuterie, power-ups possédés, et les fenêtres : passage de niveau, pause. (Extraction : mapview.ts.)
 import Phaser from 'phaser';
 import { C, FONT, H, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
@@ -12,6 +12,7 @@ import { choiceInfo } from './world';
 import { Choice } from './powerups';
 import { drawBar, fitImage, fmtTime, pips } from './ui';
 import type ZGameScene from './ZGameScene';
+import { LzHud } from './mapview';
 
 type Img = Phaser.GameObjects.Image;
 const STICK_R = 80;
@@ -38,6 +39,7 @@ export default class ZHudScene extends Phaser.Scene {
   private modal: Phaser.GameObjects.Container | null = null;
   private paused = false;
   private ownedKey = '';
+  private lzHud!: LzHud;
 
   constructor() {
     super('zhud');
@@ -50,6 +52,7 @@ export default class ZHudScene extends Phaser.Scene {
     this.stickId = -1;
     this.ownedKey = '';
     this.buildHud();
+    this.lzHud = new LzHud(this);
     this.buildInput();
     fadeIn(this);
     this.ready = true;
@@ -293,6 +296,8 @@ export default class ZHudScene extends Phaser.Scene {
       g.fillStyle(col, 0.9 + 0.1 * Math.sin(this.time.now / 100));
       g.fillTriangle(ax + Math.cos(a) * s2, ay + Math.sin(a) * s2, ax + Math.cos(a + 2.4) * s2, ay + Math.sin(a + 2.4) * s2, ax + Math.cos(a - 2.4) * s2, ay + Math.sin(a - 2.4) * s2);
     }
+    // Extraction : flèche vers la zone et jauge d'attente.
+    this.lzHud.update(g, w);
     // Munitions / rechargement (bas gauche)
     const s = w.stats;
     if (w.reloadT > 0) {
@@ -436,23 +441,5 @@ export default class ZHudScene extends Phaser.Scene {
       mb.setLabel(mus());
     }, { size: 24 });
     root.add(mb.root);
-  }
-
-  openExtraction() {
-    if (this.modal) return;
-    this.releaseStick();
-    sfx('win', { vary: 0 });
-    const root = this.modalRoot();
-    this.modal = root;
-    const gs = this.game_;
-    root.add(plate(this, W / 2, 330, 'Extraction', P.soin, 44));
-    root.add(txt(this, W / 2, 410, 'Dix minutes tenues. L’hélico est là.\nTu peux partir… ou rester pour le mode sans fin.', 24, C.text, { align: 'center', lineSpacing: 8 }).setOrigin(0.5, 0));
-    root.add(button(this, W / 2 - 230, 560, 460, 100, 'Monter à bord', () => gs.finish(true), { primary: true, icon: 'ic-check' }).root);
-    root.add(button(this, W / 2 - 230, 690, 460, 88, 'Continuer (sans fin)', () => {
-      gs.world.endless = true;
-      root.destroy();
-      this.modal = null;
-      banner(this, 'SANS FIN', C.dangerStr, H * 0.36);
-    }, { size: 26, icon: 'ic-skip' }).root);
   }
 }
