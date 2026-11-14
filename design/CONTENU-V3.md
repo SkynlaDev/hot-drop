@@ -154,7 +154,7 @@ Zombies, et les réglages sont dans la roue dentée.
 ## Bilan de la journée
 
 28 objets nouveaux (9 légendaires, 11 objets et recettes drones/radio/économie, 3 signatures du Sapeur, 5 recettes
-de soutien), 1 opérateur, profil / carnet / Menace / défi du jour, promotions, mode Zombie. 269 tests. PixelLab :
+de soutien), 1 opérateur, profil / carnet / Menace / défi du jour, promotions, mode Zombie. 146 tests (les totaux annoncés en cours de journée comptaient en double les tests de la copie de travail de l’agent zombie, désormais exclue par `vite.config.ts`). PixelLab :
 environ 200 générations (objets, Sapeur, zombies).
 
 À trancher par le concepteur au retour :
