@@ -73,7 +73,8 @@ export default class ZHubScene extends Phaser.Scene {
     const rec = r.runs
       ? `Record ${fmtTime(r.bestTime)} · ${r.bestKills} zombies · niv. ${r.bestLevel} · ${r.wins} extraction${r.wins > 1 ? 's' : ''}`
       : 'Aucune partie jouée : tiens dix minutes face à la horde.';
-    txt(this, W / 2, 940, rec, 21, C.quiet).setOrigin(0.5);
+    const title = this.save.goals.includes('endless15') ? 'Increvable · ' : '';
+    txt(this, W / 2, 940, title + rec, 21, title ? hex(P.or) : C.quiet).setOrigin(0.5);
 
     const sel = this.save.classes[this.save.selected];
     const deploy = button(this, 40, 980, W - 80, 104, 'Déployer', () => {

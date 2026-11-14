@@ -434,7 +434,7 @@ export default class ZGameScene extends Phaser.Scene {
   private flash(x: number, y: number, size: number, tint: number, dur = 160) {
     const f = this.flashes[this.flashI++ % this.flashes.length];
     this.tweens.killTweensOf(f);
-    f.setVisible(true).setPosition(x, y).setTint(tint).setAlpha(1).setDisplaySize(size, size);
+    f.setVisible(true).setPosition(x, y).setTint(tint).setAlpha(0.75).setDisplaySize(size, size);
     this.tweens.add({ targets: f, alpha: 0, displayWidth: size * 1.4, displayHeight: size * 1.4, duration: dur, onComplete: () => f.setVisible(false) });
   }
 
@@ -445,11 +445,11 @@ export default class ZGameScene extends Phaser.Scene {
     this.tweens.add({ targets: f, alpha: 0, scaleX: r / 60, scaleY: (r / 60) * 0.6, duration: 320, ease: 'Quad.Out', onComplete: () => f.setVisible(false) });
   }
 
-  private decal(x: number, y: number, key: string, scale: number) {
+  private decal(x: number, y: number, key: string, scale: number, alpha = 0.9, life = 9000) {
     const d = this.decals[this.decalI++ % this.decals.length];
     this.tweens.killTweensOf(d);
-    d.setTexture(key).setVisible(true).setPosition(x, y).setScale(scale).setAlpha(0.9).setFlipX(Math.random() < 0.5);
-    this.tweens.add({ targets: d, alpha: 0, delay: 9000, duration: 3000, onComplete: () => d.setVisible(false) });
+    d.setTexture(key).setVisible(true).setPosition(x, y).setScale(scale).setAlpha(alpha).setFlipX(Math.random() < 0.5);
+    this.tweens.add({ targets: d, alpha: 0, delay: life, duration: 2500, onComplete: () => d.setVisible(false) });
   }
 
   private number(x: number, y: number, s: string, color: number, size = 22) {
@@ -516,10 +516,10 @@ export default class ZGameScene extends Phaser.Scene {
           break;
         }
         case 'boom':
-          this.flash(e.x, e.y, e.v * 2.2, P.orange, 220);
+          this.flash(e.x, e.y, e.v * 1.8, P.orange, 200);
           this.ring(e.x, e.y, e.v, P.orangeClair);
           this.debris.explode(Math.min(18, 6 + Math.round(e.v / 10)), e.x, e.y);
-          this.decal(e.x, e.y, 'zb-scorch', e.v / 40);
+          this.decal(e.x, e.y, 'zb-scorch', e.v / 48, 0.45, 2500);
           sfx('frag', { vol: Math.min(0.8, 0.25 + e.v / 300), vary: 0.15 });
           if (e.v > 70) this.shake(120, 0.004);
           break;

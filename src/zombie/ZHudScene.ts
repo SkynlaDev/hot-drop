@@ -53,6 +53,11 @@ export default class ZHudScene extends Phaser.Scene {
     this.ready = true;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => (this.ready = false));
     this.time.delayedCall(450, () => this.banner('TENEZ 10 MINUTES', C.accentStr, H * 0.36));
+    // Rappel des commandes, qui s'efface.
+    const help = txt(this, W / 2, H - 170, 'Pose le doigt et glisse pour bouger · le tir est automatique', 22, C.text, {
+      fontStyle: 'bold', backgroundColor: '#0f0d13cc', padding: { x: 16, y: 10 },
+    }).setOrigin(0.5).setAlpha(0);
+    this.tweens.add({ targets: help, alpha: 1, delay: 1400, duration: 300, hold: 3800, yoyo: true, onComplete: () => help.destroy() });
   }
 
   /** Une fenêtre (niveau, pause, extraction) arrête la simulation. */
@@ -307,7 +312,7 @@ export default class ZHudScene extends Phaser.Scene {
     sfx('craft');
     vibrate(30);
     this.releaseStick();
-    const root = modalBase(this);
+    const root = this.modalRoot();
     this.modal = root;
     const title = plate(this, W / 2, 200, `Niveau ${w.level}`, P.or, 34);
     const sub = txt(this, W / 2, 262, 'Choisis une amélioration', 24, C.quiet).setOrigin(0.5);
@@ -381,6 +386,21 @@ export default class ZHudScene extends Phaser.Scene {
     return root;
   }
 
+  /**
+   * Fond de fenêtre, avec un bouclier invisible les 450 premières ms : le doigt qui tenait le joystick ne doit
+   * pas choisir une carte (ou monter dans l'hélico) en se relevant.
+   */
+  private modalRoot() {
+    const root = modalBase(this);
+    this.time.delayedCall(0, () => {
+      if (!root.active) return;
+      const shield = this.add.zone(0, 0, W, H).setOrigin(0).setInteractive();
+      root.add(shield);
+      this.time.delayedCall(450, () => shield.destroy());
+    });
+    return root;
+  }
+
   togglePause() {
     const gs = this.game_;
     if (gs.ended) return;
@@ -393,7 +413,7 @@ export default class ZHudScene extends Phaser.Scene {
     if (this.modal) return;
     this.paused = true;
     this.releaseStick();
-    const root = modalBase(this);
+    const root = this.modalRoot();
     this.modal = root;
     const w = gs.world;
     root.add(plate(this, W / 2, 300, 'Pause', P.orange, 40));
@@ -413,7 +433,7 @@ export default class ZHudScene extends Phaser.Scene {
     if (this.modal) return;
     this.releaseStick();
     sfx('win', { vary: 0 });
-    const root = modalBase(this);
+    const root = this.modalRoot();
     this.modal = root;
     const gs = this.game_;
     root.add(plate(this, W / 2, 330, 'Extraction', P.soin, 44));

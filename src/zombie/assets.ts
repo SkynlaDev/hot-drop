@@ -12,7 +12,7 @@ export const Z_ART: Record<string, { file: string; feetX: number; feetY: number;
   'z-marcheur3': { file: 'marcheur3', feetX: 34, feetY: 63, size: 64 },
   'z-marcheur4': { file: 'marcheur4', feetX: 34, feetY: 63, size: 64 },
   'z-coureur': { file: 'coureur', feetX: 34, feetY: 63, size: 64 },
-  'z-cracheur': { file: 'cracheur', feetX: 34, feetY: 63, size: 64 },
+  'z-cracheur': { file: 'cracheur', feetX: 31, feetY: 63, size: 64 },
   'z-kamikaze': { file: 'kamikaze', feetX: 34, feetY: 63, size: 64 },
   'z-brute': { file: 'brute', feetX: 48, feetY: 86, size: 96 },
   'z-boss': { file: 'boss', feetX: 66, feetY: 125, size: 128 },

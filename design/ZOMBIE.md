@@ -205,3 +205,12 @@ par un anneau de 640 objets réutilisés.
   fuit au lieu d'aller au contact) : à vérifier en jouant.
 - Performances mesurées dans Chromium : à 250 zombies, simulation ≈ 0,07 ms et mise à jour des sprites
   ≈ 0,25 ms par image.
+
+### Étape 5 : finitions
+
+- Cracheur redessiné (PixelLab : capuche jaune, gorge verte gonflée) pour qu'on le distingue du marcheur.
+- Fenêtres en partie (niveau, extraction, pause) : 450 ms d'insensibilité à l'ouverture, pour que le doigt
+  qui tenait le joystick ne choisisse pas une carte en se relevant.
+- Rappel des commandes au début de chaque partie ; titre « Increvable » au QG après 15 minutes en sans fin.
+- Explosions moins aveuglantes (lueur plus petite, traces de brûlé légères et courtes) : avec Bombardement,
+  l'écran restait lisible.

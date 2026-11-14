@@ -19,7 +19,9 @@ const start = (key, data) => page.evaluate(([k, d]) => {
 }, [key, data]);
 const snap = async (name) => { await page.screenshot({ path: `${out}/${name}.png` }); console.log('shot', name); };
 for (const st of steps) {
-  const [kind, arg] = st.split(':');
+  const i0 = st.indexOf(':');
+  const kind = i0 < 0 ? st : st.slice(0, i0);
+  const arg = i0 < 0 ? '' : st.slice(i0 + 1);
   if (kind === 'eval') { console.log(await page.evaluate(arg)); continue; }
   if (kind === 'menu') { await start('menu'); await page.waitForTimeout(1600); await snap('menu'); }
   if (kind === 'hub') { await start('zhub'); await page.waitForTimeout(1200); await snap('hub'); }
