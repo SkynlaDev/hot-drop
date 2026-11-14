@@ -5,6 +5,12 @@ Phaser 4 + TypeScript + Vite.
 
 **Règles, recettes et objets : [docs/WIKI.md](docs/WIKI.md)** (généré par `npm run wiki`).
 
+Deux modes :
+- **Battle royale sac à dos** : 3 opérateurs (Viper, Sentinelle, Sapeur), objets, recettes et légendaires, Menace 0 à 5,
+  défi du jour, carnet de collection. Contenu v3 : [design/CONTENU-V3.md](design/CONTENU-V3.md).
+- **Mode Zombie** : survie de 10 minutes vue de dessus, classes personnalisées, armes qui montent de niveau entre les
+  parties, power-ups à chaque niveau. Spec : [design/ZOMBIE.md](design/ZOMBIE.md).
+
 ## Lancer
 
 ```bash

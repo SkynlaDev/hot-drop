@@ -144,3 +144,21 @@ ancien prix barré. Comme dans Backpack Battles, ça pousse à acheter un objet 
 
 Bots : Garrot et Stimulant chez Rempart, Écran de fumée chez Tir lourd, Flash lourde et Tempête de feu chez
 Démolition. Sprites des 3 objets de signature du Sapeur : PixelLab, 30 générations (`design/da/sapeur-objets.png`).
+
+## 8. Mode Zombie
+
+Construit en parallèle par un agent sur la branche `zombie` (spec et journal : `design/ZOMBIE.md`, captures :
+`design/zombie/`), puis fusionné dans `main`. Le menu principal a désormais une rangée Défi du jour · Carnet ·
+Zombies, et les réglages sont dans la roue dentée.
+
+## Bilan de la journée
+
+28 objets nouveaux (9 légendaires, 11 objets et recettes drones/radio/économie, 3 signatures du Sapeur, 5 recettes
+de soutien), 1 opérateur, profil / carnet / Menace / défi du jour, promotions, mode Zombie. 269 tests. PixelLab :
+environ 200 générations (objets, Sapeur, zombies).
+
+À trancher par le concepteur au retour :
+1. Les chiffres des légendaires et de la Menace (tout est dans les tableaux ci-dessus).
+2. Le Top 1 simulé est passé de 25 % à 18 % (politique agressive) : rendre les bots du Top 1 un peu moins forts
+   (leur légendaire systématique) si le playtest humain le confirme.
+3. L'archétype de bot Drones réservé à Sentinelle et au Sapeur.
