@@ -540,8 +540,10 @@ export class World {
     }
     if (this.fireCd > 0) this.fireCd -= dt;
     if (this.fireCd > 0) return;
-    // Avec 2 perforations ou plus, on tire aussi à travers les obstacles.
-    const target = s.pierce >= 2 ? this.nearest(this.px, this.py, s.range) : this.nearestVisible(this.px, this.py, s.range);
+    // Avec 2 perforations ou plus, on tire aussi à travers les obstacles ; pas le fusil à pompe, dont les plombs
+    // dispersés s'écraseraient sur l'obstacle (il ne vise que ce qu'il voit).
+    const throughWalls = s.pierce >= 2 && this.loadout.weapon !== 'pompe';
+    const target = throughWalls ? this.nearest(this.px, this.py, s.range) : this.nearestVisible(this.px, this.py, s.range);
     if (!target) return;
     const a = Math.atan2(target.y - this.py, target.x - this.px);
     this.aim = a;

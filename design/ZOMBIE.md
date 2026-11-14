@@ -345,3 +345,13 @@ par un anneau de 640 objets réutilisés.
   obstacles (rayon de collision plafonné à 24 px) ; le champ de flux couvre 3 072 px autour du soldat (au-delà,
   les zombies vont tout droit, mais ils sont recyclés à 1 350 px) ; pas de choix du décor au QG.
 
+
+### Après fusion (ressenti + carte)
+
+- Fusion des branches `zombie-ressenti` et `zombie-carte` dans `main` : conflits seulement d'ajouts (imports,
+  champs, préchargement) dans `ZGameScene.ts`, gardés des deux côtés ; vérifié en partie (port, zombies animés,
+  corps au sol).
+- **Fusil à pompe sur carte** : 0 extraction sur 12 à arme niveau 1. Ses 2 perforations le faisaient viser les
+  zombies cachés derrière les obstacles, et ses plombs dispersés s'y écrasaient. Il ne vise plus que ce qu'il
+  voit (le tir à travers les obstacles reste aux armes à balle unique avec 2 perforations ou plus) : 5 sur 12
+  (fusil d'assaut : 6 sur 12, décors alternés).
