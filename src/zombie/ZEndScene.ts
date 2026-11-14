@@ -41,8 +41,8 @@ export default class ZEndScene extends Phaser.Scene {
     zBackdrop(this, 330);
     const fig = pxFigure(this, W / 2, 330, cls.fig, 3.2);
     // Tombé : silhouette grise, affaissée.
-    if (!win) fig.setTint(0x6b6370).setAlpha(0.8).setScale(3.2 * 1.1, 3.2 * 0.6);
-    const title = txt(this, W / 2, 400, win ? 'EXTRACTION RÉUSSIE' : d.extracted ? 'EXTRACTION' : 'TOMBÉ AU COMBAT', win ? 56 : 60, win ? hex(P.gaz) : C.dangerStr, {
+    if (!win && d.dead) fig.setTint(0x6b6370).setAlpha(0.8).setScale(3.2 * 1.1, 3.2 * 0.6);
+    const title = txt(this, W / 2, 400, win ? 'EXTRACTION RÉUSSIE' : d.dead ? 'TOMBÉ AU COMBAT' : 'REPLI', win ? 56 : 60, win ? hex(P.gaz) : d.dead ? C.dangerStr : C.accentStr, {
       fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 10, padding: { x: 20, y: 6 },
     }).setOrigin(0.5).setScale(2).setAlpha(0);
     if (title.width > W - 40) title.setData('fit', (W - 40) / title.width);
@@ -53,7 +53,7 @@ export default class ZEndScene extends Phaser.Scene {
     } });
     const sub = win
       ? r.time > 600 ? `Tenu ${fmtTime(r.time)}, dont ${fmtTime(r.time - 600)} en sans fin.` : 'Dix minutes. L’hélico décolle sous les griffes.'
-      : `${cls.name} est tombé après ${fmtTime(r.time)}.`;
+      : d.dead ? `${cls.name} est tombé après ${fmtTime(r.time)}.` : `${cls.name} a décroché après ${fmtTime(r.time)}.`;
     txt(this, W / 2, 470, sub, 24, C.text).setOrigin(0.5);
 
     // Chiffres
