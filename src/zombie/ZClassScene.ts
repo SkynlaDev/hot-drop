@@ -9,7 +9,7 @@ import { pxFigure } from '../art';
 import { FIGS, FIG_NAMES, GOALS, PERKS, PERK_IDS, WEAPONS, WEAPON_IDS, WeaponId, PerkId } from './data';
 import { CALLSIGNS, ZClass, ZSave, equippedAccessories, loadSave, perkUnlocked, storeSave, weaponLevel, weaponProgress, weaponUnlocked } from './progress';
 import { weaponSummary } from './stats';
-import { makeZombieTextures, preloadZombieArt } from './assets';
+import { makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
 import { drawBar, fitImage } from './ui';
 import { zBackdrop } from './ZHubScene';
 
@@ -178,7 +178,7 @@ export default class ZClassScene extends Phaser.Scene {
     g.lineStyle(sel ? 3 : 2, sel ? P.orange : P.trait, 1);
     g.strokeRect(0, 0, w, h);
     c.add(g);
-    const img = fitImage(this, `it-${id}`, w / 2, h / 2 - 6, w - 12);
+    const img = fitImage(this, weaponSprite(id), w / 2, h / 2 - 6, w - 12);
     if (!ok) img.setTint(0x2b2632);
     c.add(img);
     if (!ok) {

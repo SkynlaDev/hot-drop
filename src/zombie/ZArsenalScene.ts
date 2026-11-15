@@ -8,7 +8,7 @@ import { iconButton } from '../ui/hud';
 import { ACCESSORIES, AccId, GOALS, SLOTS, SLOT_NAMES, WEAPONS, WEAPON_IDS, WEAPON_MAX_LEVEL, WeaponId } from './data';
 import { ZSave, accessoryAtLevel, equippedAccessories, loadSave, storeSave, toggleAccessory, unlockedAccessories, weaponLevel, weaponProgress, weaponUnlocked } from './progress';
 import { weaponSummary } from './stats';
-import { makeZombieTextures, preloadZombieArt } from './assets';
+import { makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
 import { drawBar, fitImage } from './ui';
 import { zBackdrop } from './ZHubScene';
 
@@ -61,7 +61,7 @@ export default class ZArsenalScene extends Phaser.Scene {
     rack.fillStyle(P.blanc, 0.08);
     rack.fillRoundedRect(68, 254, W - 136, 40, 8);
     L.add(rack);
-    L.add(fitImage(this, `it-${wid}`, W / 2, 316, 460, undefined, 116));
+    L.add(fitImage(this, weaponSprite(wid), W / 2, 316, 460, undefined, 116));
     L.add(txt(this, 64, 212, wdef.name.toUpperCase(), 28, C.text, { fontFamily: TITLE_FONT }));
     const xp = weaponProgress(this.save, wid).xp;
     const wl = weaponLevel(xp);
@@ -127,7 +127,7 @@ export default class ZArsenalScene extends Phaser.Scene {
     g.lineStyle(sel ? 3 : 2, sel ? P.orange : P.trait, 1);
     g.strokeRect(0, 0, w, h);
     c.add(g);
-    const img = fitImage(this, `it-${id}`, w / 2, h / 2 - 8, w - 12);
+    const img = fitImage(this, weaponSprite(id), w / 2, h / 2 - 8, w - 12);
     if (!ok) img.setTint(0x2b2632);
     c.add(img);
     c.add(txt(this, w / 2, h - 14, ok ? `niv. ${weaponLevel(weaponProgress(this.save, id).xp).level}` : '???', 14, C.quiet).setOrigin(0.5));

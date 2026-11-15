@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import { P } from '../ui/palette';
 import { TITLE_FONT } from '../config';
-import type { ZType } from './data';
+import { WEAPON_IDS, type ZType, type WeaponId } from './data';
 
 /** Sprites des zombies : clé, fichier, pieds (en px du sprite), échelle d'affichage. */
 export const Z_ART: Record<string, { file: string; feetX: number; feetY: number; size: number }> = {
@@ -29,7 +29,14 @@ export const Z_SCALE: Record<ZType, number> = { marcheur: 1.25, coureur: 1.2, cr
 
 export const GROUND = 'z-ground';
 
+/**
+ * Armes du mode, entières (public/art/zombie/armes) : les mêmes tirages PixelLab que les objets du sac, mais sans
+ * la découpe à la forme d'inventaire, inutile ici.
+ */
+export const weaponSprite = (w: WeaponId) => `zw-${w}`;
+
 export function preloadZombieArt(load: Phaser.Loader.LoaderPlugin) {
+  for (const w of WEAPON_IDS) if (!load.scene.textures.exists(weaponSprite(w))) load.image(weaponSprite(w), `art/zombie/armes/${w}.png`);
   for (const [key, a] of Object.entries(Z_ART)) if (!load.scene.textures.exists(key)) load.image(key, `art/zombie/${a.file}.png`);
   if (!load.scene.textures.exists(GROUND)) load.image(GROUND, 'art/zombie/sol.png');
   load.once(Phaser.Loader.Events.COMPLETE, () => {

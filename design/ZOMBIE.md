@@ -362,3 +362,10 @@ par un anneau de 640 objets réutilisés.
 sont pas assez bons : ils sont coupés par `ZOMBIE_AUDIO = false` (src/logic/settings.ts). Le code reste en place ;
 les réglages « Musique » (paramètres et pause) sont masqués tant que l'interrupteur est à false. Les tirs, impacts
 et sons d'interface, partagés avec le jeu principal, restent actifs.
+
+### Armes entières (15/11/2026)
+
+Le mode affichait les sprites d'objets du sac (`public/art/items`), découpés à la forme d'inventaire (poignée du SMG,
+chargeur du fusil d'assaut, crosse du mitrailleur coupés). Les tirages PixelLab d'origine (galerie, `create_image_pro`)
+ont été retrouvés pixel pour pixel et enregistrés entiers dans `public/art/zombie/armes/<arme>.png` (rognés au dessin) ;
+clé `zw-<arme>` (`weaponSprite` dans `assets.ts`). Les accessoires restent ceux du sac.

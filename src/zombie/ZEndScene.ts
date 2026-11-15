@@ -7,7 +7,7 @@ import { sfx } from '../audio/sfx';
 import { pxFigure } from '../art';
 import { ACCESSORIES, GOALS, WEAPONS, ZOMBIES, ZType } from './data';
 import { RunReport, RunResult, ZClass, totalKills, weaponLevel } from './progress';
-import { makeZombieTextures, preloadZombieArt } from './assets';
+import { makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
 import { drawBar, fitImage, fmtTime } from './ui';
 import { zBackdrop } from './ZHubScene';
 
@@ -76,7 +76,7 @@ export default class ZEndScene extends Phaser.Scene {
 
     // XP d'arme
     panel(this, 40, 740, W - 80, 170, P.or);
-    fitImage(this, `it-${r.weapon}`, 140, 812, 170);
+    fitImage(this, weaponSprite(r.weapon), 140, 812, 170);
     txt(this, 250, 760, WEAPONS[r.weapon].name.toUpperCase(), 22, C.text, { fontFamily: TITLE_FONT });
     const xpT = txt(this, 250, 794, `+0 XP d'arme`, 30, hex(P.or), { fontFamily: TITLE_FONT });
     const lvT = txt(this, W - 64, 760, `NIV. ${rep.levelBefore}`, 24, hex(P.or), { fontFamily: TITLE_FONT }).setOrigin(1, 0);
@@ -106,7 +106,7 @@ export default class ZEndScene extends Phaser.Scene {
       ...rep.newAccessories.map((a) => ({ icon: `it-${a}`, text: `${ACCESSORIES[a].name} débloqué` })),
       ...rep.newGoals.map((g) => {
         const goal = GOALS.find((x) => x.id === g)!;
-        const icon = goal.reward.weapon ? `it-${goal.reward.weapon}` : goal.reward.perk ? 'ic-check' : 'ic-check';
+        const icon = goal.reward.weapon ? weaponSprite(goal.reward.weapon) : goal.reward.perk ? 'ic-check' : 'ic-check';
         return { icon, text: `${goal.name} : ${goal.rewardText}` };
       }),
     ];

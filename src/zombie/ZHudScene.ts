@@ -11,6 +11,7 @@ import { EVOLUTIONS, POWERS, POWER_IDS, RUN_TIME, WEAPONS, xpToNext } from './da
 import { choiceInfo } from './world';
 import { Choice } from './powerups';
 import { drawBar, fitImage, fmtTime, pips } from './ui';
+import { weaponSprite } from './assets';
 import type ZGameScene from './ZGameScene';
 import { LzHud } from './mapview';
 
@@ -189,7 +190,7 @@ export default class ZHudScene extends Phaser.Scene {
     this.ammoT = txt(this, 24, H - 58, '', 20, C.text, { fontFamily: FONT, fontStyle: 'bold', ...stroke }).setOrigin(0, 0.5);
     this.bossT = txt(this, W / 2, 140, '', 20, C.dangerStr, { fontFamily: TITLE_FONT, ...stroke }).setOrigin(0.5).setVisible(false);
     // Arme (bas gauche)
-    const wi = fitImage(this, `it-${this.game_.cls.weapon}`, 0, 0, 120).setOrigin(0, 0.5);
+    const wi = fitImage(this, weaponSprite(this.game_.cls.weapon), 0, 0, 120).setOrigin(0, 0.5);
     wi.setPosition(24, H - 100);
     // Pause
     const pg = this.add.graphics();

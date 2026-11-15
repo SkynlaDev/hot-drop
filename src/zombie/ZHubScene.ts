@@ -8,7 +8,7 @@ import { iconButton } from '../ui/hud';
 import { pxFigure } from '../art';
 import { GOALS, PERKS, WEAPONS } from './data';
 import { CLASS_SLOTS, ZSave, loadSave, storeSave, weaponLevel, weaponProgress } from './progress';
-import { GROUND, Z_ART, makeZombieTextures, preloadZombieArt } from './assets';
+import { GROUND, Z_ART, makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
 import { drawBar, fitImage, fmtTime } from './ui';
 
 /** Décor commun des écrans du mode : asphalte assombri, horde en silhouette à l'horizon, lueur du couchant. */
@@ -121,7 +121,7 @@ export default class ZHubScene extends Phaser.Scene {
     const wl = weaponLevel(wp.xp);
     g.fillStyle(P.muet, 1);
     g.fillRoundedRect(168, 64, 120, 58, 6);
-    root.add(fitImage(this, `it-${c.weapon}`, 228, 93, 110, undefined, 50));
+    root.add(fitImage(this, weaponSprite(c.weapon), 228, 93, 110, undefined, 50));
     root.add(txt(this, 300, 66, WEAPONS[c.weapon].name, 21, C.text));
     root.add(txt(this, 300, 94, `Arme niv. ${wl.level}`, 18, hex(P.or)));
     drawBar(g, 300, 122, 180, 8, wl.need ? wl.into / wl.need : 1, P.or);
