@@ -399,5 +399,11 @@ posée dans la main, **main avant** redessinée par-dessus l'arme (`src/zombie/s
 - **Sens montré** (`facingOf`) : vers la cible pendant 0,35 s après chaque tir, sinon dans le sens de la marche ; à
   l'arrêt, inchangé. De face ou de dos quand la direction fait plus de ≈ 50° avec l'horizontale.
 - Coût total du prototype : 28 générations PixelLab.
-- Reste : en prototype, une classe au pistolet ou au fusil d'assaut apparaît en Viper en partie, quelle que soit
-  l'apparence choisie (le QG montre encore l'apparence). La chute de dos ressemble plus à un affaissement.
+- **Les 7 armes** passent en couches (aucune génération : réduction des sprites entiers, ≈ 0,175 × leur taille ;
+  prise placée en proportion de celle du fusil d'assaut ou du pistolet). Revolver : posture `poing` ; SMG, pompe,
+  précision, mitrailleur : `long`. Planche : `design/zombie/couches-armes.png`.
+- **Opérateur unique** : plus de choix d'apparence au créateur de classe (flèches retirées) ; Viper porte l'arme de
+  départ choisie, au QG, au créateur de classe et sur l'écran de fin (couché, dernière image de la chute, l'arme au
+  sol), par `soldierFigure`. Le champ `fig` des sauvegardes reste (anciennes classes lisibles), il ne sert plus
+  qu'au repli `?couches=0`. Captures : `design/zombie/couches-menus.png`.
+- Reste : la chute de dos ressemble plus à un affaissement.

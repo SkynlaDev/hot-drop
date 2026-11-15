@@ -4,10 +4,10 @@ import { C, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { button, fadeIn, panel, plate, txt } from '../ui/widgets';
 import { sfx } from '../audio/sfx';
-import { pxFigure } from '../art';
 import { ACCESSORIES, GOALS, WEAPONS, ZOMBIES, ZType } from './data';
 import { RunReport, RunResult, ZClass, totalKills, weaponLevel } from './progress';
 import { makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
+import { preloadLayers, soldierFigure } from './soldier';
 import { drawBar, fitImage, fmtTime } from './ui';
 import { zBackdrop } from './ZHubScene';
 
@@ -27,6 +27,7 @@ export default class ZEndScene extends Phaser.Scene {
 
   preload() {
     preloadZombieArt(this.load);
+    preloadLayers(this.load);
   }
 
   create() {
@@ -39,9 +40,13 @@ export default class ZEndScene extends Phaser.Scene {
     const { result: r, report: rep, cls } = d;
     const win = r.won;
     zBackdrop(this, 330);
-    const fig = pxFigure(this, W / 2, 330, cls.fig, 3.2);
-    // Tombé : silhouette grise, affaissée.
-    if (!win && d.dead) fig.setTint(0x6b6370).setAlpha(0.8).setScale(3.2 * 1.1, 3.2 * 0.6);
+    // Tombé : couché, grisé, l'arme au sol.
+    const fallen = !win && d.dead;
+    const fig = soldierFigure(this, W / 2, 330, cls.weapon, 3.2, fallen);
+    if (fallen) {
+      fig.setAlpha(0.85);
+      for (const im of fig.list as Phaser.GameObjects.Image[]) im.setTint(0x6b6370);
+    }
     const title = txt(this, W / 2, 400, win ? 'EXTRACTION RÉUSSIE' : d.dead ? 'TOMBÉ AU COMBAT' : 'REPLI', win ? 56 : 60, win ? hex(P.gaz) : d.dead ? C.dangerStr : C.accentStr, {
       fontFamily: TITLE_FONT, stroke: '#000000', strokeThickness: 10, padding: { x: 20, y: 6 },
     }).setOrigin(0.5).setScale(2).setAlpha(0);

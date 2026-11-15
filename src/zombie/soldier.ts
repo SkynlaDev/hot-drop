@@ -216,3 +216,30 @@ export class LayeredSoldier {
     this.scene.tweens.add({ targets: this.gun, y: b.y - 2 * sc, x: cx + 10 * dir, angle: 80 * dir, duration: 420, ease: 'Quad.In' });
   }
 }
+
+/**
+ * Viper portant `weapon`, de profil, pour les menus (QG, créateur de classe, fin) : pieds en (x, y), `px` pixels
+ * d'écran par pixel du sprite. `fallen` : couché (dernière image de la chute), l'arme au sol à côté.
+ */
+export function soldierFigure(scene: Phaser.Scene, x: number, y: number, weapon: WeaponId, px: number, fallen = false) {
+  const c = scene.add.container(x, y);
+  const w = LAYERS.weapons[weapon as LayeredWeapon];
+  if (!w) return c;
+  const view = w.posture;
+  const nearest = (k: string) => {
+    if (scene.textures.exists(k)) scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    return k;
+  };
+  const origin = (im: Phaser.GameObjects.Image) => im.setOrigin(FEET[0] / SIZE, FEET[1] / SIZE).setScale(px);
+  if (fallen) {
+    c.add(origin(scene.add.image(0, 0, nearest(`${bodyKey(view)}-die`), DIE_FRAMES - 1)));
+    const g = scene.add.image(22 * px, -3 * px, nearest(gunKey(weapon as LayeredWeapon, 'profil'))).setScale(px).setOrigin(0.5, 1);
+    c.addAt(g, 0);
+    return c;
+  }
+  const at = w.profil.at;
+  c.add(origin(scene.add.image(0, 0, nearest(bodyKey(view)))));
+  c.add(scene.add.image((at[0] - FEET[0]) * px, (at[1] - FEET[1]) * px, nearest(gunKey(weapon as LayeredWeapon, 'profil'))).setOrigin(0, 0).setScale(px));
+  if (LAYERS.views[view].hands) c.add(origin(scene.add.image(0, 0, nearest(`${bodyKey(view)}-main`), 0)));
+  return c;
+}

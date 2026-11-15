@@ -40,12 +40,21 @@ VIEWS = {
 # Où tombe la prise de l'arme dans les vues de face et de dos (px du corps, pose fixe).
 GRIP_FACE = (32, 31)
 GRIP_DOS = (40, 24)
-# Armes du prototype : vue de profil, largeur à l'échelle du personnage (sans contour), position de l'arme dans la
-# pose fixe de profil (coin haut-gauche, contour compris) ; la prise est le coin de la boîte de la main.
+# Armes : vue de profil, largeur à l'échelle du personnage (sans contour, ≈ 0,175 × le sprite entier), et position
+# de l'arme dans la pose fixe de profil (coin haut-gauche, contour compris) ; la prise est le coin de la boîte de la
+# main. Sans `at` : la prise est placée comme celle du fusil d'assaut (armes d'épaule) ou du pistolet (de poing),
+# en proportion de la taille de l'arme.
 WEAPONS = {
     'fusil_assaut': {'posture': 'long', 'width': 22, 'at': (31, 24)},
     'pistolet': {'posture': 'poing', 'width': 11, 'at': (45, 14)},
+    'smg': {'posture': 'long', 'width': 15},
+    'pompe': {'posture': 'long', 'width': 18},
+    'precision': {'posture': 'long', 'width': 27},
+    'kr4_mitrailleur': {'posture': 'long', 'width': 28},
+    'revolver': {'posture': 'poing', 'width': 13},
 }
+# Prise de référence, en part de la taille de l'arme (contour compris) : fusil d'assaut (24 × 10) et pistolet (13 × 12).
+GRIP_RATIO = {'long': (7 / 24, 4 / 10), 'poing': (-1 / 13, 4 / 12)}
 
 
 def load(p: Path) -> Image.Image:
@@ -164,8 +173,13 @@ def main():
     for wid, w in WEAPONS.items():
         side = small_weapon(root / f'public/art/zombie/armes/{wid}.png', w['width'])
         hx, hy = VIEWS[w['posture']]['hand'][:2]
-        grip = (hx - w['at'][0], hy - w['at'][1])
         W, H = side.size
+        if 'at' in w:
+            at = w['at']
+        else:
+            rx, ry = GRIP_RATIO[w['posture']]
+            at = (hx - round(rx * W), hy - round(ry * H))
+        grip = (hx - at[0], hy - at[1])
         face = side.transpose(Image.ROTATE_270)  # canon vers le bas : (x, y) -> (H-1-y, x)
         dos = side.transpose(Image.ROTATE_90)  # canon vers le haut : (x, y) -> (y, W-1-x)
         gf = (H - 1 - grip[1], grip[0])
@@ -176,7 +190,7 @@ def main():
         data['weapons'][wid] = {
             'posture': w['posture'],
             # Par vue : coin haut-gauche de l'arme dans la pose fixe (px du corps), taille, bout du canon (px de l'arme).
-            'profil': {'at': list(w['at']), 'size': [W, H], 'muzzle': list(muzzle(side, 'right'))},
+            'profil': {'at': list(at), 'size': [W, H], 'muzzle': list(muzzle(side, 'right'))},
             'face': {'at': [GRIP_FACE[0] - gf[0], GRIP_FACE[1] - gf[1]], 'size': [H, W], 'muzzle': list(muzzle(face, 'down'))},
             'dos': {'at': [GRIP_DOS[0] - gd[0], GRIP_DOS[1] - gd[1]], 'size': [H, W], 'muzzle': list(muzzle(dos, 'up'))},
         }

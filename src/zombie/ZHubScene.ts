@@ -5,10 +5,10 @@ import { C, H, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { button, fadeIn, modalBase, panel, plate, txt } from '../ui/widgets';
 import { iconButton } from '../ui/hud';
-import { pxFigure } from '../art';
 import { GOALS, PERKS, WEAPONS } from './data';
 import { CLASS_SLOTS, ZSave, loadSave, storeSave, weaponLevel, weaponProgress } from './progress';
 import { GROUND, Z_ART, makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
+import { preloadLayers, soldierFigure } from './soldier';
 import { drawBar, fitImage, fmtTime } from './ui';
 
 /** Décor commun des écrans du mode : asphalte assombri, horde en silhouette à l'horizon, lueur du couchant. */
@@ -57,6 +57,7 @@ export default class ZHubScene extends Phaser.Scene {
 
   preload() {
     preloadZombieArt(this.load);
+    preloadLayers(this.load);
   }
 
   create() {
@@ -115,7 +116,7 @@ export default class ZHubScene extends Phaser.Scene {
     g.lineStyle(2, selected ? P.orange : P.trait, 1);
     g.strokeRect(16, 14, 132, 132);
     root.add(g);
-    root.add(pxFigure(this, 82, 146, c.fig, 2));
+    root.add(soldierFigure(this, 82, 146, c.weapon, 2));
     root.add(txt(this, 168, 16, c.name.toUpperCase(), 32, selected ? C.accentStr : C.text, { fontFamily: TITLE_FONT }));
     const wp = weaponProgress(this.save, c.weapon);
     const wl = weaponLevel(wp.xp);

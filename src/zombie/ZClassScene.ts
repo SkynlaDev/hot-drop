@@ -5,11 +5,11 @@ import { C, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { button, fadeIn, panel, plate, toast, txt } from '../ui/widgets';
 import { iconButton } from '../ui/hud';
-import { pxFigure } from '../art';
-import { FIGS, FIG_NAMES, GOALS, PERKS, PERK_IDS, WEAPONS, WEAPON_IDS, WeaponId, PerkId } from './data';
+import { FIG_NAMES, GOALS, PERKS, PERK_IDS, WEAPONS, WEAPON_IDS, WeaponId, PerkId } from './data';
 import { CALLSIGNS, ZClass, ZSave, equippedAccessories, loadSave, perkUnlocked, storeSave, weaponLevel, weaponProgress, weaponUnlocked } from './progress';
 import { weaponSummary } from './stats';
 import { makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
+import { preloadLayers, soldierFigure } from './soldier';
 import { drawBar, fitImage } from './ui';
 import { zBackdrop } from './ZHubScene';
 
@@ -31,7 +31,7 @@ export default class ZClassScene extends Phaser.Scene {
     this.isNew = !existing;
     this.draft = data.draft ?? (existing ? { ...existing } : {
       name: CALLSIGNS[(this.slot * 7 + Date.now()) % CALLSIGNS.length],
-      fig: FIGS[(this.slot + 1) % FIGS.length],
+      fig: 'viper',
       weapon: 'pistolet',
       perk: 'medecin',
     });
@@ -39,6 +39,7 @@ export default class ZClassScene extends Phaser.Scene {
 
   preload() {
     preloadZombieArt(this.load);
+    preloadLayers(this.load);
   }
 
   create() {
@@ -62,14 +63,10 @@ export default class ZClassScene extends Phaser.Scene {
     g.fillStyle(P.nuit, 1);
     g.fillRect(56, 126, 218, 240);
     L.add(g);
-    L.add(pxFigure(this, 165, 362, d.fig, 3.6));
-    L.add(txt(this, 165, 404, FIG_NAMES[d.fig].toUpperCase(), 22, C.text, { fontFamily: TITLE_FONT }).setOrigin(0.5));
-    const cycle = (k: number) => {
-      d.fig = FIGS[(FIGS.indexOf(d.fig) + k + FIGS.length) % FIGS.length];
-      this.draw();
-    };
-    L.add(this.arrow(76, 404, -1, () => cycle(-1)));
-    L.add(this.arrow(254, 404, 1, () => cycle(1)));
+    // Opérateur unique (Viper), qui porte l'arme de départ choisie.
+    d.fig = 'viper';
+    L.add(soldierFigure(this, 165, 362, d.weapon, 3.6));
+    L.add(txt(this, 165, 404, FIG_NAMES.viper.toUpperCase(), 22, C.text, { fontFamily: TITLE_FONT }).setOrigin(0.5));
 
     // Nom de code
     L.add(txt(this, 316, 118, 'NOM DE CODE', 18, C.quiet, { fontFamily: TITLE_FONT }));
@@ -151,21 +148,6 @@ export default class ZClassScene extends Phaser.Scene {
       L.add(del.root);
     }
     L.add(txt(this, W / 2, 1200, 'Les accessoires d’arme se gèrent à l’Arsenal (communs à toutes les classes).', 18, hex(P.muet)).setOrigin(0.5));
-  }
-
-  private arrow(x: number, y: number, dir: number, onClick: () => void) {
-    const c = this.add.container(x, y);
-    const g = this.add.graphics();
-    g.fillStyle(P.relief, 1);
-    g.fillCircle(0, 0, 22);
-    g.lineStyle(2, P.traitClair, 1);
-    g.strokeCircle(0, 0, 22);
-    g.fillStyle(P.texte, 1);
-    g.fillTriangle(dir * 9, 0, -dir * 6, -10, -dir * 6, 10);
-    const z = this.add.zone(0, 0, 64, 64).setInteractive({ useHandCursor: true });
-    z.on('pointerup', onClick);
-    c.add([g, z]);
-    return c;
   }
 
   private weaponTile(id: WeaponId, x: number, y: number, w: number, h: number) {
