@@ -5,8 +5,8 @@ import { C, TITLE_FONT, W } from '../config';
 import { P, hex } from '../ui/palette';
 import { button, fadeIn, panel, plate, toast, txt } from '../ui/widgets';
 import { iconButton } from '../ui/hud';
-import { ACCESSORIES, AccId, GOALS, SLOTS, SLOT_NAMES, WEAPONS, WEAPON_IDS, WEAPON_MAX_LEVEL, WeaponId } from './data';
-import { ZSave, accessoryAtLevel, equippedAccessories, loadSave, storeSave, toggleAccessory, unlockedAccessories, weaponLevel, weaponProgress, weaponUnlocked } from './progress';
+import { ACCESSORIES, ACC_LEVELS, AccId, GOALS, SLOTS, SLOT_NAMES, WEAPONS, WEAPON_IDS, WEAPON_DMG_PER_LEVEL, WEAPON_MAX_LEVEL, WeaponId } from './data';
+import { ZSave, accessoryAtLevel, equippedAccessories, nextAccessoryLevel, loadSave, storeSave, toggleAccessory, unlockedAccessories, weaponLevel, weaponProgress, weaponUnlocked } from './progress';
 import { weaponSummary } from './stats';
 import { makeZombieTextures, preloadZombieArt, weaponSprite } from './assets';
 import { drawBar, fitImage } from './ui';
@@ -70,10 +70,12 @@ export default class ZArsenalScene extends Phaser.Scene {
     L.add(g);
     drawBar(g, 64, 394, W - 128, 14, wl.need ? wl.into / wl.need : 1, P.or);
     L.add(txt(this, 64, 414, wl.need ? `${wl.into} / ${wl.need} XP` : 'Maîtrise atteinte', 18, C.quiet));
-    const next = accessoryAtLevel(wid, wl.level + 1);
-    const nextT = wl.level >= WEAPON_MAX_LEVEL ? `Niveau max : +${Math.round((wl.level - 1) * 3)} % dégâts` : next ? `Niv. ${wl.level + 1} : ${ACCESSORIES[next].name}` : `Niv. ${wl.level + 1} : +3 % dégâts`;
+    const dmgPct = (l: number) => `+${(Math.round((l - 1) * WEAPON_DMG_PER_LEVEL * 1000) / 10).toString().replace('.', ',')} % dégâts`;
+    const nl = nextAccessoryLevel(wl.level);
+    const next = nl ? accessoryAtLevel(wid, nl) : null;
+    const nextT = wl.level >= WEAPON_MAX_LEVEL ? `Maîtrise : ${dmgPct(wl.level)}` : next ? `Niv. ${nl} : ${ACCESSORIES[next].name}` : `Niv. ${WEAPON_MAX_LEVEL} : maîtrise`;
     L.add(txt(this, W - 64, 414, nextT, 18, C.accentStr).setOrigin(1, 0));
-    L.add(txt(this, 64, 446, 'Chaque zombie abattu avec cette arme lui donne de l’XP. Chaque niveau : +3 % dégâts.', 16, hex(P.muet)));
+    L.add(txt(this, 64, 446, 'Chaque zombie abattu avec cette arme lui donne de l’XP. Chaque niveau : +1,5 % dégâts.', 16, hex(P.muet)));
 
     // Emplacements
     L.add(plate(this, W / 2, 516, 'Emplacements', P.orange, 18));
@@ -106,7 +108,7 @@ export default class ZArsenalScene extends Phaser.Scene {
     const cols = 4;
     const aw = (W - 80 - (cols - 1) * 8) / cols;
     wdef.unlocks.forEach((acc, i) => {
-      L.add(this.accTile(acc, i + 2, unlocked.includes(acc), Object.values(eq).includes(acc), 40 + (i % cols) * (aw + 8), 722 + Math.floor(i / cols) * 94, aw, 88));
+      L.add(this.accTile(acc, ACC_LEVELS[i], unlocked.includes(acc), Object.values(eq).includes(acc), 40 + (i % cols) * (aw + 8), 722 + Math.floor(i / cols) * 94, aw, 88));
     });
 
     // Stats de l'arme équipée

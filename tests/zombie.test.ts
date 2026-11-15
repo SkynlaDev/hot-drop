@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCESSORIES, EVOLUTIONS, POWERS, POWER_IDS, RUN_TIME, WEAPONS, WEAPON_IDS, WEAPON_MAX_LEVEL, xpToNext } from '../src/zombie/data';
+import { ACCESSORIES, ACC_LEVELS, EVOLUTIONS, POWERS, POWER_IDS, RUN_TIME, WEAPONS, WEAPON_IDS, WEAPON_MAX_LEVEL, xpToNext } from '../src/zombie/data';
 import {
   CLASS_SLOTS, applyRun, defaultSave, equippedAccessories, parseSave, perkUnlocked, runWeaponXp, toggleAccessory, unlockedAccessories,
   weaponLevel, weaponUnlocked, weaponXpToNext, RunResult,
@@ -21,10 +21,20 @@ describe('mode zombie : XP d’arme et déblocages', () => {
     expect(weaponLevel(1e9).level).toBe(WEAPON_MAX_LEVEL);
   });
 
-  it('un accessoire par niveau, à partir du niveau 2, dans l’ordre de l’arme', () => {
+  it('30 niveaux, lents : une partie gagnée (≈ 6 500 XP) ne dépasse pas le niveau 7', () => {
+    expect(WEAPON_MAX_LEVEL).toBe(30);
+    expect(weaponLevel(6500).level).toBeLessThanOrEqual(7);
+    expect(weaponLevel(6500 * 10).level).toBeLessThan(20);
+  });
+
+  it('accessoires aux niveaux de ACC_LEVELS, dans l’ordre de l’arme', () => {
     expect(unlockedAccessories('precision', 1)).toEqual([]);
     expect(unlockedAccessories('precision', 2)).toEqual(['lunette']);
-    expect(unlockedAccessories('precision', 13)).toHaveLength(12);
+    expect(unlockedAccessories('precision', 3)).toEqual(['lunette']);
+    expect(unlockedAccessories('precision', 4)).toEqual(['lunette', 'bipied']);
+    expect(unlockedAccessories('precision', 28)).toHaveLength(11);
+    expect(unlockedAccessories('precision', 29)).toHaveLength(12);
+    expect(ACC_LEVELS).toHaveLength(Object.keys(ACCESSORIES).length);
     for (const w of WEAPON_IDS) expect(new Set(WEAPONS[w].unlocks).size).toBe(Object.keys(ACCESSORIES).length);
   });
 
@@ -38,7 +48,7 @@ describe('mode zombie : XP d’arme et déblocages', () => {
     const rep = applyRun(s, run({ kills: { marcheur: 400 }, time: 320, level: 21 }));
     expect(rep.levelBefore).toBe(1);
     expect(rep.levelAfter).toBe(weaponLevel(rep.weaponXp).level);
-    expect(rep.newAccessories).toEqual(WEAPONS.pistolet.unlocks.slice(0, rep.levelAfter - 1));
+    expect(rep.newAccessories).toEqual(unlockedAccessories('pistolet', rep.levelAfter));
     expect(rep.records).toEqual(['time', 'kills', 'level']);
     expect(rep.newGoals).toEqual(expect.arrayContaining(['survive5', 'level20']));
     expect(weaponUnlocked(s, 'revolver')).toBe(true);
@@ -55,7 +65,7 @@ describe('mode zombie : XP d’arme et déblocages', () => {
   it('équiper : un accessoire par emplacement, seulement s’il est débloqué', () => {
     const s = defaultSave();
     expect(toggleAccessory(s, 'smg', 'poignee')).toBe(false);
-    s.weapons.smg = { xp: 10_000, equipped: {} };
+    s.weapons.smg = { xp: 1e6, equipped: {} };
     expect(toggleAccessory(s, 'smg', 'chg_etendu')).toBe(true);
     expect(toggleAccessory(s, 'smg', 'chg_tambour')).toBe(true); // même emplacement : remplace
     expect(equippedAccessories(s, 'smg')).toEqual(['chg_tambour']);
@@ -116,7 +126,7 @@ describe('mode zombie : power-ups', () => {
     expect(up.maxHp).toBe(base.maxHp + 40);
     expect(computeStats({ ...lo, weapon: 'pompe' }, { multitir: 1 }).pellets).toBe(WEAPONS.pompe.pellets + 2);
     expect(computeStats({ ...lo, accessories: ['poignee'] }, {}).spread).toBeCloseTo(base.spread * 0.6);
-    expect(computeStats({ ...lo, weaponLevel: 5 }, {}).dmg).toBeCloseTo(base.dmg * 1.12);
+    expect(computeStats({ ...lo, weaponLevel: 5 }, {}).dmg).toBeCloseTo(base.dmg * 1.06);
   });
 
   it('évolution proposée en premier quand ses deux power-ups sont au max', () => {

@@ -407,3 +407,11 @@ posée dans la main, **main avant** redessinée par-dessus l'arme (`src/zombie/s
   sol), par `soldierFigure`. Le champ `fig` des sauvegardes reste (anciennes classes lisibles), il ne sert plus
   qu'au repli `?couches=0`. Captures : `design/zombie/couches-menus.png`.
 - Reste : la chute de dos ressemble plus à un affaissement.
+
+### Armes sur 30 niveaux (15/11/2026)
+
+Retour : « j'ai gagné une partie, mon arme était déjà 15… aucun intérêt de relancer ». Une victoire rapportait
+≈ 6 500 XP pour 8 960 au niveau 15. Désormais : 30 niveaux, `500 + 450 × (niv − 1)` XP par niveau (≈ 197 000 au
+total) : niveau 5 en 1-2 parties, 10 en ≈ 5, 15 en ≈ 12, 30 en une quarantaine. Accessoires aux niveaux 2, 4, 6,
+8, 10, 12, 14, 17, 20, 23, 26, 29 ; +1,5 % de dégâts par niveau (+43,5 % au 30, comme l'ancien max). Les
+sauvegardes gardent leur XP : le niveau est recalculé (une arme 15 redescend vers 6-7).

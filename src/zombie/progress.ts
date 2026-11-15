@@ -1,7 +1,7 @@
 // Mode Zombie : progression hors partie (localStorage, aucun serveur).
 // Classes personnalisées, XP et accessoires de chaque arme, records, objectifs et déblocages.
 import {
-  ACCESSORIES, AccId, FIGS, FigId, GOALS, GoalId, PERKS, PerkId, STARTER_PERKS, STARTER_WEAPONS, SlotId, WEAPONS, WEAPON_MAX_LEVEL,
+  ACCESSORIES, ACC_LEVELS, AccId, FIGS, FigId, GOALS, GoalId, PERKS, PerkId, STARTER_PERKS, STARTER_WEAPONS, SlotId, WEAPONS, WEAPON_MAX_LEVEL,
   WeaponId, ZOMBIES, ZType, ELITE, RUN_TIME,
 } from './data';
 
@@ -54,9 +54,12 @@ export function defaultSave(): ZSave {
 /* XP d'arme                                                           */
 /* ------------------------------------------------------------------ */
 
-/** XP pour passer du niveau `lvl` au suivant. */
+/**
+ * XP pour passer du niveau `lvl` au suivant. Une partie gagnée rapporte ≈ 6 500 XP, une défaite 1 500 à 2 500 :
+ * niveau 5 en 1 ou 2 parties, 10 en ≈ 5, 15 en ≈ 12, 30 (≈ 197 000 XP) en une quarantaine.
+ */
 export function weaponXpToNext(lvl: number): number {
-  return 120 + 80 * (lvl - 1);
+  return 500 + 450 * (lvl - 1);
 }
 
 /** Niveau d'une arme selon son XP totale, et progression dans le niveau. */
@@ -70,14 +73,20 @@ export function weaponLevel(xp: number): { level: number; into: number; need: nu
   return { level, into: level >= WEAPON_MAX_LEVEL ? 0 : rest, need: level >= WEAPON_MAX_LEVEL ? 0 : weaponXpToNext(level) };
 }
 
-/** Accessoires débloqués pour une arme à un niveau donné (un par niveau, à partir du niveau 2). */
+/** Accessoires débloqués pour une arme à un niveau donné (aux niveaux de ACC_LEVELS). */
 export function unlockedAccessories(weapon: WeaponId, level: number): AccId[] {
-  return WEAPONS[weapon].unlocks.slice(0, Math.max(0, level - 1));
+  return WEAPONS[weapon].unlocks.slice(0, ACC_LEVELS.filter((l) => l <= level).length);
 }
 
 /** Accessoire débloqué en atteignant `level` (ou null). */
 export function accessoryAtLevel(weapon: WeaponId, level: number): AccId | null {
-  return level >= 2 ? WEAPONS[weapon].unlocks[level - 2] ?? null : null;
+  const i = ACC_LEVELS.indexOf(level);
+  return i >= 0 ? WEAPONS[weapon].unlocks[i] ?? null : null;
+}
+
+/** Prochain niveau (au-delà de `level`) qui débloque un accessoire, ou null. */
+export function nextAccessoryLevel(level: number): number | null {
+  return ACC_LEVELS.find((l) => l > level) ?? null;
 }
 
 export function weaponProgress(save: ZSave, w: WeaponId): WeaponProgress {

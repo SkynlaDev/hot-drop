@@ -91,7 +91,7 @@ export interface WeaponDef {
   knock: number;
   /** Multiplicateur de vitesse de déplacement. */
   move: number;
-  /** Ordre de déblocage des accessoires (niveaux 2, 3, 4…). */
+  /** Ordre de déblocage des accessoires (aux niveaux de ACC_LEVELS). */
   unlocks: AccId[];
 }
 
@@ -141,10 +141,12 @@ export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
 /** Armes disponibles dès la première partie. */
 export const STARTER_WEAPONS: WeaponId[] = ['pistolet', 'smg', 'fusil_assaut', 'pompe', 'precision'];
 
-/** Niveau max d'une arme (accessoires débloqués aux niveaux 2 à 13, puis maîtrise). */
-export const WEAPON_MAX_LEVEL = 15;
-/** Bonus de dégâts permanent par niveau d'arme au-delà du premier. */
-export const WEAPON_DMG_PER_LEVEL = 0.03;
+/** Niveau max d'une arme (maîtrise). */
+export const WEAPON_MAX_LEVEL = 30;
+/** Niveaux qui débloquent un accessoire (les 12, dans l'ordre de l'arme) : un tous les 2 niveaux, puis tous les 3. */
+export const ACC_LEVELS = [2, 4, 6, 8, 10, 12, 14, 17, 20, 23, 26, 29];
+/** Bonus de dégâts permanent par niveau d'arme au-delà du premier (+43,5 % au niveau 30). */
+export const WEAPON_DMG_PER_LEVEL = 0.015;
 
 /* ------------------------------------------------------------------ */
 /* Classes : apparence et atouts                                        */
