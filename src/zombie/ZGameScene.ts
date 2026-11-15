@@ -7,6 +7,7 @@ import { P, hex } from '../ui/palette';
 import { txt, vibrate } from '../ui/widgets';
 import { sfx, warmSfx, SfxId } from '../audio/sfx';
 import { PX_FIGS, pxKey } from '../art';
+import { LayeredSoldier, hasLayers, preloadLayers } from './soldier';
 import { MAX_ZOMBIES, xpToNext } from './data';
 import { applyRun, equippedAccessories, loadSave, storeSave, weaponLevel, weaponProgress, ZClass } from './progress';
 import { POOL, World } from './world';
@@ -46,6 +47,8 @@ export default class ZGameScene extends Phaser.Scene {
   private ui!: ZHudScene;
   private ground!: Phaser.GameObjects.TileSprite;
   private player!: Img;
+  /** Soldat en couches (prototype : pistolet, fusil d'assaut) ; sinon null et l'ancien personnage. */
+  private soldier: LayeredSoldier | null = null;
   private playerShadow!: Img;
   private zs: Img[] = [];
   private zsh: Img[] = [];
@@ -92,6 +95,7 @@ export default class ZGameScene extends Phaser.Scene {
   preload() {
     preloadZombieArt(this.load);
     preloadZombieAnims(this.load);
+    preloadLayers(this.load);
     preloadMapArt(this.load);
   }
 
@@ -150,7 +154,9 @@ export default class ZGameScene extends Phaser.Scene {
 
     this.playerShadow = this.add.image(0, 0, 'zb-shadow').setDepth(-2).setScale(1.1);
     const f = PX_FIGS[this.cls.fig];
-    this.player = this.add.image(0, 0, pxKey(this.cls.fig)).setOrigin(f.feet[0] / 64, f.feet[1] / 64).setScale(PLAYER_SCALE);
+    const lw = this.cls.weapon;
+    this.soldier = hasLayers(lw) ? new LayeredSoldier(this, lw, PLAYER_SCALE) : null;
+    this.player = this.soldier ? this.soldier.body : this.add.image(0, 0, pxKey(this.cls.fig)).setOrigin(f.feet[0] / 64, f.feet[1] / 64).setScale(PLAYER_SCALE);
     this.muzzle = this.add.image(0, 0, 'zb-glow').setBlendMode(Phaser.BlendModes.ADD).setTint(P.orangeClair).setVisible(false).setDepth(FX + 2);
     this.hpBarG = this.add.graphics().setDepth(FX + 20);
     this.zap = this.add.graphics().setDepth(FX + 3).setBlendMode(Phaser.BlendModes.ADD);
@@ -222,15 +228,17 @@ export default class ZGameScene extends Phaser.Scene {
     // Soldat
     // Marche animée (repli : image fixe qui sautille et se dandine).
     const walking = w.moving && !this.ended;
-    const pAnim = this.anim.player(this.player, this.cls.fig, walking, w.stats.move, PLAYER_SCALE, dt);
+    const pAnim = this.soldier ? this.soldier.animate(walking, w.stats.move, PLAYER_SCALE, dt) : this.anim.player(this.player, this.cls.fig, walking, w.stats.move, PLAYER_SCALE, dt);
     const bob = walking ? Math.abs(Math.sin(now * 12)) * (pAnim ? 0 : 3) : 0;
     const sq = walking ? Math.sin(now * 24) * (pAnim ? 0.012 : 0.03) : 0;
     this.player.setPosition(w.px, w.py - bob).setFlipX(w.face < 0).setDepth(this.depth(w.py));
     if (!this.ended) this.player.setScale(PLAYER_SCALE * (1 + sq), PLAYER_SCALE * (1 - sq));
     const blink = w.invuln > 0 && Math.floor(now * 30) % 2 === 0;
-    if (w.invuln > 0.05 && this.time.now - this.lastHurt < 150) this.player.setTintMode(Phaser.TintModes.FILL).setTint(P.danger);
+    const hurt = w.invuln > 0.05 && this.time.now - this.lastHurt < 150;
+    if (hurt) this.player.setTintMode(Phaser.TintModes.FILL).setTint(P.danger);
     else this.player.setTintMode(Phaser.TintModes.MULTIPLY).clearTint();
     this.player.setAlpha(blink ? 0.6 : 1);
+    if (!this.ended) this.soldier?.sync(hurt ? P.danger : null);
     this.playerShadow.setPosition(w.px, w.py);
     // PV et recharge sous le soldat
     const hb = this.hpBarG;
@@ -510,8 +518,9 @@ export default class ZGameScene extends Phaser.Scene {
         case 'shot': {
           shots++;
           const f = PX_FIGS[this.cls.fig];
-          const mx = w.px + f.muzzle[0] * PLAYER_SCALE * w.face;
-          const my = w.py + f.muzzle[1] * PLAYER_SCALE;
+          const [mx, my] = this.soldier
+            ? this.soldier.muzzle(w.px, w.py, w.face)
+            : [w.px + f.muzzle[0] * PLAYER_SCALE * w.face, w.py + f.muzzle[1] * PLAYER_SCALE];
           this.muzzle.setVisible(true).setPosition(mx + Math.cos(e.v) * 10, my + Math.sin(e.v) * 10).setAlpha(1).setDisplaySize(46, 46);
           break;
         }
@@ -646,7 +655,7 @@ export default class ZGameScene extends Phaser.Scene {
     sfx('win', { vary: 0 });
     vibrate([60, 40, 120]);
     this.ui.banner('EXTRACTION !', C.goodStr, H * 0.36);
-    this.tweens.add({ targets: [this.player, this.playerShadow], alpha: 0, duration: 500, delay: 300 });
+    this.tweens.add({ targets: [...(this.soldier ? this.soldier.parts() : [this.player]), this.playerShadow], alpha: 0, duration: 500, delay: 300 });
     this.time.delayedCall(2200, () => this.finish(true));
   }
 
@@ -659,7 +668,8 @@ export default class ZGameScene extends Phaser.Scene {
     this.shake(400, 0.015);
     this.player.setTintMode(Phaser.TintModes.MULTIPLY).setTint(0x6b6370);
     // Le soldat tombe : chute animée ; repli, affaissement (pas de rotation : voir la démarche des zombies).
-    if (!this.anim.playerDeath(this.player, this.cls.fig)) this.tweens.add({ targets: this.player, scaleY: PLAYER_SCALE * 0.55, scaleX: PLAYER_SCALE * 1.15, alpha: 0.7, duration: 500, ease: 'Bounce.Out' });
+    if (this.soldier) this.soldier.die(0xb8b0bc);
+    else if (!this.anim.playerDeath(this.player, this.cls.fig)) this.tweens.add({ targets: this.player, scaleY: PLAYER_SCALE * 0.55, scaleX: PLAYER_SCALE * 1.15, alpha: 0.7, duration: 500, ease: 'Bounce.Out' });
     // Ralenti, puis rapport.
     this.slowmo = 0.25;
     this.ui.banner('TOMBÉ AU COMBAT', C.dangerStr, H * 0.36);

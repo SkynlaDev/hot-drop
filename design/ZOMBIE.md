@@ -369,3 +369,26 @@ Le mode affichait les sprites d'objets du sac (`public/art/items`), découpés �
 chargeur du fusil d'assaut, crosse du mitrailleur coupés). Les tirages PixelLab d'origine (galerie, `create_image_pro`)
 ont été retrouvés pixel pour pixel et enregistrés entiers dans `public/art/zombie/armes/<arme>.png` (rognés au dessin) ;
 clé `zw-<arme>` (`weaponSprite` dans `assets.ts`). Les accessoires restent ceux du sac.
+
+### Soldat en couches, prototype (15/11/2026)
+
+But : changer d'arme (et plus tard de skin d'arme) sans redessiner de personnage. Le soldat est fait de trois
+images qui partagent la même origine (les pieds) : **corps de Viper sans arme**, **arme à l'échelle du personnage**
+posée dans la main, **main avant** redessinée par-dessus l'arme (`src/zombie/soldier.ts`).
+
+- Deux postures : `long` (arme d'épaule, mains à la taille) et `poing` (bras tendus). Prototype : fusil d'assaut et
+  pistolet ; les autres armes gardent l'ancien personnage. Désactivable pour comparer : `?couches=0`.
+- Sprites (PixelLab) : corps sans arme = `inpaint_image_pro_flash` sur `viper.png` (zone de l'arme, 5 générations par
+  posture) ; marche et chute = `animate_image` (1 génération chacune). Total : 14 générations.
+- Marche `long` : l'animation générée bougeait trop les mains (l'arme sautait de 9 px). Le haut du corps reste
+  celui de la pose fixe, posé sur les jambes de la marche et décalé comme la tête. Marche `poing` : telle quelle.
+- `tools/art/layer-weapons.py` (tirages dans un dossier → `public/art/zombie/couches/` + `src/zombie/layersData.ts`) :
+  suit la main d'image en image (comparaison de motif, ±6 px), découpe la main avant, réduit l'arme entière à
+  l'échelle du personnage (moyenne par zone, contour sombre, reflet) et mesure prise et bouche.
+- Phaser retourne une image dans sa propre boîte : pour l'arme (origine hors centre), l'origine est reflétée à la
+  main quand le soldat regarde à gauche.
+- Mort : chute du corps sans arme ; l'arme lui échappe, tourne et tombe devant lui.
+- Captures : `design/zombie/couches-marche.png` (marche image par image), `couches-partie.png` (en partie : pose,
+  marche, gauche, chute).
+- Reste : en prototype, une classe au pistolet ou au fusil d'assaut apparaît en Viper en partie, quelle que soit
+  l'apparence choisie (le QG montre encore l'apparence).
