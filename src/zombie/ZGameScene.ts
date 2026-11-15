@@ -7,7 +7,7 @@ import { P, hex } from '../ui/palette';
 import { txt, vibrate } from '../ui/widgets';
 import { sfx, warmSfx, SfxId } from '../audio/sfx';
 import { PX_FIGS, pxKey } from '../art';
-import { LayeredSoldier, hasLayers, preloadLayers } from './soldier';
+import { LayeredSoldier, facingOf, hasLayers, preloadLayers } from './soldier';
 import { MAX_ZOMBIES, xpToNext } from './data';
 import { applyRun, equippedAccessories, loadSave, storeSave, weaponLevel, weaponProgress, ZClass } from './progress';
 import { POOL, World } from './world';
@@ -49,6 +49,8 @@ export default class ZGameScene extends Phaser.Scene {
   private player!: Img;
   /** Soldat en couches (prototype : pistolet, fusil d'assaut) ; sinon null et l'ancien personnage. */
   private soldier: LayeredSoldier | null = null;
+  /** Dernier tir (s, horloge de la scène) : le soldat se tourne vers sa cible pendant un instant. */
+  private lastShotT = -10;
   private playerShadow!: Img;
   private zs: Img[] = [];
   private zsh: Img[] = [];
@@ -228,6 +230,12 @@ export default class ZGameScene extends Phaser.Scene {
     // Soldat
     // Marche animée (repli : image fixe qui sautille et se dandine).
     const walking = w.moving && !this.ended;
+    if (this.soldier && !this.ended) {
+      // Sens montré : vers la cible juste après un tir, sinon dans le sens de la marche ; à l'arrêt, inchangé.
+      const shooting = now - this.lastShotT < 0.35;
+      if (shooting) this.soldier.face(facingOf(Math.cos(w.aim), Math.sin(w.aim)));
+      else if (walking) this.soldier.face(facingOf(w.mx, w.my));
+    }
     const pAnim = this.soldier ? this.soldier.animate(walking, w.stats.move, PLAYER_SCALE, dt) : this.anim.player(this.player, this.cls.fig, walking, w.stats.move, PLAYER_SCALE, dt);
     const bob = walking ? Math.abs(Math.sin(now * 12)) * (pAnim ? 0 : 3) : 0;
     const sq = walking ? Math.sin(now * 24) * (pAnim ? 0.012 : 0.03) : 0;
@@ -518,8 +526,9 @@ export default class ZGameScene extends Phaser.Scene {
         case 'shot': {
           shots++;
           const f = PX_FIGS[this.cls.fig];
+          this.lastShotT = this.time.now / 1000;
           const [mx, my] = this.soldier
-            ? this.soldier.muzzle(w.px, w.py, w.face)
+            ? this.soldier.muzzle(w.px)
             : [w.px + f.muzzle[0] * PLAYER_SCALE * w.face, w.py + f.muzzle[1] * PLAYER_SCALE];
           this.muzzle.setVisible(true).setPosition(mx + Math.cos(e.v) * 10, my + Math.sin(e.v) * 10).setAlpha(1).setDisplaySize(46, 46);
           break;

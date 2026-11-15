@@ -1,21 +1,23 @@
-"""Mode zombie, personnage en couches : corps sans arme + arme en main + main avant par-dessus.
+"""Mode zombie, personnage en couches : corps sans arme + arme en main + main avant par-dessus, en quatre vues.
 
 Usage : python3 tools/art/layer-weapons.py <dossier des tirages PixelLab> <racine du dépôt>
 
-Le dossier contient, par posture (`long` : arme d'épaule, `poing` : arme de poing) :
-  body-<posture>.png          pose fixe (64 × 64, sans arme)
-  walk-<posture>/0..8.png     marche (animate_image : 0 = pose d'entrée, 1..8 = images générées)
-  die-<posture>/0..8.png      chute (0 = pose debout)
+Vues : `long` et `poing` (de profil, regard à droite ; arme d'épaule ou de poing), `face` (vers le bas de l'écran)
+et `dos` (vers le haut). Face et dos servent aux deux sortes d'armes. Le dossier contient, par vue :
+  body-<vue>.png          pose fixe (64 × 64, sans arme)
+  walk-<vue>/0..8.png     marche (animate_image : 0 = pose d'entrée, 1..8 = images générées)
+  die-<vue>/0..8.png      chute (0 = pose debout)
 
-Sorties :
-  public/art/zombie/couches/viper-<posture>.png         pose fixe
-  public/art/zombie/couches/viper-<posture>-walk.png    8 images
-  public/art/zombie/couches/viper-<posture>-die.png     9 images
-  public/art/zombie/couches/viper-<posture>-main.png    9 images : main avant seule (0 = pose fixe, 1..8 = marche)
-  public/art/zombie/couches/arme-<arme>.png             arme à l'échelle du personnage (contour, reflet)
-  src/zombie/layersData.ts                              positions de la main par image, prise et bouche des armes
+Sorties (public/art/zombie/couches/) :
+  viper-<vue>.png, viper-<vue>-walk.png (8 images), viper-<vue>-die.png (9 images)
+  viper-<vue>-main.png    9 images : main(s) avant seule(s) (0 = pose fixe, 1..8 = marche) ; pas pour le dos
+  arme-<arme>.png         arme à l'échelle du personnage (contour, reflet), canon à droite
+  arme-<arme>-face.png    la même, canon vers le bas (quart de tour : pixels intacts)
+  arme-<arme>-dos.png     la même, canon vers le haut (dessinée derrière le corps)
+et src/zombie/layersData.ts : décalage du point d'ancrage par image, place et bouche de chaque arme par vue.
 
-La main est suivie d'image en image par comparaison de motif (la main de la pose fixe, cherchée à ±6 px).
+Le point d'ancrage (la main, ou la tête quand le haut du corps est figé) est suivi d'image en image par
+comparaison de motif (±6 px).
 """
 import json
 import sys
@@ -24,19 +26,26 @@ from pathlib import Path
 from PIL import Image
 
 SIZE = 64
-# Boîte de la main avant dans la pose fixe (x0, y0, x1, y1 exclus), mesurée sur les tirages.
-HAND = {'long': (38, 28, 46, 34), 'poing': (44, 18, 50, 24)}
-# Armes du prototype : posture, largeur à l'échelle du personnage (sans contour), et position de l'arme dans la
-# pose fixe (coin haut-gauche, contour compris) : la prise se déduit de la main.
+SEARCH = 6
+HEAD = (22, 1, 42, 14)
+# Par vue : boîte de la (des) main(s) avant dans la pose fixe (x0, y0, x1, y1 exclus ; None : pas de main par-dessus,
+# l'arme est derrière), et ligne de coupe quand le haut du corps est figé (la marche générée bougeait trop les
+# mains : le haut reste celui de la pose fixe, posé sur les jambes de la marche et décalé comme la tête).
+VIEWS = {
+    'long': {'hand': (38, 28, 46, 34), 'rigid': 37},
+    'poing': {'hand': (44, 18, 50, 24), 'rigid': None},
+    'face': {'hand': (22, 28, 42, 34), 'rigid': 37},
+    'dos': {'hand': None, 'rigid': None},
+}
+# Où tombe la prise de l'arme dans les vues de face et de dos (px du corps, pose fixe).
+GRIP_FACE = (32, 31)
+GRIP_DOS = (40, 24)
+# Armes du prototype : vue de profil, largeur à l'échelle du personnage (sans contour), position de l'arme dans la
+# pose fixe de profil (coin haut-gauche, contour compris) ; la prise est le coin de la boîte de la main.
 WEAPONS = {
     'fusil_assaut': {'posture': 'long', 'width': 22, 'at': (31, 24)},
     'pistolet': {'posture': 'poing', 'width': 11, 'at': (45, 14)},
 }
-SEARCH = 6
-# Postures où la marche générée bouge trop les mains (l'arme sauterait) : le haut du corps reste celui de la pose
-# fixe, posé sur les jambes de la marche et décalé comme la tête (suivie de la même façon que la main).
-RIGID = {'long': 37}
-HEAD = (22, 1, 42, 14)
 
 
 def load(p: Path) -> Image.Image:
@@ -52,7 +61,7 @@ def diff(a, b) -> int:
 
 
 def track(ref: Image.Image, box, frame: Image.Image) -> tuple[int, int]:
-    """Décalage (dx, dy) de la main de `ref` (boîte `box`) dans `frame`."""
+    """Décalage (dx, dy) du motif `box` de `ref` dans `frame`."""
     x0, y0, x1, y1 = box
     rp, fp = ref.load(), frame.load()
     best = None
@@ -64,14 +73,13 @@ def track(ref: Image.Image, box, frame: Image.Image) -> tuple[int, int]:
                     X, Y = x + dx, y + dy
                     b = fp[X, Y] if 0 <= X < SIZE and 0 <= Y < SIZE else (0, 0, 0, 0)
                     s += diff(rp[x, y], b)
-            # À score égal, le plus petit déplacement.
             key = (s, abs(dx) + abs(dy))
             if best is None or key < best[0]:
                 best = (key, dx, dy)
     return best[1], best[2]
 
 
-def hand_only(frame: Image.Image, box, d) -> Image.Image:
+def crop_at(frame: Image.Image, box, d) -> Image.Image:
     x0, y0, x1, y1 = box
     out = Image.new('RGBA', (SIZE, SIZE))
     bx = (x0 + d[0], y0 + d[1], x1 + d[0], y1 + d[1])
@@ -110,30 +118,29 @@ def small_weapon(src: Path, w: int) -> Image.Image:
     return o
 
 
-def muzzle(im: Image.Image) -> tuple[int, int]:
-    """Bout du canon : pixel opaque le plus à droite (le plus haut s'il y en a plusieurs)."""
+def muzzle(im: Image.Image, toward: str) -> tuple[int, int]:
+    """Bout du canon : pixel opaque le plus à droite (profil), le plus bas (face) ou le plus haut (dos)."""
     px = im.load()
-    for x in range(im.width - 1, -1, -1):
-        for y in range(im.height):
-            if px[x, y][3]:
-                return x, y
-    return im.width - 1, im.height // 2
+    pts = [(x, y) for y in range(im.height) for x in range(im.width) if px[x, y][3]]
+    if toward == 'right':
+        return max(pts, key=lambda p: (p[0], -p[1]))
+    if toward == 'down':
+        return max(pts, key=lambda p: (p[1], p[0]))
+    return min(pts, key=lambda p: (p[1], -p[0]))
 
 
 def main():
     raw, root = Path(sys.argv[1]), Path(sys.argv[2])
     out = root / 'public/art/zombie/couches'
     out.mkdir(parents=True, exist_ok=True)
-    data = {'postures': {}, 'weapons': {}}
-    for posture, box in HAND.items():
-        body = load(raw / f'body-{posture}.png')
-        walk = [load(raw / f'walk-{posture}/{i}.png') for i in range(1, 9)]
-        die = [load(raw / f'die-{posture}/{i}.png') for i in range(9)]
-        body.save(out / f'viper-{posture}.png')
-        strip(walk).save(out / f'viper-{posture}-walk.png')
-        strip(die).save(out / f'viper-{posture}-die.png')
-        if posture in RIGID:
-            cut = RIGID[posture]
+    data = {'views': {}, 'weapons': {}}
+    for view, cfg in VIEWS.items():
+        body = load(raw / f'body-{view}.png')
+        walk = [load(raw / f'walk-{view}/{i}.png') for i in range(1, 9)]
+        die = [load(raw / f'die-{view}/{i}.png') for i in range(9)]
+        box = cfg['hand']
+        if cfg['rigid']:
+            cut = cfg['rigid']
             moved = []
             for f in walk:
                 d = track(body, HEAD, f)
@@ -143,28 +150,42 @@ def main():
                 moved.append((c, d))
             walk = [c for c, _ in moved]
             offs = [(0, 0)] + [d for _, d in moved]
-            strip(walk).save(out / f'viper-{posture}-walk.png')
-        else:
+        elif box:
             offs = [(0, 0)] + [track(body, box, f) for f in walk]
-        strip([hand_only(body, box, (0, 0))] + [hand_only(f, box, d) for f, d in zip(walk, offs[1:])]).save(out / f'viper-{posture}-main.png')
-        data['postures'][posture] = {'hand': [box[0], box[1]], 'offsets': [list(o) for o in offs]}
-        print(posture, 'décalages de la main :', offs)
+        else:
+            offs = [(0, 0)] + [track(body, HEAD, f) for f in walk]
+        body.save(out / f'viper-{view}.png')
+        strip(walk).save(out / f'viper-{view}-walk.png')
+        strip(die).save(out / f'viper-{view}-die.png')
+        if box:
+            strip([crop_at(body, box, (0, 0))] + [crop_at(f, box, d) for f, d in zip(walk, offs[1:])]).save(out / f'viper-{view}-main.png')
+        data['views'][view] = {'offsets': [list(o) for o in offs], 'hands': box is not None}
+        print(view, 'décalages :', offs)
     for wid, w in WEAPONS.items():
-        im = small_weapon(root / f'public/art/zombie/armes/{wid}.png', w['width'])
-        im.save(out / f'arme-{wid}.png')
-        hx, hy = HAND[w['posture']][:2]
+        side = small_weapon(root / f'public/art/zombie/armes/{wid}.png', w['width'])
+        hx, hy = VIEWS[w['posture']]['hand'][:2]
+        grip = (hx - w['at'][0], hy - w['at'][1])
+        W, H = side.size
+        face = side.transpose(Image.ROTATE_270)  # canon vers le bas : (x, y) -> (H-1-y, x)
+        dos = side.transpose(Image.ROTATE_90)  # canon vers le haut : (x, y) -> (y, W-1-x)
+        gf = (H - 1 - grip[1], grip[0])
+        gd = (grip[1], W - 1 - grip[0])
+        side.save(out / f'arme-{wid}.png')
+        face.save(out / f'arme-{wid}-face.png')
+        dos.save(out / f'arme-{wid}-dos.png')
         data['weapons'][wid] = {
             'posture': w['posture'],
-            # Prise : point de l'arme posé sur le coin de la boîte de la main.
-            'grip': [hx - w['at'][0], hy - w['at'][1]],
-            'muzzle': list(muzzle(im)),
-            'size': [im.width, im.height],
+            # Par vue : coin haut-gauche de l'arme dans la pose fixe (px du corps), taille, bout du canon (px de l'arme).
+            'profil': {'at': list(w['at']), 'size': [W, H], 'muzzle': list(muzzle(side, 'right'))},
+            'face': {'at': [GRIP_FACE[0] - gf[0], GRIP_FACE[1] - gf[1]], 'size': [H, W], 'muzzle': list(muzzle(face, 'down'))},
+            'dos': {'at': [GRIP_DOS[0] - gd[0], GRIP_DOS[1] - gd[1]], 'size': [H, W], 'muzzle': list(muzzle(dos, 'up'))},
         }
     ts = root / 'src/zombie/layersData.ts'
     ts.write_text(
         '// Généré par tools/art/layer-weapons.py : ne pas modifier à la main.\n'
-        '// Postures : coin de la boîte de la main avant dans la pose fixe, puis son décalage par image\n'
-        '// (0 = pose fixe, 1..8 = marche). Armes : prise (point posé sur ce coin) et bouche, en px de l\'arme.\n'
+        '// Vues : décalage du point d\'ancrage par image (0 = pose fixe, 1..8 = marche), et si une main passe devant\n'
+        '// l\'arme. Armes : par vue, coin haut-gauche dans la pose fixe (px du corps), taille et bout du canon (px de\n'
+        '// l\'arme).\n'
         f'export const LAYERS = {json.dumps(data, indent=2, ensure_ascii=False)} as const;\n'
     )
 

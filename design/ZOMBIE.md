@@ -388,7 +388,16 @@ posée dans la main, **main avant** redessinée par-dessus l'arme (`src/zombie/s
 - Phaser retourne une image dans sa propre boîte : pour l'arme (origine hors centre), l'origine est reflétée à la
   main quand le soldat regarde à gauche.
 - Mort : chute du corps sans arme ; l'arme lui échappe, tourne et tombe devant lui.
-- Captures : `design/zombie/couches-marche.png` (marche image par image), `couches-partie.png` (en partie : pose,
-  marche, gauche, chute).
+- Captures : `design/zombie/couches-marche.png` (les trois vues, image par image, pour les deux armes),
+  `couches-partie.png` (en partie : pose, droite, gauche, bas, haut).
+- **Face et dos** : Viper sans arme tourné dans les 8 directions par PixelLab (`create_character` en mode pro avec
+  le corps de profil en référence, 10 générations ; le fond revenait en blanc opaque, enlevé par remplissage depuis
+  les bords), puis marche et chute de face et de dos (`animate_image`, 4 générations). De face, l'arme est tournée
+  d'un quart de tour (canon vers le bas, entre les mains) ; de dos, canon vers le haut, derrière le corps (il
+  dépasse de l'épaule). Quarts de tour faits à l'avance (`arme-<arme>-face.png`, `-dos.png`) : aucune rotation en
+  jeu, pixels intacts. Face et dos servent aux deux sortes d'armes.
+- **Sens montré** (`facingOf`) : vers la cible pendant 0,35 s après chaque tir, sinon dans le sens de la marche ; à
+  l'arrêt, inchangé. De face ou de dos quand la direction fait plus de ≈ 50° avec l'horizontale.
+- Coût total du prototype : 28 générations PixelLab.
 - Reste : en prototype, une classe au pistolet ou au fusil d'assaut apparaît en Viper en partie, quelle que soit
-  l'apparence choisie (le QG montre encore l'apparence).
+  l'apparence choisie (le QG montre encore l'apparence). La chute de dos ressemble plus à un affaissement.
