@@ -53,16 +53,16 @@ export function chamferPoints(x: number, y: number, w: number, h: number, c: num
   return pts.filter((p, i) => !p.equals(pts[(i + pts.length - 1) % pts.length]));
 }
 
-function fillChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
+export function fillChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
   g.fillPoints(chamferPoints(x, y, w, h, c), true);
 }
 
-function strokeChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
+export function strokeChamfer(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, c: number) {
   g.strokePoints(chamferPoints(x, y, w, h, c), false, true);
 }
 
 /** Rivet : tête sombre, reflet clair en haut à gauche. */
-function rivet(g: Phaser.GameObjects.Graphics, x: number, y: number, r = 3) {
+export function rivet(g: Phaser.GameObjects.Graphics, x: number, y: number, r = 3) {
   g.fillStyle(P.nuit, 0.9);
   g.fillCircle(x + 0.8, y + 1, r);
   g.fillStyle(P.acier, 1);

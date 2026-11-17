@@ -1,14 +1,19 @@
 import Phaser from 'phaser';
-import { C, W } from '../config';
+import { C, TITLE_FONT, W } from '../config';
 import { ROUNDS } from '../logic/zone';
 import { clearRun, loadRun, newRun, saveRun } from '../logic/run';
 import { dailyChallenge, loadProfile, today } from '../logic/profile';
 import { OPERATORS } from '../data/operators';
-import { button, fadeIn, plate, txt } from '../ui/widgets';
+import { button, fadeIn, fillChamfer, plate, rivet, strokeChamfer, txt } from '../ui/widgets';
 import { P } from '../ui/palette';
 import { openSettings } from '../ui/settings';
 import { drawLogo } from '../ui/logo';
 import { MENU_ART } from '../art';
+import { Z_ART } from '../zombie/assets';
+import { loadSave as loadZSave } from '../zombie/progress';
+import { fmtTime } from '../zombie/ui';
+
+const BANNER_ZOMBIES = ['z-marcheur1', 'z-coureur', 'z-brute'];
 
 const H = 1280;
 /** Bas de l'illustration (360×400 affichée ×2). */
@@ -19,8 +24,14 @@ export default class MenuScene extends Phaser.Scene {
     super('menu');
   }
 
+  preload() {
+    // Les trois zombies de la bannière (déjà en cache si le mode a été ouvert).
+    for (const k of BANNER_ZOMBIES) if (!this.textures.exists(k)) this.load.image(k, `art/zombie/${Z_ART[k].file}.png`);
+  }
+
   create() {
     fadeIn(this);
+    for (const k of BANNER_ZOMBIES) if (this.textures.exists(k)) this.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.add.rectangle(0, 0, W, H, C.bg).setOrigin(0);
     this.topoLines();
 
@@ -64,42 +75,51 @@ export default class MenuScene extends Phaser.Scene {
 
     const saved = loadRun();
 
-    // Logo, avec une entrée en « largage ». Plus haut quand il y a une partie à continuer (un bouton de plus).
-    const ly = saved ? 830 : 870;
-    const logo = drawLogo(this, W / 2, ly, saved ? 124 : 136);
+    // Logo, avec une entrée en « largage ». Plus compact qu'avant pour laisser la place à la bannière Zombies.
+    const ly = 742;
+    const logo = drawLogo(this, W / 2, ly, 116);
     logo.setAlpha(0).setY(ly - 50);
     this.tweens.add({ targets: logo, alpha: 1, y: ly, duration: 520, ease: 'Back.easeOut', delay: 120 });
     // Éclat qui scintille sur le logo de temps en temps.
-    this.time.addEvent({ delay: 3800, loop: true, startAt: 2600, callback: () => this.glint(W / 2 + Phaser.Math.Between(-150, 150), ly - Phaser.Math.Between(40, 190)) });
+    this.time.addEvent({ delay: 3800, loop: true, startAt: 2600, callback: () => this.glint(W / 2 + Phaser.Math.Between(-130, 130), ly - Phaser.Math.Between(40, 160)) });
 
     const BW = 440;
     const bx = (W - BW) / 2;
-    let y = saved ? 912 : 975;
+    const RW = 620;
+    const rx = (W - RW) / 2;
+    let y = 792;
     if (saved) {
-      this.enter(button(this, bx, y, BW, 96, 'Continuer', () => {
+      this.enter(button(this, bx, y, BW, 92, 'Continuer', () => {
         this.registry.set('run', saved);
         this.scene.start('map');
       }, { primary: true, icon: 'ic-play' }).root, 0);
       const where = saved.round >= ROUNDS ? 'Duel final' : `Cercle ${saved.round + 1}/${ROUNDS}`;
-      txt(this, W / 2, y + 112, `${where} · ${saved.credits} crédits`, 20, C.quiet).setOrigin(0.5);
-      y += 140;
+      txt(this, W / 2, y + 104, `${where} · ${saved.credits} crédits`, 19, C.quiet).setOrigin(0.5);
+      y += 128;
+    } else {
+      this.enter(button(this, bx, y, BW, 96, 'Nouvelle partie', () => this.newGame(), { primary: true, size: 30, icon: 'ic-play' }).root, 0);
+      y += 118;
     }
-    this.enter(button(this, bx, y, BW, saved ? 84 : 100, 'Nouvelle partie', () => {
-      clearRun();
-      this.registry.remove('run');
-      this.scene.start('operator');
-    }, { primary: !saved, size: saved ? 26 : 30, icon: saved ? 'ic-compass' : 'ic-play' }).root, 1);
-    y += saved ? 98 : 120;
-    // Rangée de trois : Défi du jour (même graine pour tous ce jour-là), Carnet (collection, records, Menace), Mode Zombie.
+
+    // Mode Zombies : le mode préféré des joueurs, mis en avant par une grande bannière animée.
+    const bh = saved ? 156 : 172;
+    this.enter(this.zombieBanner(rx, y, RW, bh), 1);
+    y += bh + 20;
+
+    // Rangée secondaire : (Nouvelle partie si une partie est en cours), Défi du jour, Carnet.
     const day = today();
     const done = loadProfile().daily[day];
     const dc = dailyChallenge(day);
-    const RW = 620;
-    const rx = (W - RW) / 2;
-    const third = (RW - 24) / 3;
-    const rowH = saved ? 70 : 76;
+    const n = saved ? 3 : 2;
+    const cw = (RW - 12 * (n - 1)) / n;
+    const rowH = 72;
+    let cx = rx;
+    if (saved) {
+      this.enter(button(this, cx, y, cw, rowH, 'Nouvelle', () => this.newGame(), { size: 19, icon: 'ic-compass' }).root, 2);
+      cx += cw + 12;
+    }
     const dailyLabel = done ? (done.result === 'win' ? 'Défi ✓' : `Défi ✓ C${done.round + 1}`) : 'Défi du jour';
-    this.enter(button(this, rx, y, third, rowH, dailyLabel, () => {
+    this.enter(button(this, cx, y, cw, rowH, dailyLabel, () => {
       clearRun();
       const run = newRun(dc.operator, dc.seed, { menace: dc.menace, daily: day });
       saveRun(run);
@@ -107,9 +127,9 @@ export default class MenuScene extends Phaser.Scene {
       this.registry.remove('mapSeen');
       this.scene.start('map');
     }, { size: 19, icon: 'ic-compass' }).root, 2);
-    this.enter(button(this, rx + third + 12, y, third, rowH, 'Carnet', () => this.scene.start('carnet'), { size: 19, icon: 'ic-menu' }).root, 2);
-    this.enter(button(this, rx + 2 * (third + 12), y, third, rowH, 'Zombies', () => this.scene.start('zhub'), { size: 19, icon: 'ic-gas' }).root, 2);
-    txt(this, W / 2, y + rowH + 14, `Défi : ${OPERATORS[dc.operator].name} · Menace ${dc.menace} · une graine pour tous`, 15, C.quiet).setOrigin(0.5);
+    cx += cw + 12;
+    this.enter(button(this, cx, y, cw, rowH, 'Carnet', () => this.scene.start('carnet'), { size: 19, icon: 'ic-menu' }).root, 2);
+    txt(this, W / 2, y + rowH + 12, `Défi : ${OPERATORS[dc.operator].name} · Menace ${dc.menace} · une graine pour tous`, 15, C.quiet).setOrigin(0.5);
 
     // Paramètres : roue dentée en haut à droite.
     const gear = txt(this, W - 36, 40, '⚙', 40, C.text).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
@@ -118,6 +138,132 @@ export default class MenuScene extends Phaser.Scene {
     // Plaque de version, au pochoir.
     const v = plate(this, W / 2, H - 34, 'Prototype · saison 0', P.braise, 15).setAlpha(0.85);
     this.enter(v, 3);
+  }
+
+  private newGame() {
+    clearRun();
+    this.registry.remove('run');
+    this.scene.start('operator');
+  }
+
+  /**
+   * Grande bannière du Mode Zombies : panneau vert toxique, titre, record du joueur, horde qui se dandine à droite
+   * (la brute déborde du cadre), spores qui montent, reflet qui balaie et halo qui pulse. Toucher → hub zombie.
+   */
+  private zombieBanner(x: number, y: number, w: number, h: number): Phaser.GameObjects.Container {
+    const root = this.add.container(x, y);
+    root.setSize(w, h);
+    const CH = 18;
+    const TOX = 0xb5d65a;
+
+    // Halo extérieur qui respire.
+    const halo = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    for (let i = 4; i > 0; i--) {
+      halo.lineStyle(i * 5, TOX, 0.05);
+      strokeChamfer(halo, -2, -2, w + 4, h + 4, CH + 2);
+    }
+    this.tweens.add({ targets: halo, alpha: 0.25, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    // Corps : ombre, fond sombre, dégradé vert vers la droite, bande claire en haut.
+    const g = this.add.graphics();
+    g.fillStyle(P.noir, 0.5);
+    fillChamfer(g, 0, 6, w, h, CH);
+    g.fillStyle(0x121a0e, 1);
+    fillChamfer(g, 0, 0, w, h, CH);
+    for (let i = 0; i < 20; i++) {
+      g.fillStyle(0x3d5a1f, 0.04 + i * 0.012);
+      g.fillRect(CH + (i * (w - 2 * CH)) / 20, 3, (w - 2 * CH) / 20 + 1, h - 6);
+    }
+    g.fillStyle(TOX, 0.08);
+    fillChamfer(g, 3, 3, w - 6, h * 0.36, CH - 2);
+    // Rayures de danger en bas.
+    g.fillStyle(0x0b0f08, 0.75);
+    g.fillRect(CH, h - 16, w - 2 * CH, 12);
+    for (let sx = CH; sx < w - CH - 10; sx += 26) {
+      g.fillStyle(P.or, 0.55);
+      g.fillTriangle(sx, h - 4, sx + 12, h - 16, sx + 22, h - 16);
+      g.fillTriangle(sx, h - 4, sx + 22, h - 16, sx + 10, h - 4);
+    }
+    g.lineStyle(3, TOX, 0.9);
+    strokeChamfer(g, 0, 0, w, h, CH);
+    rivet(g, 14, 14, 3);
+    rivet(g, 14, h - 24, 3);
+    root.add([halo, g]);
+
+    // Spores qui montent dans le panneau.
+    const spores = this.add.container(0, 0);
+    root.add(spores);
+    const spore = (first: boolean) => {
+      const sx = Phaser.Math.Between(30, w - 30);
+      const s0 = Phaser.Math.Between(h - 30, h - 20);
+      const d = this.add.rectangle(sx, first ? Phaser.Math.Between(20, h - 20) : s0, 3, 3, TOX).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
+      spores.add(d);
+      this.tweens.add({
+        targets: d, y: 10, x: sx + Phaser.Math.Between(-20, 20), alpha: { from: 0.8, to: 0 },
+        duration: Phaser.Math.Between(2200, 4200), delay: first ? Phaser.Math.Between(0, 2500) : 0,
+        onComplete: () => { d.destroy(); spore(false); },
+      });
+    };
+    for (let i = 0; i < 14; i++) spore(true);
+
+    // La horde, à droite, tournée vers le titre : deux marcheurs derrière, la brute devant qui sort du cadre.
+    const feet = h - 18;
+    const horde: [string, number, number, number][] = [
+      ['z-marcheur1', w - 236, feet - 6, 2.2],
+      ['z-coureur', w - 50, feet - 4, 2.2],
+      ['z-brute', w - 140, feet + 2, 2.35],
+    ];
+    horde.forEach(([key, zx, zy, sc], i) => {
+      if (!this.textures.exists(key)) return;
+      const a = Z_ART[key];
+      const z = this.add.image(zx, zy, key).setOrigin(a.feetX / a.size, a.feetY / a.size).setScale(sc).setFlipX(true);
+      if (i < 2) z.setTint(0x9fb08a);
+      root.add(z);
+      // Dandinement de mort-vivant : balancement et petits pas sur place, chacun à son rythme.
+      this.tweens.add({ targets: z, angle: { from: -4, to: 4 }, duration: 900 + i * 230, yoyo: true, repeat: -1, ease: 'Sine.easeInOut', delay: i * 300 });
+      this.tweens.add({ targets: z, y: zy - 5, duration: 450 + i * 115, yoyo: true, repeat: -1, ease: 'Quad.easeOut', delay: i * 150 });
+    });
+
+    // Textes : petit bandeau, titre, record.
+    const tag = this.add.graphics();
+    tag.fillStyle(P.danger, 1);
+    tag.fillRect(30, 18, 128, 26);
+    const tagT = txt(this, 94, 31, '★ MODE PHARE', 15, '#ffffff', { fontStyle: 'bold' }).setOrigin(0.5);
+    const title = txt(this, 28, h * 0.5 - 2, 'ZOMBIES', h < 165 ? 54 : 60, '#d4ef8a', { fontFamily: TITLE_FONT, stroke: '#0b0f08', strokeThickness: 8 }).setOrigin(0, 0.5);
+    title.setShadow(0, 4, '#000000', 0, true, true);
+    const zs = loadZSave();
+    const r = zs.records;
+    const sub = r.runs ? `Record ${fmtTime(r.bestTime)} · ${r.bestKills} zombies` : 'Survis à la horde · extrais-toi';
+    const subT = txt(this, 30, h - 40, sub, 19, '#c8dca0').setOrigin(0, 0.5);
+    root.add([tag, tagT, title, subT]);
+    this.tweens.add({ targets: tagT, scale: 1.08, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    // Reflet qui balaie le panneau toutes les quelques secondes (bande oblique, gardée hors des chanfreins).
+    const shine = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    shine.fillStyle(0xffffff, 0.1);
+    shine.fillPoints([new Phaser.Math.Vector2(30, 4), new Phaser.Math.Vector2(64, 4), new Phaser.Math.Vector2(34, h - 4), new Phaser.Math.Vector2(0, h - 4)], true);
+    root.add(shine);
+    shine.x = CH - 10;
+    this.tweens.add({ targets: shine, x: w - CH - 64, duration: 900, repeat: -1, repeatDelay: 2600, delay: 1400, ease: 'Quad.easeInOut' });
+    shine.setAlpha(0);
+    this.tweens.add({ targets: shine, alpha: { from: 0, to: 1 }, duration: 450, yoyo: true, repeat: -1, repeatDelay: 2600, delay: 1400 });
+
+    // Toucher : enfoncement, puis départ vers le hub.
+    const zone = this.add.zone(w / 2, h / 2, w, h).setInteractive({ useHandCursor: true });
+    root.add(zone);
+    root.setSize(w, h);
+    let down = false;
+    zone.on('pointerdown', () => { down = true; root.setScale(0.97); root.x = x + w * 0.015; });
+    const up = () => { root.setScale(1); root.x = x; };
+    zone.on('pointerout', () => { down = false; up(); });
+    zone.on('pointerup', () => {
+      up();
+      if (!down) return;
+      down = false;
+      this.cameras.main.flash(180, 120, 160, 60);
+      this.time.delayedCall(120, () => this.scene.start('zhub'));
+    });
+    return root;
   }
 
   /** Entrée en cascade d'un bouton : glisse depuis le bas et apparaît. */
